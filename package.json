@@ -1,0 +1,6 @@
+{
+  "name": "AUDESYS",
+  "devDependencies": {
+    "@colbymchenry/codegraph": "^1.3.0"
+  }
+}
