@@ -2242,11 +2242,212 @@ HAL Protocol 层面:
 
 ---
 
-## 10. 移植对接方案
+---
+
+## 10. 多语言策略
+
+> 设计目标：定义 HAL 的多语言支持分层策略，RT 线程纯 Rust，跨语言走 FlatBuffers
+
+---
+
+## 设计原则
+
+工业自动化系统的语言需求是分层的，不能用同一个方案满足所有场景：
+
+1. **RT 数据面**：微秒级确定性，只能有一种语言——Rust
+2. **I/O 通信**：需要跨进程、零拷贝序列化——FlatBuffers
+3. **控制面/HMI**：多语言便利性优先——FlatBuffers + 任意语言
+
+**核心理念：Rust 是第一公民。FlatBuffers 是跨语言桥梁。不在 RT 线程中引入脚本语言。**
+
+---
+
+## 1. 三层语言策略
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    HAL 多语言架构                          │
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │        FlatBuffers Schema (.fbs)                  │   │
+│  │  hal_value.fbs, signal.fbs, component.fbs, ...   │   │
+│  └────────┬─────────────────────────────────────────┘   │
+│           │   flatc --{lang}                             │
+│           ▼                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │   生成代码: Rust | C++ | Python | Node.js | ...  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  L1: RT 数据面 │  │  L2: I/O 通信 │  │  L3: 控制面   │  │
+│  │              │  │              │  │              │  │
+│  │ Rust Typed   │  │ FlatBuffers  │  │ FlatBuffers  │  │
+│  │ API (InProc) │  │ over UDS     │  │ over Zenoh   │  │
+│  │ < 1μs        │  │ ~10μs        │  │ ~100μs       │  │
+│  │              │  │              │  │              │  │
+│  │ Rust 独占    │  │ Rust + C++   │  │ 任意语言     │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└──────────────────────────────────────────────────────────┘
+```
+
+| 层 | 用途 | 语言 | 通信方式 | 延迟 | Phase |
+|----|------|------|---------|------|-------|
+| **L1** | RT 数据面 | Rust | Typed API（InProcess，无序列化） | < 1μs | Phase 1 |
+| **L2** | I/O 通信 | Rust, C++ | FlatBuffers over UDS | ~10μs | Phase 2 |
+| **L3** | 控制面 / HMI | Python, Node.js, Go, ... | FlatBuffers over Zenoh | ~100μs | Phase 3+ |
+
+---
+
+## 2. L1: RT 数据面 — Rust 独占
+
+### 为什么只有 Rust
+
+| 要求 | Rust | C++ | Python | Go |
+|------|------|-----|--------|-----|
+| 无 GC 暂停 | ✅ | ✅ | ❌ GC + GIL | ✅ 并发 GC |
+| 编译期内存安全 | ✅ borrow checker | ❌ 手动管理 | — | — |
+| SCHED_FIFO 确定性 | ✅ | ✅（需 mlockall + arena alloc） | ❌ | ❌ GC 非确定 |
+| 零开销跨函数调用 | ✅ InProcess Typed API | ✅ FFI（1–5μs 开销） | ❌ 50–500μs | ❌ cgo 开销 |
+| 类型安全跨越线程 | ✅ Send + Sync trait | ❌ 手动保证 | — | ❌ runtime 检查 |
+
+**Rust 是唯一无需"信任开发者"就能达到硬实时的语言。** C++ 理论上可以（LinuxCNC 证明），但需要团队层面的内存安全规范 + arena allocator + mlockall + 严格的 code review，工作量和漏检率远高于 Rust。
+
+### C++ FFI 桥接（仅限 L2，非 L1）
+
+```rust
+// controller/hal-ffi/src/lib.rs — C FFI 边界
+#[no_mangle]
+pub extern "C" fn hal_signal_read_pin(
+    handle: *const HalSignalHandle,
+    pin_name: *const c_char,
+    value_out: *mut f64,
+) -> i32 {
+    // FFI 边界：C 调用进入 Rust HAL Core
+    // 延迟: 1–5μs（跨 FFI 边界 + 字符串转换）
+    let signal = unsafe { &*handle };
+    let name = unsafe { CStr::from_ptr(pin_name) };
+    match signal.read_pin(name.to_str().unwrap()) {
+        Ok(v) => { unsafe { *value_out = v }; 0 }
+        Err(_) => -1,
+    }
+}
+```
+
+**C++ 走 FFI 仅推荐用于 L2 I/O 通信（非 RT 线程）**——如果现有 C++ 驱动库（如 EtherCAT master）需要直接对接 HAL。
+
+---
+
+## 3. L2: I/O 通信 — FlatBuffers over UDS
+
+### 为什么是 FlatBuffers
+
+| | FlatBuffers | Protobuf | Cap'n Proto | 裸 struct |
+|---|---|---|---|---|
+| 零拷贝读取 | ✅ | ❌（需 deserialize）| ✅ | ✅ |
+| 无 heap 分配（读取）| ✅ | ❌ | ✅ | ✅ |
+| 跨语言代码质量 | ✅ 优秀 | ✅ 优秀 | ⚠️ 参差不齐 | ❌ 需手动 |
+| 生成代码体积 | 4KB | 61KB | 中等 | 0KB（无生成器）|
+| 支持语言数 | 15（官方）| 11+ | 8+ | — |
+| 官方 benchmark | decode 3,700× 快于 Protobuf | — | — | — |
+
+**来源**：flatbuffers.dev 官方 benchmark（1M 次操作）
+
+### Phase 2 UDS 通信
+
+```yaml
+# Controller 与 Supervisor 之间的 I/O 通信
+transport: UDS + FlatBuffers
+latency: ~10μs (6–30μs, PREEMPT_RT)
+languages: Rust, C++
+data: Signal values, StreamChannel frames, RPC requests
+```
+
+### 代码生成示例
+
+```bash
+# 从 .fbs 生成多语言绑定
+flatc --rust   -o src/generated/ hal_value.fbs signal.fbs
+flatc --cpp    -o include/generated/ hal_value.fbs signal.fbs
+flatc --python -o py_bindings/ hal_value.fbs signal.fbs
+```
+
+---
+
+## 4. L3: 控制面 / HMI — FlatBuffers over Zenoh + 任意语言
+
+### 支持的语言
+
+| 语言 | FlatBuffers 代码质量 | 推荐用于 |
+|------|---------------------|---------|
+| **Rust** | 优秀 | L1 RT 数据面 |
+| **C++** | 优秀 | L2 I/O 驱动 |
+| **C** | 良好 | 嵌入式 HAL 终端 |
+| **Python** | 良好 | 测试脚本、数据采集、配置工具 |
+| **Node.js / TS** | 良好 | Studio IDE、HMI Panel、Web 监控 |
+| **Go** | 良好 | Gateway、Remote 代理 |
+| **Java / Kotlin** | 良好 | 企业集成 |
+| **C#** | 良好 | Windows HMI（工业传统）|
+
+**15 种官方支持语言完整列表**：C++, C, C#, Go, Java, JavaScript/TypeScript, Python, Rust, Dart, Kotlin, Swift, PHP, Lua, Lobster, Nim
+
+### 语言延迟预算表
+
+| 语言 + 绑定方式 | 典型延迟 | 适用场景 | 不适用场景 |
+|----------------|---------|---------|-----------|
+| **Rust Typed API** | < 1μs | 硬实时控制 | — |
+| **C++ FFI** | 1–5μs | I/O 驱动（有现有 C++ 代码）| RT 线程核心逻辑 |
+| **Node.js (napi-rs)** | 10–50μs | Studio 后端、配置管理 | RT 数据面 |
+| **Python (PyO3+numpy)** | 50–500μs | 测试、数据采集、HMI 脚本 | RT 数据面、高吞吐流 |
+| **Python (FlatBuffers)** | 100–1000μs | 跨主机配置、监控面板 | RT 数据面 |
+| **Go (FlatBuffers)** | 10–100μs | Gateway、Remote 代理 | RT 数据面 |
+
+---
+
+## 5. 方案评估：否决项
+
+| 方案 | 否决理由 | 来源 |
+|------|---------|------|
+| **WASM/WASI Component Model** | JIT 非确定性（无法 SCHED_FIFO），canonical ABI 走 copy（非零拷贝），零工业 RT 案例，WASI Preview 2 2024 Q4 才稳定 | WASI.dev |
+| **gRPC (Protobuf)** | HTTP/2 + TLS 开销，50–200μs RTT，不适合微秒级控制。Python 解码慢 3,700× | gRPC 性能文档 + flatbuffers.dev benchmark |
+| **纯 IPC + IDL（ROS2 模式）** | Rust 失去 InProcess < 1μs 优势——所有语言拉平到 IPC ~10μs。codegen 链（rosidl 6 后端）维护负担重 | ros2/rosidl 仓库源码 |
+| **Cap'n Proto** | 跨语言零拷贝做不到（必须同语言同进程）。C/Python 插件是 partial 实现（只有序列化，没有 RPC）| capnproto.org/otherlang.html |
+| **嵌入脚本（Lua/Rhai/Python）** | 只能用特定脚本语言，不是"多语言"。Python GIL 阻塞 RT。复杂算法不适合脚本 | LinuxCNC classicladder 源码 |
+| **Apache Thrift** | 二进制协议不提供 RT 优势。Protobuf 轻量化更好（LITE runtime）| Thrift vs Protobuf 生态对比 |
+
+---
+
+## 6. 分阶段语言支持
+
+| Phase | 新增语言 | 方式 | 场景 |
+|-------|---------|------|------|
+| **Phase 1** | Rust | Typed API (InProcess) | RT 线程 |
+| **Phase 2** | Rust, C++ | FlatBuffers over UDS | I/O 驱动通信 |
+| **Phase 3** | Python | PyO3 (L3 控制面) | 测试、配置工具 |
+| **Phase 3** | Node.js, TypeScript | napi-rs (L3) | Studio IDE |
+| **Phase 4** | Go | FlatBuffers over Zenoh | Gateway 代理 |
+| **Phase 5** | C# (社区贡献) | FlatBuffers | Windows HMI |
+
+---
+
+## 7. 设计决策记录
+
+| 决策 | 理由 |
+|------|------|
+| Rust 是 RT 数据面唯一语言 | 唯一无需"信任开发者"就能达到硬实时的语言。C++ 可走 FFI 但在 RT 线程外使用 |
+| FlatBuffers 是跨语言桥梁 | 零拷贝、0 heap、15 种语言、3,700× 快于 Protobuf。schema 即文档即契约 |
+| 不在 RT 线程引入脚本语言 | Python GIL + VM 开销 = 50–500μs，破坏微秒级确定性。LinuxCNC 同样将 Python 放在非 RT task |
+| C++ FFI 仅用于 I/O 驱动层 | 给现有 C++ 驱动库（EtherCAT master 等）提供对接路径，但不建议用于 RT 核心逻辑 |
+| 不引入 gRPC/Thrift | 微秒级控制无法承受 HTTP/2 + TLS 开销。非 RT 层已有 JSON-RPC 覆盖控制面 |
+| 不引入 WASM 组件模型 | JIT 非确定性 + 零工业 RT 案例。作为长期跟踪（Phase 4+），非当前方向 |
+| 按 Phase 逐步开放语言 | 先 Rust（L1），再 C++（L2 驱动），再 Python/Node（L3 配置），最后 Go/Java（L3 企业集成）|
+
+---
+
+## 11. 移植对接方案
 
 每个被移植的系统功能根据自己的通信特征选择最合适的原语。下面描述"移植后的功能如何对接 AUDESYS HAL"——不是桥接外部协议。
 
-### 10.1 移植 LinuxCNC 功能
+### 11.1 移植 LinuxCNC 功能
 
 LinuxCNC 的 HAL 和 AUDESYS HAL 高度同构（都是单写多读 Signal + 线程函数调度）。
 
@@ -2283,7 +2484,7 @@ LinuxCNC motion planner (移植为 AUDESYS Component)
 | `halcmd loadusr prog` | Supervisor 子进程启动 | 用户态辅助程序 |
 | `halcmd unloadrt comp` | RPC `unloadComponent(name)` | 卸载组件 |
 
-### 10.2 移植 OpenPLC 功能
+### 11.2 移植 OpenPLC 功能
 
 OpenPLC 以扫描周期为单位运行，不适合逐 pin 映射。
 
@@ -2312,7 +2513,7 @@ OpenPLC IEC runtime (移植为 AUDESYS Component)
 - 单点监控（HMI 用）：从 image table 提取为独立 Signal（按需，非默认）
 - IEC 程序内部：直接内存访问 image table，不穿越 HAL（最大性能）
 
-### 10.3 移植 ROS2 功能
+### 11.3 移植 ROS2 功能
 
 ROS2 有三种通信模式，分别映射到 AUDESYS 的三种原语：
 
@@ -2340,7 +2541,7 @@ ROS2 移植节点
 - 感知类 topic（高频、批量、大消息）：**StreamChannel**
 - Service：**RPC**
 
-### 10.4 移植 dora-rs 功能
+### 11.4 移植 dora-rs 功能
 
 dora-rs 的数据流模型直接映射：
 
@@ -2364,7 +2565,7 @@ dora 风格 operator (移植为 AUDESYS Component)
 - 结构化输出 → `Array<F32>`
 - 运行参数 → `Signal`（单值，最新值覆盖，支持变更通知）
 
-### 10.5 多语言延迟预算
+### 11.5 多语言延迟预算
 
 | 语言 | API 绑定 | Signal (延迟) | StreamChannel (延迟) | 适用场景 |
 |------|---------|:---:|:---:|------|
@@ -2377,9 +2578,9 @@ dora 风格 operator (移植为 AUDESYS Component)
 
 ---
 
-## 11. ROS2 Actions 映射
+## 12. ROS2 Actions 映射
 
-### 11.1 设计原则
+### 12.1 设计原则
 
 ROS2 Action 不是一个新的**通信模式**，而是一个**编排模式**——它将 Goal（发起）、Feedback（周期进度）、Result（最终结果）、Cancel（取消）四个阶段组合在一起。
 
@@ -2390,7 +2591,7 @@ AUDESYS HAL 的三原语已经具备了 Action 所需的全部通信能力：
 
 新增第 4 种原语会增加 amw trait 5 个方法，但语义完全可由现有原语拼装。
 
-### 11.2 Action 语义分解
+### 12.2 Action 语义分解
 
 ```
                     ┌─────────────────────────┐
@@ -2458,7 +2659,7 @@ Client                          ActionServer                       HAL
   │    (最后一个 feedback)            │                              │
 ```
 
-### 11.3 工业场景映射
+### 12.3 工业场景映射
 
 | 工业场景 | Goal | Feedback | Result | Cancel | 典型时长 |
 |----------|------|----------|--------|--------|----------|
@@ -2469,7 +2670,7 @@ Client                          ActionServer                       HAL
 | **轨迹执行** | "G-code 文件路径" | 当前行号、轴位置 | 完成 + 执行行数 | 暂停 → 取消 | 可变 |
 | **预热** | "目标温度 200°C" | 当前温度、功率 | 到达并稳定 | 停止加热 | 30–600s |
 
-### 11.4 ActionBuilder（应用层便利 API）
+### 12.4 ActionBuilder（应用层便利 API）
 
 ActionBuilder **不是 HAL 协议的一部分**——它是 `packages/hal-action/` 中的可选库，组合 RPC + StreamChannel + Signal 实现 Action 语义。
 
@@ -2566,7 +2767,7 @@ impl ActionBuilder {
 }
 ```
 
-### 11.5 ActionServer 侧（Component trait 扩展）
+### 12.5 ActionServer 侧（Component trait 扩展）
 
 ```rust
 /// 支持 Action 的 Component 实现额外的 RPC 方法
@@ -2637,7 +2838,7 @@ impl ActionComponent for HomeAxisComponent {
 }
 ```
 
-### 11.6 命名规范
+### 12.6 命名规范
 
 ```
 action.{action_id}.status     # Signal: Action 状态
@@ -2656,7 +2857,7 @@ action.{action_id}.feedback   # StreamChannel: Action 进度
 3 = error       # 执行失败
 ```
 
-### 11.7 与 ROS2 Action 的差异
+### 12.7 与 ROS2 Action 的差异
 
 | | ROS2 Action | AUDESYS Action (方案 B) |
 |---|---|---|
@@ -2669,9 +2870,9 @@ action.{action_id}.feedback   # StreamChannel: Action 进度
 
 ---
 
-## 12. 功能安全
+## 13. 功能安全
 
-### 12.1 背景与边界
+### 13.1 背景与边界
 
 **诚实声明**：AUDESYS 当前为零代码规划阶段。IEC 61508（工业功能安全）和 ISO 13849（机械安全）的认证需要数百人年级别的工程、第三方认证机构（TÜV、exida）、FMEDA/FTA/DCCA 等安全分析、全生命周期文档。
 
@@ -2687,7 +2888,7 @@ action.{action_id}.feedback   # StreamChannel: Action 进度
 
 在 SIL 系统中，这是不可接受的——安全数据必须与非安全数据隔离。
 
-### 12.2 黑色通道（Black Channel）模型
+### 13.2 黑色通道（Black Channel）模型
 
 IEC 61508 / EN 50159 的核心设计模式：**安全层叠加在非安全通道之上**。
 
@@ -2730,9 +2931,9 @@ IEC 61508 / EN 50159 的核心设计模式：**安全层叠加在非安全通道
 - 安全层通过 CRC、序列号、超时检测通道故障
 - 通道故障时安全层进入安全状态（如急停）
 
-### 12.3 AUDESYS 现在做的三件事
+### 13.3 AUDESYS 现在做的三件事
 
-#### 12.3.1 Signal 元数据标记 `safety_integrity`
+#### 13.3.1 Signal 元数据标记 `safety_integrity`
 
 ```rust
 struct Signal {
@@ -2757,7 +2958,7 @@ enum SafetyIntegrityLevel {
 
 **HAL 不用此标记做什么**：不做 CRC 校验、不做冗余投票、不做 watchdog 判决。
 
-#### 12.3.2 安全信号按 `Blob` 透明运输
+#### 13.3.2 安全信号按 `Blob` 透明运输
 
 安全层运行时将安全数据打包为带 CRC + 序列号 + 时间戳的二进制帧，HAL 作为 `Blob` 运输：
 
@@ -2778,7 +2979,7 @@ if !frame.validate_crc() {
 
 HAL 不知道它是安全数据——只知道它是一个 `Blob`。安全协议完全在安全运行时层实现。
 
-#### 12.3.3 STO（Safe Torque Off）独立物理路径
+#### 13.3.3 STO（Safe Torque Off）独立物理路径
 
 **文档声明**：安全输出走独立继电器或安全 PLC——不通过 AUDESYS HAL。
 
@@ -2802,7 +3003,7 @@ HAL 不知道它是安全数据——只知道它是一个 `Blob`。安全协议
 
 这是典型的工业实践——安全和非安全网络物理隔离。
 
-### 12.4 明确边界
+### 13.4 明确边界
 
 | HAL 做 | HAL 不做 |
 |--------|---------|
@@ -2812,7 +3013,7 @@ HAL 不知道它是安全数据——只知道它是一个 `Blob`。安全协议
 | 暴露安全信号的独立监控通道 | CRC、投票、watchdog 判决 |
 | 日志记录安全信号的传输事件 | 安全审计追踪 |
 
-### 12.5 未来认证路径
+### 13.5 未来认证路径
 
 当 AUDESYS 成熟到可以追求 SIL 认证时，需要：
 
@@ -2828,7 +3029,7 @@ HAL 不知道它是安全数据——只知道它是一个 `Blob`。安全协议
 
 ---
 
-## 13. 分阶段实施路线
+## 14. 分阶段实施路线
 
 | 阶段 | 里程碑 | 验证方式 |
 |------|--------|---------|
@@ -2843,7 +3044,7 @@ HAL 不知道它是安全数据——只知道它是一个 `Blob`。安全协议
 
 ---
 
-## 14. 协议规格 (YAML)
+## 15. 协议规格 (YAML)
 
 ```yaml
 hal_protocol_version: 2
@@ -3016,7 +3217,7 @@ transport:
 
 ---
 
-## 15. 延迟验证方法
+## 16. 延迟验证方法
 
 延迟声明基于典型硬件和软件条件。实际部署前需通过以下方法验证：
 
@@ -3048,9 +3249,9 @@ transport:
 
 ---
 
-## 16. 设计决策记录
+## 17. 设计决策记录
 
-### 16.1 协议与通信原语
+### 17.1 协议与通信原语
 
 | 决策 | 理由 |
 |------|------|
@@ -3060,7 +3261,7 @@ transport:
 | FlatBuffers 用于 HAL-native 标量，Blob 透传 Arrow/Protobuf | 小控制报文用 FlatBuffers 零拷贝访问标量，大载荷走 Blob 透传（HAL 不解析 Arrow IPC / Protobuf / CAN frame）。参考 dora-rs 同类设计决策 |
 | SHM 阈值设为 4KB | 参考 dora-rs 的 ZERO_COPY_THRESHOLD，小消息走 UDS/TCP 更简单 |
 
-### 16.2 amw 中间件
+### 17.2 amw 中间件
 
 | 决策 | 理由 |
 |------|------|
@@ -3074,7 +3275,7 @@ transport:
 | 各 amw 实现自行解释 HalQoS | 同 HalTransport/HalDiscovery 哲学。inproc 无 Liveliness 是语义正确，不是缺失 |
 | 不做 DDS 式 QoS 映射（reliable/best-effort 等） | AUDESYS 的 Signal 天然 latest-value, StreamChannel 有 QueuePolicy。那是另一个维度，不混合 |
 
-### 16.3 类型系统
+### 17.3 类型系统
 
 | 决策 | 理由 |
 |------|------|
@@ -3088,7 +3289,7 @@ transport:
 | 位级访问不进入 HAL 类型系统 | PLC 的 `%MW0.3`（WORD bit 3）由 Studio compiler 映射为独立 `Signal<Bool>`，HAL 不感知位偏移 |
 | RETAIN 变量不在 HAL 层 | 持久化由 Component 自行管理（文件/SQLite），HAL 只传输运行时值 |
 
-### 16.4 线程调度
+### 17.4 线程调度
 
 | 决策 | 来源 | 理由 |
 |------|------|------|
@@ -3103,7 +3304,7 @@ transport:
 | 运行时指标暴露为 Signal | LinuxCNC | `thread.runtime_ns`、`thread.runtime_max_ns`、`thread.overrun` 通过 HAL 可见 |
 | dynamic 添加/移除函数 | LinuxCNC | RPC 命令 (`addFunction`, `removeFunction`, `reorderFunction`) + 配置文件 |
 
-### 16.5 扫描屏障
+### 17.5 扫描屏障
 
 | 决策 | 理由 |
 |------|------|
@@ -3113,7 +3314,7 @@ transport:
 | 不暴露 Barrier/Latch/Semaphore 为 HAL 原语 | HAL 协议不应承担调度或同步职责，否则违反 Sans-I/O 原则 |
 | Component 不碰锁 | Component 开发者不需要懂 RT 同步——只需声明 phase 归属 |
 
-### 16.6 Config Barrier 与 LockLevel
+### 17.6 Config Barrier 与 LockLevel
 
 | 决策 | 理由 |
 |------|------|
@@ -3124,7 +3325,7 @@ transport:
 | pending_config 用 bounded channel | 防止 Supervisor 无限堆积配置命令。队列满 → ConfigQueueFull error（Supervisor 自行重试） |
 | 降级路径强制 deactivateComponent | 防止运行中降锁导致半初始化组件进入 RT 周期——先停所有组件，再改配置 |
 
-### 16.7 实时内存与调度
+### 17.7 实时内存与调度
 
 | 决策 | 理由 |
 |------|------|
@@ -3137,7 +3338,7 @@ transport:
 | RMS 利用率分析仅警告 | Liu & Layland bound 是充分非必要条件；严格拒绝会阻碍有效系统的部署 |
 | 优先级递减（短周期高优先级）| Rate Monotonic 最优策略，所有硬 RT 系统的默认选择 |
 
-### 16.8 I/O 映射
+### 17.8 I/O 映射
 
 | 决策 | 理由 |
 |------|------|
@@ -3149,7 +3350,7 @@ transport:
 | 快照而非逐点传输 | 一致性保证——整个域在同一时刻的快照，不是逐个 pin |
 | 多资源（Multi-Resource）用 security_domain 隔离 | IEC 61131-3 多个 CPU（Resource）共享同一个 Configuration。每个 Resource 映射为独立 Component，通过 `security_domain` + keyexpr 前缀天然隔离，无需 HAL 新增原语 |
 
-### 16.9 ROS2 Actions
+### 17.9 ROS2 Actions
 
 | 决策 | 理由 |
 |------|------|
@@ -3160,7 +3361,7 @@ transport:
 | ActionComponent trait 独立于 HalComponent | 不是所有 Component 都支持 Action。PLC scan 和 servo thread 不需要 Action |
 | action_id 由 Server 生成（UUID v4） | 避免 Client 冲突，且支持幂等去重 |
 
-### 16.10 功能安全
+### 17.10 功能安全
 
 | 决策 | 理由 |
 |------|------|
@@ -3171,14 +3372,14 @@ transport:
 | 不声称 SIL | 认证需要数千人月工程，声称会误导用户造成危险 |
 | 不做 CRC / 冗余投票 / watchdog | 这些是安全层职责，HAL 层插手是安全反模式 |
 
-### 16.11 延迟与验证
+### 17.11 延迟与验证
 
 | 决策 | 理由 |
 |------|------|
 | 延迟声明带前提条件 | < 1μs 是设计目标不是实现保证。每行延迟必须标注前提条件（内核、消息大小、硬件）和典型范围 |
 | 延迟必须可验证 | 每个传输模式的延迟声明配套验证方法（criterion bench / linux-perf / tcpdump / rdtsc），结果写入审计报告 |
 
-### 16.12 参数系统
+### 17.12 参数系统
 
 | 决策 | 理由 |
 |------|------|

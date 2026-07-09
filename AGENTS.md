@@ -1,7 +1,7 @@
 # AGENTS.md — AUDESYS Project Knowledge Base
 
 **Generated:** 2026-07-09
-**Commit:** `9b7c86d`
+**Commit:** `7bcff39`
 **Branch:** `main`
 
 ## OVERVIEW
@@ -19,9 +19,9 @@ AUDESYS/
 │   ├── skills/         # 6 个技能（design-system + 5 openspec-*）
 │   └── memorys/        # 4 个项目记忆文件（status/conventions/decisions/pitfalls）
 ├── docs/
-│   ├── architecture.md           # ~2300 行 — 系统架构概览（6 主章）
-│   ├── hal-detailed-design.md    # 3,185 行 — HAL 详细设计（16 章，合并自 10 份子文档）
-│   └── detail/hal/               # 11 份 HAL 子文档（设计稿、审核输出）
+│   ├── architecture.md           # ~1,700 行 — 系统架构概览（6 主章）
+│   ├── hal-detailed-design.md    # 3,400+ 行 — HAL 详细设计（17 章，合并自 12 份子文档）
+│   └── detail/hal/               # 12 份 HAL 子文档（设计稿、审核输出、多语言策略）
 ├── SKILL.md            # 技能注册表（superpowers + 项目专属 + agents）
 ├── AGENTS.md           # 本文件 — 项目知识库入口
 ├── README.md           # 项目简介
@@ -35,16 +35,17 @@ AUDESYS/
 | Task | Location | Notes |
 |------|----------|-------|
 | 项目状态和阶段 | `.agents/memorys/status.md` | 模块状态表、已知缺失 |
-| 架构决策 | `.agents/memorys/decisions.md` | D1-D18 + G1-G5 |
+| 架构决策 | `.agents/memorys/decisions.md` | D1-D19 + G1-G5 |
 | 编码约定 | `.agents/memorys/conventions.md` | 命名、不可变性、TS 规范、HAL 设计约定 |
 | 已知坑点 | `.agents/memorys/pitfalls.md` | MODACS 适配 + HAL 设计审核 |
-| HAL 详细设计 | `docs/hal-detailed-design.md` | 协议原语、amw、类型系统、线程调度等 16 章 |
-| HAL 子文档 | `docs/detail/hal/` | 11 份独立设计文档 + 对比分析 |
+| HAL 详细设计 | `docs/hal-detailed-design.md` | 协议原语、amw、类型系统、线程调度、多语言等 17 章 |
+| HAL 子文档 | `docs/detail/hal/` | 12 份独立设计文档 + 对比分析 |
+| 架构文档 | `docs/architecture.md` | 系统级模块概览、HAL §一 精简到 168 行交叉引用 |
+| 多语言策略 | `docs/detail/hal/multi-language-strategy.md` | Rust/C++/15 语言三层架构 + FlatBuffers |
 | 语言规则 | `.agents/rules/{lang}/` | 各语言专属规则 |
 | Agent 配置 | `.opencode/opencode.json` | instructions、MCP、LSP |
 | Agent 使用指南 | `.opencode/agent-guide.md` | OMO 编排体系、5 层模型路由 |
 | 技能注册表 | `SKILL.md` | superpowers + 项目专属技能清单 |
-| 架构文档 | `docs/architecture.md` | 系统级模块规划、设计原则 |
 | 通用规则 | `.agents/rules/common/` | 安全、编码风格、测试、Git 工作流 |
 | 安全规则 | `.agents/rules/common/security.md` | Secret management、XSS、CSRF |
 
@@ -104,6 +105,6 @@ npm install    # 安装依赖（如需要）
 - **从 MODACS 分离** — 2026-07-08 首次提交。无 MODACS 代码共享
 - **.sisyphus/** 被 gitignore 排除 — 计划文件和证据不提交到仓库
 - **双 package.json** — 根目录用 npm，`.opencode/` 用独立包（插件系统）
-- **HAL 设计审核** — 3 专家 × 27 项发现，全部交互式确认，6 份独立文档合并为详细设计
+- **HAL 设计审核** — 3 专家 × 27 项发现，全部交互式确认，12 份独立文档合并为详细设计
 - **Agent 超配** — 规则（89 个文件）和 MCP 服务器（7 个活动）是为未来开发准备的
 - **test 基础设施** — 不存在。要求 80% 覆盖率、TDD、AAA 模式（在规则中声明，但无框架可执行）

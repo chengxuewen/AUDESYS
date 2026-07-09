@@ -100,6 +100,12 @@
 - **理由**: 多视角交叉验证，避免单领域盲点
 - **审核范围**: CRITICAL 7 / HIGH 8 / MEDIUM 8 / LOW 4
 
+## D19: 多语言策略 = Rust Core + FlatBuffers
+- **日期**: 2026-07-09
+- **决定**: RT 数据面 Rust 独占（< 1μs），I/O 通信 Rust + C++ FlatBuffers over UDS（~10μs），控制面/HMI 15 种语言 FlatBuffers over Zenoh（~100μs）
+- **理由**: SCHED_FIFO 线程需要无 GC/无 JIT/无异步运行时，仅 Rust 满足。C++ FFI 桥接限非 RT 线程。FlatBuffers 作为统一跨语言序列化格式
+- **参考**: `docs/detail/hal/multi-language-strategy.md`
+
 ## 实施防护规则
 - **G1**: architecture.md 内容完整性 — 删除后保留率 <50% 的章节变为 TODO 占位符
 - **G2**: 删除后文本连贯性 — 无指向已删除 MODACS 上下文的孤立引用

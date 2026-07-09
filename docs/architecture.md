@@ -16,28 +16,16 @@
     - [产品线](#产品线)
     - [术语速查](#术语速查)
   - [一、HAL 系统](#一hal-系统)
-    - [1. 设计理念](#1-设计理念)
-    - [2. 三种数据通道](#2-三种数据通道)
-    - [3. FlatBuffers Schema](#3-flatbuffers-schema)
-    - [4. JSON-RPC 2.0 控制面](#4-json-rpc-20-控制面)
-    - [5. 组件生命周期（参考 ROS2）](#5-组件生命周期参考-ros2)
-    - [6. Pin 命名规范（参考 ROS2）](#6-pin-命名规范参考-ros2)
-    - [7. 传输模式演进](#7-传输模式演进)
-    - [8. HAL Core — Rust 实现](#8-hal-core--rust-实现)
-      - [8.1 设计理念 - Sans-I/O](#81-设计理念---sans-io)
-      - [8.2 Rust HAL Core 接口](#82-rust-hal-core-接口)
-      - [8.3 Controller 内部架构](#83-controller-内部架构)
-      - [8.4 驱动注册表](#84-驱动注册表)
-      - [8.5 SerialGCodeDriver 实现示例](#85-serialgcodedriver-实现示例)
-    - [9. 多语言 Thin Client](#9-多语言-thin-client)
-      - [9.1 设计理念 - Thin Client](#91-设计理念---thin-client)
-      - [9.2 Thin Client 接口规范](#92-thin-client-接口规范)
-      - [9.3 语言绑定对比](#93-语言绑定对比)
-      - [9.4 Node.js Thin Client（napi-rs）](#94-nodejs-thin-clientnapi-rs)
-      - [9.5 Python Thin Client（PyO3）](#95-python-thin-clientpyo3)
-      - [9.6 C/C++ Thin Client](#96-cc-thin-client)
-      - [9.7 现有代码迁移策略](#97-现有代码迁移策略)
-      - [9.8 语言选择指南](#98-语言选择指南)
+    - [1. 架构概览](#1-架构概览)
+    - [2. 通信原语](#2-通信原语)
+    - [3. amw 中间件抽象层](#3-amw-中间件抽象层)
+    - [4. 工业 QoS](#4-工业-qos)
+    - [5. 线程调度](#5-线程调度)
+    - [6. Config Barrier](#6-config-barrier)
+    - [7. 移植对接](#7-移植对接)
+    - [8. 多语言策略](#8-多语言策略)
+    - [9. 实施路线](#9-实施路线)
+    - [10. 设计决策速查](#10-设计决策速查)
   - [二、Runtime 套件](#二runtime-套件)
     - [目录](#目录-1)
     - [1. Runtime 套件概览](#1-runtime-套件概览)
@@ -187,770 +175,169 @@ AUDESYS 的产品线包括：AUDESYS Studio（统一编辑器/IDE）、AUDESYS R
 
 ## 一、HAL 系统
 
-> 🔮 **状态**: 规划中 - AUDESYS 尚未开始实现
-
-### 1. 设计理念
-
-HAL 协议规范是 AUDESYS 多语言架构的核心契约。它定义了信号、组件、线程的通信规则，独立于任何编程语言。
-
-**设计原则**：
-
-1. **语言无关** - 用 FlatBuffers schema 定义数据类型，可生成 TypeScript/Rust/Python/C++ 代码
-2. **传输无关** - 协议不绑定特定 IPC（UDS/Zenoh/In-Process 均可）
-3. **Sans-I/O** - 协议核心不做任何 I/O，只定义消息格式和语义
-4. **可扩展** - 新增消息类型不影响现有实现
-
-> **参考来源**：LinuxCNC（state/stream 分离）、dora-rs（Arrow 零拷贝）、ROS2 ros2_control
+> 🟡 **状态**: 详细设计完成 — 3 专家团队审核（27 项发现，全部交互式确认）
+> **详细规范**: 见 [docs/hal-detailed-design.md](hal-detailed-design.md)（3,400+ 行，17 章）
 
 ---
 
-### 2. 三种数据通道
+### 1. 架构概览
 
-| 通道类型 | 来源 | 用途 | 序列化 | 频率 | 示例 |
-|----------|------|------|--------|------|------|
-| **State Pin** | LinuxCNC | 小数据，高频，总是最新值 | FlatBuffers (~16B) | 10-1000Hz | temp=25.3, z-pos=12.5 |
-| **Stream Channel** | LinuxCNC HAL_PORT | 中等数据，事件驱动，FIFO | FlatBuffers 字节数组 | 事件驱动 | G-code 响应, CAN 帧 |
-| **SharedBuffer** | dora-rs Arrow | 大数据，零拷贝，共享内存 | 无（直接共享内存） | 30fps | 相机帧 1920×1080×3=6MB |
-
-**数据面/控制面分离**：
-
-- **数据面**（高频信号更新）：FlatBuffers - 零拷贝反序列化，~16 字节/信号
-- **控制面**（低频命令）：JSON-RPC 2.0 - 人类可读，工具丰富
-
----
-
-### 3. FlatBuffers Schema
-
-```flatbuffers
-// hal_protocol.fbs --- HAL 协议规范定义
-
-namespace AUDESYS.HAL;
-
-// === 类型系统（参考 LinuxCNC，扩展 s64/u64）===
-enum HALPinType: ubyte {
-  Bit = 0,      // bool
-  Float = 1,    // f64
-  S32 = 2,      // i32
-  U32 = 3,      // u32
-  S64 = 4,      // i64
-  U64 = 5,      // u64
-}
-
-enum HALPinDirection: ubyte {
-  In = 0,       // 组件读取
-  Out = 1,      // 组件写出
-  IO = 2,       // 双向
-}
-
-// === HAL 值（联合类型）===
-union HALValue {
-  Bit: bool,
-  Float: f64,
-  S32: i32,
-  U32: u32,
-  S64: i64,
-  U64: u64,
-}
-
-// === Pin 信息 ===
-table PinInfo {
-  component: string;
-  interface: string;
-  name: string;
-  full_name: string;
-  type: HALPinType;
-  direction: HALPinDirection;
-}
-
-// === 信号更新消息（数据面，高频）===
-table SignalUpdate {
-  full_name: string;
-  value: HALValue;
-  timestamp: u64;
-  component: string;
-}
-
-// === 流数据消息 ===
-table StreamData {
-  channel: string;
-  data: [ubyte];
-  timestamp: u64;
-}
-
-// === 共享缓冲区句柄 ===
-table SharedBufferHandle {
-  name: string;
-  size: u32;
-  shm_id: string;
-  offset: u32;
-  format: string;
-  timestamp: u64;
-}
-
-// === 组件状态（参考 ROS2 lifecycle）===
-enum ComponentState: ubyte {
-  Unconfigured = 0,
-  Inactive = 1,
-  Active = 2,
-  Finalized = 3,
-  Error = 4,
-}
-
-// === 组件信息 ===
-table ComponentInfo {
-  name: string;
-  type: string;
-  state: ComponentState;
-  transport: string;
-  pins: [PinInfo];
-  parameters: [ParamInfo];
-}
-
-table ParamInfo {
-  full_name: string;
-  type: HALPinType;
-  value: HALValue;
-  editable: bool;
-  min_value: f64;
-  max_value: f64;
-}
-
-// === 线程配置（参考 ROS2 per-component rw_rate）===
-table ThreadConfig {
-  name: string;
-  period_us: u32;
-  components: [string];
-  priority: i32;
-  cpu_affinity: [i32];
-}
-
-// === Queue 策略（参考 dora-rs）===
-enum QueuePolicy: ubyte {
-  DropOldest = 0,
-  Backpressure = 1,
-  DropNewest = 2,
-}
-
-// === 流通道配置 ===
-table StreamChannelConfig {
-  name: string;
-  element_type: ubyte;
-  max_buffer_size: u32;
-  max_messages: u32;
-  queue_policy: QueuePolicy;
-}
-
-// === HAL 快照 ===
-table HALSnapshot {
-  timestamp: u64;
-  components: [ComponentInfo];
-  signals: [SignalUpdate];
-}
-
-// === 渐进锁级别（参考 LinuxCNC）===
-enum LockLevel: ubyte {
-  None = 0,
-  Load = 1,
-  Config = 2,
-  Params = 3,
-  Run = 4,
-  All = 5,
-}
-```
-
----
-
-### 4. JSON-RPC 2.0 控制面
-
-控制命令使用 JSON-RPC 2.0（人类可读，调试方便）：
-
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "loadComponent",
-  "params": {
-    "name": "mainboard",
-    "type": "serial-gcode",
-    "config": { "port": "/dev/ttyUSB0", "baudRate": 115200 }
-  },
-  "id": 1
-}
-```
-
-**核心控制方法**：
-
-| 方法 | 说明 | 阶段 |
-|------|------|------|
-| `loadComponent` | 加载组件实例 | 🔮 Phase 2 |
-| `configureComponent` | 配置组件参数 | 🔮 Phase 2 |
-| `activateComponent` | 激活组件 | 🔮 Phase 2 |
-| `deactivateComponent` | 停用组件 | 🔮 Phase 2 |
-| `unloadComponent` | 卸载组件 | 🔮 Phase 2 |
-| `newSignal` | 创建信号 | 🔮 Phase 2 |
-| `linkPin` | 连接 Pin 到 Signal | 🔮 Phase 2 |
-| `addThread` | 添加实时线程 | 🔮 Phase 2 |
-| `subscribe` | 订阅信号更新 | 🔮 Phase 2 |
-| `getSnapshot` | 获取 HAL 快照 | 🔮 Phase 2 |
-
----
-
-### 5. 组件生命周期（参考 ROS2）
+HAL 是 AUDESYS 的多语言通信核心，用 **三种正交原语**（Signal、StreamChannel、RPC）覆盖四种参考系统（LinuxCNC、OpenPLC、ROS2、dora-rs）的全部通信模式。
 
 ```
-                    onConfigure(config)
-         +----------------------------------+
-         v                                  |
-  +--------------+  onActivate()  +--------------+
-  |Unconfigured  |--------------->|   Inactive   |
-  +--------------+                +------+-------+
-       ^                          onActivate() | onDeactivate()
-       | onCleanup()                    v      |
-       |                          +--------------+
-       +--------------------------|    Active    |
-                                  +------+-------+
-                                         | onError()
-                                         v
-                                  +--------------+
-                                  |    Error     |
-                                  +------+-------+
-                                  onRecover()
-                                         |
-                                  +------v-------+
-                                  |  Finalized   |
-                                  +--------------+
+                     AUDESYS HAL Protocol
+  ┌──────────────────────────────────────────────────┐
+  │  ┌──────────┐  ┌──────────────┐  ┌───────────┐  │
+  │  │  Signal  │  │StreamChannel │  │    RPC    │  │
+  │  │ 单写多读  │  │  多写多读     │  │ 请求/回复  │  │
+  │  │ 最新值覆盖│  │  缓冲 + 反压  │  │ 超时+幂等  │  │
+  │  └────┬─────┘  └──────┬───────┘  └─────┬─────┘  │
+  │       └───────────────┬────────────────┘         │
+  │                       │                          │
+  │    ┌──────────────────┴──────────────────┐       │
+  │    │  amw (AUDESYS Middleware)           │       │
+  │    │  HalTransport │ HalDiscovery │ HalQoS│       │
+  │    └──────────────────┬──────────────────┘       │
+  │                       │                          │
+  │  ┌──────┬─────────────┼──────────────┬────────┐  │
+  │  │InProc│ amw_zenoh   │  amw_dds     │ amw_*  │  │
+  │  │Phase1│ Phase2+     │  (未来)       │ (未来)  │  │
+  │  └──────┴─────────────┴──────────────┴────────┘  │
+  └──────────────────────────────────────────────────┘
 ```
 
-**生命周期回调**：
-
-| 回调 | 说明 | 返回值 |
-|------|------|--------|
-| `onConfigure(config)` | 接收配置参数，初始化 Pin | Result<()> |
-| `onActivate()` | 激活组件，开始 I/O | Result<()> |
-| `onDeactivate()` | 停用组件，停止 I/O | Result<()> |
-| `onCleanup()` | 释放资源，回到 Unconfigured | Result<()> |
-| `onError(err)` | 错误处理 | Result<()> |
-| `onRecover()` | 从错误状态恢复 | Result<()> |
+协议核心不做 I/O（Sans-I/O），三种原语通过 FlatBuffers 序列化，amw 抽象层负责传输/发现/QoS 实现。数据面走 Typed API 或 FlatBuffers，控制面走 JSON-RPC 2.0。
 
 ---
 
-### 6. Pin 命名规范（参考 ROS2）
+### 2. 通信原语
 
-三层命名：`componentName.interfaceName.pinName`
+| 原语 | 语义 | 延迟/吞吐 | 典型场景 |
+|------|------|-----------|---------|
+| **Signal** | 单写多读，无缓冲（最新值覆盖）。三种消费模式：push（回调）、pull（自定频率）、pull_batch（批量快照） | InProc < 1μs, UDS ~10μs | 轴位置、温度、数字 I/O、限位开关 |
+| **StreamChannel** | 多写多读，有缓冲队列，三种队列策略：DropOldest / Backpressure / DropNewest。≥4KB 负载走零拷贝 SHM | 100+ MB/s (Zenoh SHM) | 点云 LiDAR、图像流、高速 ADC 采样、日志 |
+| **RPC** | 请求/回复模式，超时可配置（默认 5s），可选幂等标记（配置操作可安全重试） | 低频（控制面） | 加载/配置组件、动态创建 Signal、ROS2 service 等效、LinuxCNC halcmd 等效 |
 
-```
-mainboard.serial.tx              // 串口发送
-mainboard.serial.rx              // 串口接收
-mainboard.status.connected       // 连接状态
-mainboard.status.temp            // 温度
-mainboard.status.z_pos           // Z轴位置
-mainboard.control.uv_on          // UV灯控制
-mainboard.control.speed          // 仿真速度
-
-temp-controller.register-0.bed_temp    // 寄存器0: 床温
-temp-controller.register-1.uv_power    // 寄存器1: UV功率
-temp-controller.register-2.layer_count // 寄存器2: 层数
-```
-
-**命名规则**：
-- 组件名：kebab-case（如 `temp-controller`）
-- 接口名：kebab-case（如 `serial`、`status`、`control`）
-- Pin 名：snake_case（如 `z_pos`、`bed_temp`）
-- 全名格式：`component.interface.pin`
+Signal 与 StreamChannel **不可合并**——这是 ROS2 社区十年验证的教训：控制信号需要零缓冲低延迟，数据流需要缓冲高吞吐。
 
 ---
 
-### 7. 传输模式演进
+### 3. amw 中间件抽象层
 
-| 阶段 | 传输模式 | 场景 | 延迟 | 状态 |
-|------|---------|------|------|------|
-| Phase 1 | In-Process | Controller 内部组件通信 | < 1μs | 🔮 Phase 2 |
-| Phase 2 | UDS + FlatBuffers | 同机进程间通信 | ~10μs | 🔮 Phase 2 |
-| Phase 3 | Zenoh TCP | 跨主机通信 | ~100μs | 🔮 Phase 3 |
-| Phase 4 | Zenoh SHM | 同机零拷贝 | ~1μs | 🔮 Phase 4 |
+参考 ROS2 `rmw`（ROS Middleware）设计模式，`amw`（AUDESYS Middleware）将 HAL 三种通信原语与具体传输实现解耦——换实现不换 API。由三个平级 trait 组成：
 
-**ISignalTransport 接口**：
+| Trait | 职责 | 执行位置 |
+|-------|------|---------|
+| **HalTransport** | 数据面 — Signal publish/subscribe，StreamChannel create/open，RPC expose/call | RT 线程 / Stream Worker |
+| **HalDiscovery** | 控制面 — 所有通信端点的 register/unregister/lookup/watch | Supervisor / Zenoh key-value store |
+| **HalQoS** | 服务面 — deadline / liveliness / security_domain 三个维度 | 按维度分发（见 §4） |
 
-```typescript
-interface ISignalTransport {
-  start(config: TransportConfig): Promise<void>;
-  stop(): Promise<void>;
-  publish(topic: string, data: Uint8Array): Promise<void>;
-  subscribe(topic: string, callback: (data: Uint8Array) => void): () => void;
-  callRpc(method: string, params: unknown): Promise<unknown>;
-}
-```
-
-**拒绝的技术方案**：
-
-| 技术 | 拒绝理由 |
-|------|---------|
-| gRPC | Protobuf 太重，streaming 复杂，不利于嵌入式 |
-| ZMQ | 无内置 discovery，SHM 支持弱 |
-| NNG | 社区小，与 Zenoh 功能重叠 |
-| DDS (Raw) | 配置复杂，互操作性差 |
+**实现演进**：Phase 1 用 `amw_inproc`（Typed API，无序列化，同进程），Phase 2 起接入 `amw_zenoh`（Zenoh 原生发现 + QoS），未来可切换到 `amw_dds` 或 `amw_mqtt`，API 不变，Phase 1→4 零迁移。
 
 ---
 
-### 8. HAL Core — Rust 实现
+### 4. 工业 QoS
 
-> 🔮 **状态**: 规划中 - AUDESYS 尚未开始实现
+AUDESYS 只定义三个最小维度（不引入完整 DDS QoS），各维度在不同执行位置实现：
 
-#### 8.1 设计理念 - Sans-I/O
-
-> **来源**：Sans-I/O 设计模式（被 tokio、hyper、rocket 等采用）
-
-HAL Core **不做任何 I/O**。它只提供：
-
-1. **Typed API** - 进程内调用，无序列化（Rust Controller 内部使用）
-2. **Byte API** - 接收/输出 FlatBuffers 字节（跨进程通信使用）
-
-I/O 由外部 Transport 层处理（UDS/Zenoh/In-Process）。
-
-**为什么 Sans-I/O**：
-
-- **可测试** - 不需要 socket 就能单元测试 HAL 逻辑
-- **RT 安全** - 核心无 async/await，纯同步代码可在 RT 线程中运行
-- **传输无关** - 同一份核心代码配合不同 Transport 使用
-- **参考验证** - dora-rs 的 operator trait 也是 Sans-I/O（纯同步 `on_input` 回调）
+| 维度 | 执行位置 | amw_inproc 实现 | amw_zenoh 实现 | 说明 |
+|------|---------|----------------|---------------|------|
+| **Deadline** | RT 数据面 | RT tick 计时器，同周期同步触发回调 | Zenoh 内置 timer + callback | 信号最大更新间隔监控。编码器断连时同 RT 周期响应，不经过 Supervisor |
+| **Liveliness** | 控制面 | 无（同进程共享生命周期） | `liveliness::declare_token` | 组件心跳监控，100ms 级足够 |
+| **Security Domain** | 配置面 | 无（同进程天然隔离） | keyexpr 前缀 `{domain}/` | 纯元数据标记，零运行时开销，静态隔离 |
 
 ---
 
-#### 8.2 Rust HAL Core 接口
+### 5. 线程调度
 
-```rust
-// controller/hal-core/src/lib.rs
+四类线程混合调度，每类解决不同的执行需求（不能放进同一个调度模型）：
 
-use std::collections::HashMap;
+| 线程类型 | 调度策略 | 核心模式 | 参考来源 |
+|---------|---------|---------|---------|
+| **RT 线程** | SCHED_FIFO + CPU pin + mlockall | 每周期：`read_barrier` → 有序函数列表（LinuxCNC 式）→ `write_barrier` → `sleep_until` | LinuxCNC 显式函数列表 + ROS2 control read→update→write 管线 + OpenPLC 扫描屏障 |
+| **I/O 线程** | tokio async 事件驱动 | 驱动 Modbus/CAN/EtherCAT 等，写入共享 I/O 映像表 | dora-rs 数据驱动风格 |
+| **Stream Worker Pool** | 线程池 + QueuePolicy 反压 | 高吞吐数据流（点云/图像/高速采样），事件驱动，无固定周期 | dora-rs 风格 |
+| **Supervisor 线程** | Node.js | 进程生命周期管理、配置热加载、HAL 快照订阅（100ms 间隔） | — |
 
-// === 类型系统 ===
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum HalType { Bit, Float, S32, U32, S64, U64 }
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum HalDir { In, Out, Io }
-
-#[derive(Clone, Debug)]
-pub enum HalValue {
-    Bit(bool),
-    Float(f64),
-    S32(i32),
-    U32(u32),
-    S64(i64),
-    U64(u64),
-}
-
-// === Pin ===
-pub struct HalPin {
-    pub component: String,
-    pub interface: String,
-    pub name: String,
-    pub full_name: String,
-    pub pin_type: HalType,
-    pub direction: HalDir,
-    value: HalValue,
-    subscribers: Vec<fn(&HalValue, u64)>,
-}
-
-// === Signal ===
-pub struct HalSignal {
-    pub name: String,
-    pub sig_type: HalType,
-    pub readers: Vec<String>,
-    pub writer: Option<String>,
-    pub value: HalValue,
-}
-
-// === Component Lifecycle (ROS2 model) ===
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ComponentState {
-    Unconfigured, Inactive, Active, Finalized, Error,
-}
-
-pub trait HalComponent: Send + Sync {
-    fn name(&self) -> &str;
-    fn comp_type(&self) -> &str;
-    fn transport(&self) -> &str;
-    fn state(&self) -> ComponentState;
-    fn pins(&self) -> &[HalPin];
-    fn params(&self) -> &[HalParam];
-
-    fn on_configure(&mut self, config: HashMap<String, HalValue>) -> Result<()>;
-    fn on_activate(&mut self) -> Result<()>;
-    fn on_deactivate(&mut self) -> Result<()>;
-    fn on_cleanup(&mut self) -> Result<()>;
-    fn on_error(&mut self, err: &Error) -> Result<()>;
-    fn on_recover(&mut self) -> Result<()>;
-
-    fn read(&mut self) -> Result<()> { Ok(()) }
-    fn update(&mut self) -> Result<()>;
-    fn write(&mut self) -> Result<()> { Ok(()) }
-}
-
-// === HAL Core (Sans-I/O) ===
-pub struct HalCore {
-    components: HashMap<String, Box<dyn HalComponent>>,
-    signals: HashMap<String, HalSignal>,
-    threads: HashMap<String, HalThread>,
-    streams: HashMap<String, StreamChannel>,
-    lock_level: LockLevel,
-    log: Vec<LogEntry>,
-}
-
-impl HalCore {
-    // === Typed API (进程内，无序列化) ===
-    pub fn load_component(&mut self, name: &str, comp_type: &str,
-        config: HashMap<String, HalValue>) -> Result<()> { ... }
-    pub fn configure_component(&mut self, name: &str,
-        config: HashMap<String, HalValue>) -> Result<()> { ... }
-    pub fn activate_component(&mut self, name: &str) -> Result<()> { ... }
-    pub fn deactivate_component(&mut self, name: &str) -> Result<()> { ... }
-    pub fn unload_component(&mut self, name: &str) -> Result<()> { ... }
-
-    pub fn new_signal(&mut self, name: &str, sig_type: HalType) -> Result<()> { ... }
-    pub fn link_pin(&mut self, pin_full_name: &str, signal_name: &str) -> Result<()> { ... }
-    pub fn unlink_pin(&mut self, pin_full_name: &str) -> Result<()> { ... }
-
-    pub fn add_thread(&mut self, config: ThreadConfig) -> Result<()> { ... }
-    pub fn start_thread(&mut self, name: &str) -> Result<()> { ... }
-    pub fn stop_thread(&mut self, name: &str) -> Result<()> { ... }
-
-    pub fn get_snapshot(&self) -> HalSnapshot { ... }
-    pub fn restore_snapshot(&mut self, snapshot: HalSnapshot) -> Result<()> { ... }
-
-    // === Byte API (跨进程，FlatBuffers 序列化) ===
-    pub fn handle_message(&mut self, bytes: &[u8]) -> Result<Vec<u8>> { ... }
-
-    // === RT 周期执行 ===
-    pub fn run_cycle(&mut self, thread_name: &str, timestamp_ns: u64)
-        -> Result<Vec<SignalUpdate>> { ... }
-}
-```
+RT 线程的主循环：`read_barrier`（冻结所有输入 Signal + 锁定 I/O 映像表）→ 按序执行函数列表 → `write_barrier`（原子发布所有输出 Signal + 释放 I/O 锁）→ 等待下一周期。过运行时跳过迟到周期并触发 ALARM Signal。
 
 ---
 
-#### 8.3 Controller 内部架构
+### 6. Config Barrier 与 LockLevel
 
-```
-+-----------------------------------------------------+
-|              Controller (Rust 进程)                   |
-|                                                     |
-|  +---------------------------------------------+    |
-|  |         I/O Thread (tokio, CPU 0-1)          |    |
-|  |                                             |    |
-|  |  +---------+  +---------+  +---------+     |    |
-|  |  |UDS Server|  |Zenoh    |  |MQTT     |     |    |
-|  |  |(JSON-RPC)|  |(signals)|  |(teleme) |     |    |
-|  |  +----+----+  +----+----+  +----+----+     |    |
-|  |       |            |            |           |    |
-|  |  +----v------------v------------v----+     |    |
-|  |  |       Transport Adapter            |     |    |
-|  |  |  (FlatBuffers <-> HalCore msgs)    |     |    |
-|  |  +----------------+-------------------+     |    |
-|  +-------------------+-------------------------+    |
-|                      |                              |
-|          +-----------+-----------+                  |
-|          |  crossbeam channel     |                  |
-|          |  RTCommand (bounded 32, backpressure)     |
-|          |  RTEvent   (bounded 256, drop_oldest)     |
-|          +-----------+-----------+                  |
-|                      |                              |
-|  +-------------------+-------------------------+    |
-|  |      RT Thread (sync, SCHED_FIFO, CPU 2-3)   |    |
-|  |                  |                           |    |
-|  |  +---------------+----------------+          |    |
-|  |  |       HAL Core (Sans-I/O)     |          |    |
-|  |  |  +-------------------------+  |          |    |
-|  |  |  |  run_cycle("servo", ts) |  |          |    |
-|  |  |  |  1. read()   ->        |  |          |    |
-|  |  |  |  2. update() ->        |  |          |    |
-|  |  |  |  3. write()  ->        |  |          |    |
-|  |  |  |  4. collect updates    |  |          |    |
-|  |  |  +-------------------------+  |          |    |
-|  |  +-------------------------------+           |    |
-|  +-----------------------------------------------+    |
-|                                                     |
-|  +---------------------------------------------+    |
-|  |       Shared Memory (状态快照, 100ms)        |    |
-|  |  [所有信号当前值] --- Supervisor 可直接读取    |    |
-|  +---------------------------------------------+    |
-+-----------------------------------------------------+
-```
+所有配置变更排队到 RT 周期边界，在 `read_barrier` 之前批量应用——物理上不可能 mid-cycle 注入，不依赖开发者自觉。
 
-**设计要点**：
+| 级别 | 含义 | RPC 行为 |
+|------|------|---------|
+| `Config` | 允许所有配置变更 | RPC 可入队，下一个周期边界应用 |
+| `Run` | 组件正在执行 | **拒绝所有 RPC 配置请求** |
+| `Lock` | 开发者手动锁定 | 拒绝 RPC + Supervisor 命令 |
 
-1. **RT 线程（同步，SCHED_FIFO）**：
-   - 运行 `hal_core.run_cycle()` - 纯同步，无 async
-   - CPU 绑核 2-3，优先级 80
-   - 通过 crossbeam channel 接收命令（bounded 32, backpressure）
-   - 通过 crossbeam channel 发送事件（bounded 256, drop_oldest）
-
-2. **I/O 线程（tokio，CPU 0-1）**：
-   - 处理 UDS/Zenoh/MQTT 通信
-   - 将网络命令转换为 RTCommand，通过 channel 发送给 RT 线程
-   - 从 channel 接收 RTEvent，转换为 FlatBuffers 发送给订阅者
-
-3. **共享内存快照**：
-   - RT 线程每 100ms 将所有信号当前值写入共享内存
-   - Supervisor（Node.js）可直接读取，不需要通过 IPC
-   - 这是 Layer 2 安全机制
+Config Barrier 与扫描屏障是两个独立但协同的机制：Config Barrier 保护 funct_list/signals/threads（周期边界应用），扫描屏障保护 I/O image table/Signal values（周期内 read→write 一致性）。
 
 ---
 
-#### 8.4 驱动注册表
+### 7. 移植对接
 
-```rust
-// controller/hal-core/src/registry.rs
+移植外部系统功能时，被移植代码改造后以 AUDESYS HAL 为原生通信层，不桥接外部协议：
 
-type DriverFactory = fn() -> Box<dyn HalComponent>;
-
-pub struct DriverRegistry {
-    factories: HashMap<String, DriverFactory>,
-}
-
-impl DriverRegistry {
-    pub fn new() -> Self {
-        let mut r = Self { factories: HashMap::new() };
-        r.register("serial-gcode", || Box::new(SerialGCodeDriver::new()));
-        r.register("modbus-tcp", || Box::new(ModbusTcpDriver::new()));
-        r.register("modbus-rtu", || Box::new(ModbusRtuDriver::new()));
-        r.register("canbus", || Box::new(CanBusDriver::new()));
-        r.register("canopen", || Box::new(CanOpenDriver::new()));
-        r.register("usb-camera", || Box::new(UsbCameraDriver::new()));
-        r.register("display", || Box::new(DisplayDriver::new()));
-        r
-    }
-
-    pub fn register(&mut self, comp_type: &str, factory: DriverFactory) {
-        self.factories.insert(comp_type.to_string(), factory);
-    }
-
-    pub fn create(&self, comp_type: &str) -> Result<Box<dyn HalComponent>> {
-        self.factories.get(comp_type)
-            .ok_or_else(|| Error::UnknownComponentType(comp_type.to_string()))
-            .map(|f| f())
-    }
-}
-```
-
-**内置驱动类型**：
-
-| 驱动类型 | 说明 | 状态 |
-|----------|------|------|
-| `serial-gcode` | 串口 G-code 通信 | 🔮 Phase 2 |
-| `modbus-tcp` | Modbus TCP 通信 | 🔮 Phase 2 |
-| `modbus-rtu` | Modbus RTU 通信 | 🔮 Phase 2 |
-| `canbus` | CAN 总线通信 | 🔮 Phase 3 |
-| `canopen` | CANopen 协议 | 🔮 Phase 3 |
-| `usb-camera` | USB 相机采集 | 🔮 Phase 3 |
-| `display` | 显示器/投影仪控制 | 🔮 Phase 2 |
+| 参考系统 | 原始概念 | HAL 原语映射 | 消息大小 |
+|---------|---------|------------|---------|
+| **LinuxCNC** | hal_pin (bit/float/s32/u32) | **Signal** | 1–64 bits |
+| **LinuxCNC** | hal_stream | **StreamChannel** | 1KB–10KB |
+| **OpenPLC** | 扫描周期 I/O 映像表（1024 点） | **Signal<Array\<S32\>>**（2 条消息/周期，非 8192 条） | 4KB |
+| **OpenPLC** | 单点 HMI 监控 | **Signal\<Bool\>**（从 image table 提取，按需） | 1 bit |
+| **ROS2** | 控制类 topic（低速/值更新，如 /cmd_vel） | **Signal** | 48 bytes |
+| **ROS2** | 感知类 topic（高频/批量，如 /scan, /joint_states） | **StreamChannel** | 4–100KB |
+| **ROS2** | service（如 /get_map, ~10s/次） | **RPC** | MB 级 |
+| **dora-rs** | Arrow IPC buffer (~2MB/frame, 30Hz) | **StreamChannel\<Blob\>**（零拷贝，HAL 不解析 Arrow） | 2MB |
+| **dora-rs** | 结构化输出（Array\<F32\>, ~1KB/frame） | **StreamChannel\<Array\<F32\>\>** | 1KB |
 
 ---
 
-#### 8.5 SerialGCodeDriver 实现示例
+### 8. 多语言策略
 
-SerialGCodeDriver 是参考现有 ISerialDevice 接口重写的 Rust 驱动。它展示了 HAL 组件的标准实现模式：
+HAL 按延迟需求分三层，FlatBuffers 作为跨语言序列化统一格式：
 
-1. **I/O Bridge 模式**（参考 dora-rs MAVLink bridge）：独立线程处理串口 I/O，通过 crossbeam channel 与 HAL 组件通信
-2. **Pin 注册**：`on_configure` 中注册 serial.tx、serial.rx、status.connected、status.temp、status.z_pos 五个 Pin
-3. **G-code 解析**：`update()` 中解析 M105 温度响应和 M114 位置响应，更新对应 Pin 值
-4. **状态机**：Unconfigured -> Inactive -> Active -> Inactive -> Finalized
+| 层 | 用途 | 语言 | 通信方式 | 延迟 | Phase |
+|----|------|------|---------|------|-------|
+| **L1** | RT 数据面 | **Rust（独占）** | Typed API（InProcess，无序列化） | < 1μs | Phase 1 |
+| **L2** | I/O 通信 | Rust, C++ | FlatBuffers over UDS | ~10μs | Phase 2 |
+| **L3** | 控制面 / HMI | Python, Node.js, Go, C#, Java 等 15 种语言 | FlatBuffers over Zenoh | ~100μs | Phase 3+ |
 
-> 详细实现代码参考 Phase 2 开发时编写，此处仅描述架构模式。
+**L1 为什么 Rust 独占**：SCHED_FIFO 线程需要无 GC、无 JIT、无异步运行时，只有 Rust 同时满足零开销抽象 + 内存安全 + 无运行时。C++ FFI 桥接仅限 L2（非 RT 线程），用于现有 C++ 驱动库（如 EtherCAT master）对接。
 
----
-
-### 9. 多语言 Thin Client
-
-> 🔮 **状态**: 规划中 - AUDESYS 尚未开始实现
-
-#### 9.1 设计理念 - Thin Client
-
-> **核心决策**：HAL Core 只存在于 Controller（Rust）中。其他模块通过 **Thin Client** 访问 HAL，不包含 HAL 逻辑。
-
-**为什么 Thin Client**：
-
-- **单一数据源** - Controller 是 HAL 的唯一权威，避免多语言状态同步问题
-- **轻量** - Thin Client 只做 Transport + 序列化，不含 HAL 逻辑
-- **参考验证** - dora-rs 的 Python/C 节点也是 thin client，通过 Arrow 数据与 Rust 主节点通信
+已否决方案：WASM/WASI（JIT 非确定性）、gRPC/Protobuf（50–200μs RTT）、Cap'n Proto（跨语言零拷贝不可行）、嵌入脚本 Lua/Rhai/Python（GIL 阻塞 RT）。
 
 ---
 
-#### 9.2 Thin Client 接口规范
+### 9. 实施路线
 
-所有语言的 Thin Client 实现相同的接口：
-
-```typescript
-// 语言无关的 Thin Client 接口（概念定义）
-interface IHALClient {
-  // === 组件管理 ===
-  loadComponent(name: string, type: string, config?: Record<string, unknown>): Promise<void>;
-  configureComponent(name: string, config: Record<string, unknown>): Promise<void>;
-  activateComponent(name: string): Promise<void>;
-  deactivateComponent(name: string): Promise<void>;
-  unloadComponent(name: string): Promise<void>;
-  listComponents(): Promise<ComponentInfo[]>;
-
-  // === Signal 管理 ===
-  newSignal(name: string, type: HALPinType): Promise<void>;
-  linkPin(pinFullName: string, signalName: string): Promise<void>;
-  unlinkPin(pinFullName: string): Promise<void>;
-  listSignals(): Promise<SignalInfo[]>;
-
-  // === Stream 管理 ===
-  createStream(config: StreamChannelConfig): Promise<void>;
-  writeStream(name: string, data: Uint8Array): Promise<void>;
-  onStream(name: string, cb: (data: Uint8Array) => void): () => void;
-
-  // === Thread 管理 ===
-  addThread(config: ThreadConfig): Promise<void>;
-  startThread(name: string): Promise<void>;
-  stopThread(name: string): Promise<void>;
-
-  // === 数据订阅 ===
-  subscribe(pins: string[], cb: (update: SignalUpdate) => void): () => void;
-
-  // === 快照 ===
-  getSnapshot(): Promise<HALSnapshot>;
-  restoreSnapshot(snapshot: HALSnapshot): Promise<void>;
-
-  // === 日志 ===
-  getLog(filter?: { component?: string; level?: LogLevel; since?: number }): Promise<LogEntry[]>;
-}
-```
+| Phase | 里程碑 | 验证方式 |
+|-------|--------|---------|
+| **1** | 14 种类型系统 + FlatBuffers schema 更新 | 序列化/反序列化单元测试覆盖所有类型 |
+| **2** | Signal 原语实现（InProcess + UDS transport） | 两个 Component 通过 Signal 交换 Pin 值，延迟 < 10μs |
+| **3** | StreamChannel 原语 + 三种 QueuePolicy | 生产者 10MB/s → 消费者无丢帧 |
+| **4** | RPC 原语实现（timeout, idempotency） | loadComponent → configureComponent → activateComponent 完整流程 |
+| **5** | 移植 LinuxCNC motion planner 验证 Signal 模型 | 6 轴轨迹通过 Signal 发布，RT 周期内完成 |
+| **6** | 移植 OpenPLC IEC runtime 验证 Array + Blob | 梯形图扫描周期 I/O 通过 Array\<S32\> 传输 |
+| **7** | 移植 ROS2 节点验证三原语协同 | topic + service 全通过 AUDESYS HAL 通信 |
+| **8** | 移植 dora-rs operator 验证 StreamChannel 高吞吐 | 2MB/frame 摄像头流零拷贝传输 |
 
 ---
 
-#### 9.3 语言绑定对比
+### 10. 设计决策速查
 
-| 语言 | 绑定技术 | 传输方式 | 适用模块 | 状态 |
-|------|---------|---------|---------|------|
-| **Node.js** | napi-rs (Rust -> Node.js) | UDS + FlatBuffers | Supervisor, Studio, Simulator | 🔮 Phase 2 |
-| **Python** | PyO3 (Rust -> Python) | UDS + FlatBuffers | Gateway, Vision | 🔮 Phase 2 |
-| **C/C++** | FFI (C ABI) | UDS + FlatBuffers | 嵌入式设备驱动 | 🔮 Phase 3 |
-
----
-
-#### 9.4 Node.js Thin Client（napi-rs）
-
-```typescript
-// packages/hal-client-node/src/index.ts
-import { EventEmitter } from 'events';
-
-export class HALClient implements IHALClient {
-  private _transport: TransportClient;
-  private _emitter = new EventEmitter();
-
-  constructor(endpoint: string) {
-    this._transport = new TransportClient(endpoint);
-    this._transport.onMessage((bytes: Buffer) => {
-      const msg = FlatBuffers.deserialize(bytes);
-      if (msg.type === 'Signal_update') {
-        this._emitter.emit('signal', msg);
-      }
-    });
-  }
-
-  async loadComponent(name: string, type: string,
-    config?: Record<string, unknown>): Promise<void> {
-    await this._transport.callJsonRpc('loadComponent', { name, type, config });
-  }
-
-  subscribe(pins: string[], cb: (update: SignalUpdate) => void): () => void {
-    const channel = 'subscribe:' + pins.join(',');
-    this._emitter.on(channel, cb);
-    this._transport.callJsonRpc('subscribe', { pins });
-    return () => {
-      this._emitter.off(channel, cb);
-      this._transport.callJsonRpc('unsubscribe', { pins });
-    };
-  }
-}
-```
-
----
-
-#### 9.5 Python Thin Client（PyO3）
-
-```python
-# packages/hal-client-python/src/hal_client.py
-from typing import Callable, Dict, List, Optional
-
-class HALClient:
-    def __init__(self, endpoint: str):
-        self._transport = TransportClient(endpoint)
-        self._callbacks: Dict[str, List[Callable]] = {}
-
-    def load_component(self, name: str, comp_type: str,
-                       config: Optional[Dict] = None):
-        self._transport.call_json_rpc('loadComponent', {
-            'name': name, 'type': comp_type, 'config': config or {}
-        })
-
-    def subscribe(self, pins: List[str], callback: Callable):
-        key = ','.join(pins)
-        if key not in self._callbacks:
-            self._callbacks[key] = []
-            self._transport.call_json_rpc('subscribe', {'pins': pins})
-        self._callbacks[key].append(callback)
-        return lambda: self._callbacks[key].remove(callback)
-```
-
----
-
-#### 9.6 C/C++ Thin Client
-
-```c
-// packages/hal-client-c/include/hal_client.h
-
-typedef struct HALClient HALClient;
-
-HALClient* hal_client_create(const char* endpoint);
-void hal_client_destroy(HALClient* client);
-
-int hal_client_load_component(HALClient* client, const char* name,
-                               const char* type, const char* config_json);
-
-typedef void (*SignalCallback)(const char* pin_name,
-                                const HALValue* value, uint64_t timestamp);
-int hal_client_subscribe(HALClient* client, const char** pins, int pin_count,
-                          SignalCallback callback);
-```
-
----
-
-#### 9.7 现有代码迁移策略
-
-AUDESYS 从纯 TypeScript 演进为多语言架构。现有代码约 60% 可复用：
-
-| 现有代码 | 迁移目标 | 迁移方式 | 复用率 |
-|----------|---------|---------|--------|
-| `src/main/serial/` | Rust `SerialGCodeDriver` | 逻辑重写为 Rust，参考现有 ISerialDevice 接口 | ~40% |
-| `src/main/comm/` | Rust `ModbusTcpDriver` | 逻辑重写为 Rust，参考现有 ICommunicationInterface | ~40% |
-| `src/main/simulator/virtual-device.ts` | Node.js Simulator（保留 TS） | 提取为独立包，通过 HAL Client 通信 | ~90% |
-| `src/main/print/state-machine.ts` | Rust State Machine Engine | 重写为 Rust，XState JSON 兼容 | ~60% |
-| `src/main/mqtt/` | Node.js Supervisor（保留 TS） | 保留 Aedes，增加 HAL Client 订阅 | ~80% |
-| `src/renderer/components/` | Studio 编辑器（保留 TS） | 保留 React，增加 HAL Client 数据源 | ~95% |
-
-**迁移原则**：
-
-1. **实时控制逻辑** -> Rust 重写（性能要求高）
-2. **业务逻辑** -> Node.js 保留（生态丰富，快速开发）
-3. **协议处理** -> Python 保留（工业协议库丰富）
-4. **UI 组件** -> React 保留（生态成熟）
-
----
-
-#### 9.8 语言选择指南
-
-| 任务类型 | 推荐语言 | 理由 |
-|----------|---------|------|
-| 实时控制（< 1ms 周期） | Rust | SCHED_FIFO + 零开销抽象 |
-| 设备驱动开发 | Rust / C | 硬件接口 + 内存安全 |
-| 进程管理 / 配置 | Node.js | 异步 I/O + npm 生态 |
-| 协议网关 | Python | pymodbus / opcuax 等库 |
-| HMI 界面 | TypeScript (React) | 组件生态 + 跨平台 |
-| 数据分析 / AI | Python | NumPy / PyTorch 生态 |
-| 仿真器 | Node.js / Rust | 可独立运行，CI/Docker 友好 |
+| # | 决策 | 理由 |
+|---|------|------|
+| D1 | Signal / StreamChannel 不合并 | 控制信号（零缓冲低延迟）与数据流（有缓冲高吞吐）不可调和，ROS2 十年教训 |
+| D2 | RPC 不拆成一对 Signal | 拆开会丢失超时、幂等、请求/响应关联 |
+| D3 | amw 三相 trait（Transport + Discovery + QoS） | 关注面分离，各维度换实现不换 API |
+| D4 | Deadline 在 RT 数据面，Liveliness 在控制面 | 编码器断连需同周期触发；心跳丢失 100ms 级足够 |
+| D5 | 14 种类型（11 标量 + String + Blob + Array\<T\>） | 覆盖 IEC 61131-3 全部类型；WSTRING 不引入（UTF-8 only）；Blob 不进类型推导 |
+| D6 | 四类线程混合调度，不合并 | 硬实时 / I/O / 数据流 / 配置四类需求不可通约 |
+| D7 | Config Barrier + LockLevel 替代信任式安全 | Supervisor 随时可发 RPC，不能依赖 LinuxCNC 式的开发者自觉 |
+| D8 | L1 RT 数据面 Rust 独占 | SCHED_FIFO 需无 GC/无 JIT/无异步，仅 Rust 满足 |
 
 ---
 
