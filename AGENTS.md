@@ -1,11 +1,11 @@
 # AGENTS.md — AUDESYS Project Knowledge Base
 
-**Generated:** 2026-07-08
-**Commit:** `a024b10`
+**Generated:** 2026-07-09
+**Commit:** `9b7c86d`
 **Branch:** `main`
 
 ## OVERVIEW
-AUDESYS — 工业控制系统运行时模拟平台。从 MODACS 分离，聚焦 Studio IDE、Runtime 运行时、Simulator 仿真器、HAL 硬件抽象层。当前早期阶段，零源代码，仅有配置/文档/代理基础设施。
+AUDESYS — 工业控制系统运行时模拟平台。从 MODACS 分离，聚焦 Studio IDE、Runtime 运行时、Simulator 仿真器、HAL 硬件抽象层。当前早期阶段，零源代码，HAL 详细设计已完成（3 专家团队审核）。
 
 ## STRUCTURE
 ```
@@ -19,27 +19,32 @@ AUDESYS/
 │   ├── skills/         # 6 个技能（design-system + 5 openspec-*）
 │   └── memorys/        # 4 个项目记忆文件（status/conventions/decisions/pitfalls）
 ├── docs/
-│   └── architecture.md # 2228 行 — 架构文档（含 TODO 骨架占位符）
-├── SKILL.md            # 82 行 — 技能注册表（superpowers + 项目专属 + agents）
-├── README.md           # 18 行 — 项目简介
+│   ├── architecture.md           # ~2300 行 — 系统架构概览（6 主章）
+│   ├── hal-detailed-design.md    # 3,185 行 — HAL 详细设计（16 章，合并自 10 份子文档）
+│   └── detail/hal/               # 11 份 HAL 子文档（设计稿、审核输出）
+├── SKILL.md            # 技能注册表（superpowers + 项目专属 + agents）
+├── AGENTS.md           # 本文件 — 项目知识库入口
+├── README.md           # 项目简介
 ├── package.json        # 极简：仅 `name: "AUDESYS"` + `@colbymchenry/codegraph` 开发依赖
 ├── package-lock.json   # npm lock 文件
 ├── LICENSE             # Apache 2.0
-└── .gitignore          # 88 行 — 排除 .sisyphus/
+└── .gitignore          # 排除 .sisyphus/
 ```
 
 ## WHERE TO LOOK
 | Task | Location | Notes |
 |------|----------|-------|
 | 项目状态和阶段 | `.agents/memorys/status.md` | 模块状态表、已知缺失 |
-| 架构决策 | `.agents/memorys/decisions.md` | D1-D9 + G1-G4 |
-| 编码约定 | `.agents/memorys/conventions.md` | 命名、不可变性、TS 规范 |
-| 已知坑点 | `.agents/memorys/pitfalls.md` | MODACS 适配相关坑 |
+| 架构决策 | `.agents/memorys/decisions.md` | D1-D18 + G1-G5 |
+| 编码约定 | `.agents/memorys/conventions.md` | 命名、不可变性、TS 规范、HAL 设计约定 |
+| 已知坑点 | `.agents/memorys/pitfalls.md` | MODACS 适配 + HAL 设计审核 |
+| HAL 详细设计 | `docs/hal-detailed-design.md` | 协议原语、amw、类型系统、线程调度等 16 章 |
+| HAL 子文档 | `docs/detail/hal/` | 11 份独立设计文档 + 对比分析 |
 | 语言规则 | `.agents/rules/{lang}/` | 各语言专属规则 |
 | Agent 配置 | `.opencode/opencode.json` | instructions、MCP、LSP |
 | Agent 使用指南 | `.opencode/agent-guide.md` | OMO 编排体系、5 层模型路由 |
 | 技能注册表 | `SKILL.md` | superpowers + 项目专属技能清单 |
-| 架构文档 | `docs/architecture.md` | 模块规划、设计原则 |
+| 架构文档 | `docs/architecture.md` | 系统级模块规划、设计原则 |
 | 通用规则 | `.agents/rules/common/` | 安全、编码风格、测试、Git 工作流 |
 | 安全规则 | `.agents/rules/common/security.md` | Secret management、XSS、CSRF |
 
@@ -51,7 +56,7 @@ _当前无源代码。以下为架构文档中规划的模块：_
 | Studio IDE (§11) | 🔲 计划中 | `apps/studio` + `packages/studio-core/` |
 | Runtime (§6) | 🔲 计划中 | `apps/runtime/`（6 模块套件） |
 | Simulator (§15) | 🔮 Phase 3/4 | AVD Manager（7 种虚拟设备） |
-| HAL 硬件抽象 | 🔲 计划中 | — |
+| HAL 硬件抽象 | 🟡 详细设计完成 | `docs/hal-detailed-design.md` |
 | 工业调试桥 | 🔲 计划中 | — |
 | 实时控制 | 🔲 计划中 | — |
 
@@ -60,8 +65,8 @@ _当前无源代码。以下为架构文档中规划的模块：_
 - **命名**: `AUDESYS` 全大写，npm scope `@audesys/`
 - **去 MODACS 化**: 保持零 MODACS 残留，每次修改后运行 `grep -ri modacs . --exclude-dir=.git --exclude-dir=.sisyphus`
 - **精确编辑**: 不全局 MODACS→AUDESYS 替换，使用手术式编辑
-- **架构骨架**: `docs/architecture.md` 中内容不足 50% 的章节使用 `TODO: 为 AUDESYS 重写此节` 占位
 - **@modacs/* 移除**: 移除所有 `@modacs/*` 引用，不自动替换为 `@audesys/*`
+- **文档组织**: 概览 → `architecture.md`，详细设计 → `{module}-detailed-design.md`，子文档 → `detail/{module}/`
 
 ### TypeScript
 - 公共 API 显式类型注解
@@ -84,6 +89,8 @@ _当前无源代码。以下为架构文档中规划的模块：_
 - **全局 MODACS→AUDESYS 替换** — 使用精确的手术式编辑
 - **硬编码密钥** — 使用环境变量或密钥管理器
 - **不必要的文件写入** — 文档文件仅在用户明确要求时创建
+- **引入第 4 种通信原语** — Signal/StreamChannel/RPC 已正交覆盖全部场景
+- **引入完整 DDS QoS** — HalQoS 三个最小维度足以满足工业需求
 
 ## COMMANDS
 ```bash
@@ -93,9 +100,10 @@ npm install    # 安装依赖（如需要）
 ```
 
 ## NOTES
-- **零源代码** — 项目处于早期初始化阶段，仅有配置和文档基础设施
+- **零源代码** — 项目处于文档驱动设计阶段，HAL 详细设计已完成
 - **从 MODACS 分离** — 2026-07-08 首次提交。无 MODACS 代码共享
 - **.sisyphus/** 被 gitignore 排除 — 计划文件和证据不提交到仓库
 - **双 package.json** — 根目录用 npm，`.opencode/` 用独立包（插件系统）
-- **Agent 超配** — 对于零代码项目，基础设施配置较重。规则（89 个文件）和 MCP 服务器（7 个活动）是为未来开发准备的
+- **HAL 设计审核** — 3 专家 × 27 项发现，全部交互式确认，6 份独立文档合并为详细设计
+- **Agent 超配** — 规则（89 个文件）和 MCP 服务器（7 个活动）是为未来开发准备的
 - **test 基础设施** — 不存在。要求 80% 覆盖率、TDD、AAA 模式（在规则中声明，但无框架可执行）

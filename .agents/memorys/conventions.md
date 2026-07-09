@@ -18,8 +18,15 @@
 - 不自动替换 `@modacs/*` 为 `@audesys/*`（移除即可）
 - 不全局 MODACS→AUDESYS 替换，使用精确的手术式编辑
 
+## 文档组织
+- 架构概览：`docs/architecture.md`（系统级，各模块均衡）
+- 详细设计主文档：`docs/{module}-detailed-design.md`（独立维护，不膨胀架构文档）
+- 子文档归档：`docs/detail/{module}/`（独立设计文档、审核输出、对比分析）
+- 跨引用模式：architecture.md §X 内用 `详见 docs/hal-detailed-design.md` 一行指向
+
 ## 提交规范
-- 格式：`chore: adapt AUDESYS project identity from MODACS split`
+- 格式：遵循 conventional commits 规范（feat/fix/docs/chore/refactor）
+- 提交前验证：`grep -ri modacs . --exclude-dir=.git --exclude-dir=.sisyphus`
 - 提交前验证：`grep -ri modacs . --exclude-dir=.git --exclude-dir=.sisyphus`
 
 ## 通用编码约定
@@ -35,3 +42,10 @@
 - `unknown` > `any`：对不可信输入使用 `unknown`，安全窄化
 - Zod 用于模式验证（边界层）
 - 禁止 `console.log`（生产代码），禁止 `as any` / `@ts-ignore`
+
+## HAL 协议设计约定
+- 命名规范：Signal = `component.interface.name`，StreamChannel = `domain.stream_name`，Action = `action.{id}.{status|feedback}`
+- 组件名：kebab-case，Pin 名：snake_case
+- 禁止桥接外部协议 — AUDESYS HAL 是原生协议，被移植代码改造后以 HAL 为原生通信层
+- 端口/功能：移植自 LinuxCNC/OpenPLC/ROS2/dora-rs 功能以 HAL 原语对接，非协议桥接
+- 延迟声明必须带前提条件（内核、消息大小、硬件）和典型范围，必须配套验证方法
