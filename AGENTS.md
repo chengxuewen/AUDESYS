@@ -1,11 +1,13 @@
 # AGENTS.md — AUDESYS Project Knowledge Base
 
-**Generated:** 2026-07-09
+**Generated:** 2026-07-13
+**Commit:** `ffbf480`
+**Branch:** `main`
 **Commit:** `7bcff39`
 **Branch:** `main`
 
 ## OVERVIEW
-AUDESYS — 工业控制系统运行时模拟平台。从 MODACS 分离，聚焦 Studio IDE、Runtime 运行时、Simulator 仿真器、HAL 硬件抽象层。当前早期阶段，零源代码，HAL 详细设计已完成（3 专家团队审核）。
+AUDESYS — 工业控制系统运行时模拟平台。从 MODACS 分离，聚焦 Studio IDE、Runtime 运行时、Simulator 仿真器、HAL 硬件抽象层。当前早期阶段，零源代码，HAL 详细设计已完成（3 专家团队审核），参考文档库已建成（22 篇竞品分析）。
 
 ## STRUCTURE
 ```
@@ -20,6 +22,9 @@ AUDESYS/
 │   └── memorys/        # 4 个项目记忆文件（status/conventions/decisions/pitfalls）
 ├── docs/
 │   ├── architecture.md           # ~1,700 行 — 系统架构概览（6 主章）
+│   ├── hal-detailed-design.md    # 3,400+ 行 — HAL 详细设计（17 章，合并自 12 份子文档）
+│   ├── reference/                # 22 篇竞品参考文档（DCS/SCADA/软PLC/组态/仪表/IDE）
+│   └── detail/hal/               # 12 份 HAL 子文档（设计稿、审核输出、多语言策略）
 │   ├── hal-detailed-design.md    # 3,400+ 行 — HAL 详细设计（17 章，合并自 12 份子文档）
 │   └── detail/hal/               # 12 份 HAL 子文档（设计稿、审核输出、多语言策略）
 ├── SKILL.md            # 技能注册表（superpowers + 项目专属 + agents）
@@ -47,6 +52,7 @@ AUDESYS/
 | Agent 使用指南 | `.opencode/agent-guide.md` | OMO 编排体系、5 层模型路由 |
 | 技能注册表 | `SKILL.md` | superpowers + 项目专属技能清单 |
 | 通用规则 | `.agents/rules/common/` | 安全、编码风格、测试、Git 工作流 |
+| 参考文档库 | `docs/reference/` | 22 篇竞品分析（DCS/SCADA/软PLC/组态/仪表/IDE），每篇 ≥800 行 |
 | 安全规则 | `.agents/rules/common/security.md` | Secret management、XSS、CSRF |
 
 ## CODE MAP

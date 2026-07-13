@@ -106,6 +106,13 @@
 - **理由**: SCHED_FIFO 线程需要无 GC/无 JIT/无异步运行时，仅 Rust 满足。C++ FFI 桥接限非 RT 线程。FlatBuffers 作为统一跨语言序列化格式
 - **参考**: `docs/detail/hal/multi-language-strategy.md`
 
+## D20: 参考文档库 = 22 篇竞品分析
+- **日期**: 2026-07-13
+- **决定**: 建立 `docs/reference/` 参考文档库，覆盖 7 大类别 22 个工业自动化产品/项目
+- **理由**: 为 AUDESYS HAL/Studio/Runtime 设计提供竞品架构参考，避免闭门造车。每篇含"对 AUDESYS 参考价值"章节，直接将竞品架构映射到 AUDESYS 设计
+- **覆盖范围**: DCS（中控/和利时/Honeywell/Emerson）、软PLC（truST/QiTech/OpenPLC）、SCADA/组态（Ignition/KingView/FUXA/InTouch/LabVIEW）、仪器仪表/通信（HART/FF/PROFIBUS/OPC UA/RuSTy）、IDE/平台（CODESYS/Qtouch/Beckhoff/Siemens）、机器人/数据流（ROS2/dora-rs/LinuxCNC）
+- **文档格式**: 统一 7 章节（产品画像、技术特性、功能概览、现状与生态、市场定位、产品特色、对AUDESYS参考价值），≥800 行，中文撰写，技术术语保留英文原文
+
 ## 实施防护规则
 - **G1**: architecture.md 内容完整性 — 删除后保留率 <50% 的章节变为 TODO 占位符
 - **G2**: 删除后文本连贯性 — 无指向已删除 MODACS 上下文的孤立引用

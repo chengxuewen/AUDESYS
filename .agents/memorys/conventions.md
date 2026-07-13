@@ -22,6 +22,7 @@
 - 架构概览：`docs/architecture.md`（系统级，各模块均衡）
 - 详细设计主文档：`docs/{module}-detailed-design.md`（独立维护，不膨胀架构文档）
 - 子文档归档：`docs/detail/{module}/`（独立设计文档、审核输出、对比分析）
+- 参考文档：`docs/reference/{产品名}.md`（竞品分析，独立文件）
 - 跨引用模式：architecture.md §X 内用 `详见 docs/hal-detailed-design.md` 一行指向
 
 ## 提交规范
