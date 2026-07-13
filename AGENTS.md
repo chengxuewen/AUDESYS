@@ -3,7 +3,6 @@
 **Generated:** 2026-07-13
 **Commit:** `ffbf480`
 **Branch:** `main`
-**Commit:** `7bcff39`
 **Branch:** `main`
 
 ## OVERVIEW
@@ -21,6 +20,11 @@ AUDESYS/
 │   ├── skills/         # 6 个技能（design-system + 5 openspec-*）
 │   └── memorys/        # 4 个项目记忆文件（status/conventions/decisions/pitfalls）
 ├── docs/
+│   ├── architecture.md           # ~1,700 行 — 系统架构概览（6 主章）
+│   ├── hal-detailed-design.md    # 3,400+ 行 — HAL 详细设计（17 章，合并自 12 份子文档）
+│   ├── modules/                  # 按模块组织的详细设计子文档
+│   │   └── hal/                  # 12 份 HAL 子文档（设计稿、审核输出、多语言策略）
+│   ├── reference/                # 22 篇竞品参考文档（DCS/SCADA/软PLC/组态/仪表/IDE）
 │   ├── architecture.md           # ~1,700 行 — 系统架构概览（6 主章）
 │   ├── hal-detailed-design.md    # 3,400+ 行 — HAL 详细设计（17 章，合并自 12 份子文档）
 │   ├── reference/                # 22 篇竞品参考文档（DCS/SCADA/软PLC/组态/仪表/IDE）
@@ -44,9 +48,9 @@ AUDESYS/
 | 编码约定 | `.agents/memorys/conventions.md` | 命名、不可变性、TS 规范、HAL 设计约定 |
 | 已知坑点 | `.agents/memorys/pitfalls.md` | MODACS 适配 + HAL 设计审核 |
 | HAL 详细设计 | `docs/hal-detailed-design.md` | 协议原语、amw、类型系统、线程调度、多语言等 17 章 |
-| HAL 子文档 | `docs/detail/hal/` | 12 份独立设计文档 + 对比分析 |
+| HAL 子文档 | `docs/modules/hal/` | 12 份独立设计文档 + 对比分析 |
 | 架构文档 | `docs/architecture.md` | 系统级模块概览、HAL §一 精简到 168 行交叉引用 |
-| 多语言策略 | `docs/detail/hal/multi-language-strategy.md` | Rust/C++/15 语言三层架构 + FlatBuffers |
+| 多语言策略 | `docs/modules/hal/multi-language-strategy.md` | Rust/C++/15 语言三层架构 + FlatBuffers |
 | 语言规则 | `.agents/rules/{lang}/` | 各语言专属规则 |
 | Agent 配置 | `.opencode/opencode.json` | instructions、MCP、LSP |
 | Agent 使用指南 | `.opencode/agent-guide.md` | OMO 编排体系、5 层模型路由 |
