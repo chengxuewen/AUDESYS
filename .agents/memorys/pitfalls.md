@@ -61,3 +61,27 @@
 - **问题**: trust-platform.md 和 qitech-control.md 初次产出远低于 800 行（372/225），需多轮扩充
 - **原因**: deep agent 在工具输出截断时会自动压缩内容，而非增长到目标行数
 - **方案**: 对首次不达标的文档发送专门的"EXPAND"任务，指定保留现有内容、追加特定章节的详细分析
+
+## 架构评审新增坑点
+
+### Ignition Jython — 脚本语言锁定教训
+- **问题**: Ignition 从 2010 年起使用 Jython (Python 2.7)，10 年后锁死在旧版本，无法升级（依赖生态自建）
+- **方案**: D26 — Phase 1 不引入脚本语言，Phase 2 用 WASM 插件避免语言锁定
+
+### LabVIEW 二进制格式 — Git 不兼容
+- **问题**: .vi 二进制文件不可 Git diff，项目管理困难
+- **方案**: D24 — 选择文本格式（YAML）作为开发配置格式，编译为 FlatBuffers 仅用于运行时加载
+
+### CODESYS 编译器投入低估
+- **问题**: CODESYS 完整支持 5 种 IEC 61131-3 语言花了数十年，容易低估编译器投入
+- **方案**: D22 — 分阶段演进（RuSTy → HAL IR → 自研），不追求 5 语言全覆盖
+
+### 未成熟工具依赖 — Ludwig alpha 教训
+- **问题**: 实施规划 D33 原方案依赖 Ludwig（github.com/samdvr/ludwig）自动生成测试桩，团队审查发现 v0.1 alpha 不满足生产要求（19 commits、1 维护者、无 crates.io 发布、属性测试延期）
+- **原因**: 设计阶段容易被工具论文或演示所吸引，忽略生产可靠性（bus factor、发布渠道、功能完备性）
+- **方案**: 修订 D33 为直接 TDD。选择工具链必须满足：(1) 正式发布到包注册表 (2) bus factor >= 2 (3) 功能完备性经团队验证。Phase 0/1 禁止依赖 alpha/unstable 工具
+
+### CI 脚本 set -e 与 grep exit code 1 冲突
+- **问题**: unwrap-budget.sh 使用 set -euo pipefail + rg -c，当 rg 无匹配时 exit code=1 导致脚本中断
+- **原因**: safe bash 与搜索工具默认行为冲突，rg/grep 将无匹配视为错误退出码
+- **方案**: 使用 rg -o pattern 2>/dev/null | wc -l 模式代替 rg -c。所有 CI 脚本中的 grep 类命令均需审计此模式

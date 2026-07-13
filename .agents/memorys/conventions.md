@@ -50,3 +50,26 @@
 - 禁止桥接外部协议 — AUDESYS HAL 是原生协议，被移植代码改造后以 HAL 为原生通信层
 - 端口/功能：移植自 LinuxCNC/OpenPLC/ROS2/dora-rs 功能以 HAL 原语对接，非协议桥接
 - 延迟声明必须带前提条件（内核、消息大小、硬件）和典型范围，必须配套验证方法
+
+## Studio IDE 技术栈约定
+- **框架**: Tauri (Rust 后端) + React + TypeScript
+- **样式**: Tailwind CSS（内置跨浏览器 normalize）
+- **测试**: CI/CD 同时验证 macOS/Windows/Linux 三平台 Playwright E2E 测试
+- **Phase 2**: 增加 PWA 辅助访问
+
+## 配置格式约定
+- **开发**: YAML（人类可读、Git 友好）
+- **运行时**: FlatBuffers 二进制（零拷贝加载，L1 RT 兼容）
+- **构建**: YAML → FlatBuffers 编译步骤纳入 CI
+
+## 测试约定 (D30)
+- **qa-fast**: cargo test + clippy + rustfmt + cargo deny（每次 commit）
+- **qa-full**: + criterion bench + proptest + tarpaulin 覆盖率（每次 PR）
+- **qa-deep**: + Miri UB 检测 + loom 并发 + 变异测试（release 前）
+- **Phase 1**: 不要求 80% 覆盖率（代码驱动阶段再要求）
+
+## HalQoS 安全域约定
+- **格式**: `{level}.{domain}.{subdomain}` 点分隔层级化标签
+- **通配**: `l1.*` 匹配所有 L1 设备
+- **编译**: 展开为位掩码，零 RT 开销
+- **示例**: `l1.control.reactor_a`、`l3.supervisory.hmi`
