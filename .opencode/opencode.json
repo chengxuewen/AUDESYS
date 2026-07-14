@@ -5,6 +5,7 @@
   "enabled_providers": ["new-api", "deepseek"],
   "plugin": [
     "superpowers@git+https://github.com/obra/superpowers.git",
+    "@dietrichgebert/ponytail",
     "opencode-acp@latest",
     "oh-my-opencode",
     "context-mode"
@@ -59,25 +60,31 @@
       "enabled": true,
       "command": ["node", ".opencode/init-mcp-playwright.mjs"]
     },
-    "local-shadcn": {
+    "local-github": {
       "type": "local",
       "enabled": true,
-      "command": ["node", ".opencode/init-mcp-shadcn.mjs"]
+      "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
     },
-    "local-tailwind": {
+    "local-memory": {
       "type": "local",
-      "enabled": true,
-      "command": ["node", ".opencode/init-mcp-tailwind.mjs"]
-    },
-    "local-lucide": {
-      "type": "local",
-      "enabled": true,
-      "command": ["node", ".opencode/init-mcp-lucide.mjs"]
+      "enabled": false,
+      "command": ["npx", "-y", "@isaacriehm/memory-mcp"],
+      "env": {
+        "DATABASE_URL": "${MEMORY_DATABASE_URL}"
+      }
     },
     "local-postgres": {
       "type": "local",
       "enabled": false,
       "command": ["node", ".opencode/init-mcp-postgres.mjs"]
+    },
+    "local-openspace": {
+      "type": "local",
+      "enabled": true,
+      "command": ["node", ".opencode/init-mcp-openspace.mjs"]
     }
   },
   "lsp": {
