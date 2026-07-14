@@ -248,3 +248,15 @@
 - **决定**: .agents/rules/common/ 通用流程 + D30 三层 QA 作为 CI 门禁
 - **理由**: 89 个规则文件已验证完整，覆盖 TS/Rust 规范、TDD、code review、安全、Git 工作流
 - **参考**: .agents/rules/ 89 个文件、development-workflow.md、testing.md
+
+## D42: MCP 工具链策略 = 分阶段启用，按需加载
+- **日期**: 2026-07-14
+- **决定**: 移除 3 个前端 MCP（shadcn、tailwind、lucide — 零前端代码阶段无价值），保留 7 个核心 MCP：remote-qt-docs、codegraph、playwright、github、openspace（新启用）、memory（禁用）、postgres（禁用）。Phase 1 前端开发时再评估前端 MCP
+- **理由**: 零源代码阶段前端 MCP 无实际产出。7 个核心 MCP 覆盖文档查询、代码图谱、浏览器测试、开源搜索、AI 开发辅助、记忆系统、数据库
+- **参考**: agent-guide.md §5.6、opencode.json mcp 配置
+
+## D43: AI 辅助工具集成 = Plugin（ponytail）+ MCP（openspace）
+- **日期**: 2026-07-14
+- **决定**: ponytail 作为 OpenCode plugin 集成（`@dietrichgebert/ponytail`），每次推理自动注入防过度工程规则。OpenSpace 作为开发辅助 MCP 启用，需 Python 3.11+ + API Key
+- **理由**: ponytail plugin 方式与现有 superpowers/oh-my-opencode 一致。OpenSpace（AI agent 技能进化引擎）作为辅助开发工具启用，不进入 AUDESYS 核心架构
+- **参考**: opencode.json plugin 数组、init-mcp-openspace.mjs

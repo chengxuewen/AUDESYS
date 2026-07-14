@@ -85,3 +85,14 @@
 - **问题**: unwrap-budget.sh 使用 set -euo pipefail + rg -c，当 rg 无匹配时 exit code=1 导致脚本中断
 - **原因**: safe bash 与搜索工具默认行为冲突，rg/grep 将无匹配视为错误退出码
 - **方案**: 使用 rg -o pattern 2>/dev/null | wc -l 模式代替 rg -c。所有 CI 脚本中的 grep 类命令均需审计此模式
+
+## MCP 配置相关
+
+### 零代码阶段 MCP 过度启用
+- **问题**: 前端 MCP（shadcn、tailwind、lucide）在零源代码阶段启用，均无实际产出
+- **原因**: 配置从 MODACS 迁移时保留全量，未按项目阶段裁剪
+- **方案**: 已移除 3 个前端 MCP，保留 7 个核心 MCP（qt-docs、codegraph、playwright、github、openspace、memory、postgres）。新增 GitHub + OpenSpace 弥补 Phase 0 工具缺口
+
+### GitHub MCP 认证依赖
+- **问题**: `local-github` MCP 需要 `GITHUB_TOKEN` 环境变量，当前未配置将导致认证失败
+- **方案**: 首次使用前需创建 GitHub Personal Access Token（classic），repo 或 public_repo 权限，通过 shell profile 或 `.env` 注入

@@ -73,3 +73,10 @@
 - **通配**: `l1.*` 匹配所有 L1 设备
 - **编译**: 展开为位掩码，零 RT 开销
 - **示例**: `l1.control.reactor_a`、`l3.supervisory.hmi`
+
+## MCP 配置约定
+- **插件集成优先**: 对于需要自动注入的 AI 辅助工具，优先使用 OpenCode plugin 方式（如 ponytail）
+- **MCP 按阶段分层**: Phase 0（文档/CI）→ GitHub + OpenSpace；Phase 1（前端）→ playwright；Phase 2（DB）→ postgres + memory
+- **初始化脚本**: 自定义 MCP 使用 `.opencode/init-mcp-*.mjs` 模式，遵循 auto-install → spawn 流程
+- **Python MCP**: 非 Node.js 的 MCP（如 openspace）使用 venv 隔离安装，通过 init 脚本管理
+- **API Key 环境变量**: 需要认证的 MCP 通过 `opencode.json` 的 `env` 字段注入，密钥不写入配置文件
