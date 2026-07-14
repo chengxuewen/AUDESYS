@@ -7,6 +7,8 @@
 - **MODACS 适配完成** — 2026-07-08，所有 MODACS 引用已移除，重新品牌为 AUDESYS
 - **实施规划评审完成** — 2026-07-13，基于文档驱动设计 + 外部研究，完成交互式实施规划评审，新增 D31-D41 共 11 项决策
 - **P0 团队审查完成** — 2026-07-13，4 人团队审查 3 份 P0 计划文档，27 项发现全部修复。关键决策：D33 修订（Ludwig→直接 TDD），新增 M2.5/M4.5 里程碑，CI 增加 Rust cache + flatc + ripgrep
+- **MCP 工具链审计完成** — 2026-07-14，移除 3 个前端 MCP（shadcn/tailwind/lucide），保留 7 个核心 MCP。新增 GitHub + memory-mcp，ponytail 作为 plugin 集成，OpenSpace 启用为开发辅助 MCP。book-to-skill 技能从 AUDEBase 移植。新增 D42-D43 决策
+- **技能库增强** — 2026-07-14，从 AUDEBase 移植 book-to-skill（45 个文件，MIT，v1.2.0），支持将书籍/文档转换为 agent 技能
 
 ## 实施规划新增决策
 - D31-D41 已记录于 `.agents/memorys/decisions.md`（D33 经团队审查修订：Ludwig→直接 TDD）
