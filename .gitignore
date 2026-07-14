@@ -79,10 +79,15 @@ node_modules
 !.vscode/settings.json
 
 # Agent dirs
+.venv-openspace
 .playwright-mcp
+.codegraph
+# pixi environment manager
+.pixi
+.pixi-pack
+.pixi-cache
 .sisyphus
 .omo
-.codegraph
 
 # Test and build artifacts
 test-results

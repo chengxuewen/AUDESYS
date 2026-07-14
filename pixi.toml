@@ -1,0 +1,56 @@
+[workspace]
+name = "AUDESYS"
+channels = ["conda-forge"]
+platforms = ["osx-64", "osx-arm64", "linux-64", "linux-aarch64", "win-64"]
+version = "0.1.0"
+
+# Phase 0 base dependencies — always installed (Rust toolchain + build tools)
+[dependencies]
+rust = ">=1.85.0,<2"
+flatbuffers = ">=24.3.25,<26"
+python = "3.12.*"
+pip = ">=24.0,<26"
+ripgrep = ">=14.1.0,<15"
+
+# Development tools (clippy, rustfmt, cargo-deny, cmake)
+[feature.dev.dependencies]
+cmake = ">=3.28.0,<4"
+lld = ">=18.0,<19"
+
+[feature.dev.tasks]
+build = "cargo build --workspace"
+check = "cargo check --workspace"
+lint = { cmd = "cargo clippy --workspace --all-targets -- -D warnings", "depends-on" = ["build"] }
+format = "cargo fmt --all -- --check"
+format-fix = "cargo fmt --all"
+audit = "cargo deny check"
+
+# Testing tools (Phase 1 — coverage, nextest)
+[feature.test.dependencies]
+
+[feature.test.tasks]
+test = "cargo test --workspace"
+test-qa-fast = { cmd = "scripts/qa-fast.sh", "depends-on" = ["test"] }
+test-qa-full = { cmd = "scripts/qa-full.sh", "depends-on" = ["test"] }
+# cargo-tarpaulin is not on conda-forge; install via `cargo install cargo-tarpaulin`
+coverage = "cargo tarpaulin --workspace --out Html --out Lcov"
+
+# CI tools (cross-platform CI scripts)
+[feature.ci.dependencies]
+
+[feature.ci.tasks]
+ci-qa-fast = { cmd = "scripts/qa-fast.sh" }
+
+# Environments — composable feature groups
+[environments]
+runtime = { features = [] }
+dev = { features = ["dev"] }
+test = { features = ["dev", "test"] }
+ci = { features = ["dev", "test", "ci"] }
+default = { features = ["dev", "test"] }
+
+# Global tasks (available in all environments)
+[tasks]
+init = "scripts/pixi-init.sh"
+shell = "scripts/pixi-shell.sh"
+archive = "scripts/archive-source.sh"
