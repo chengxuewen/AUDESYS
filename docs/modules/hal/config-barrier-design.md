@@ -142,11 +142,43 @@ impl HalCore {
                     return cfg;
                 }
                 // 重建 signal 映射...
-            }
-            // ...
-        }
         cfg.generation += 1;
         cfg
+    }
+
+    /// 批次原子应用：all-or-nothing 语义
+    /// 如果任一条命令失败，整个批次回滚到当前 Arc<HalConfig>
+    /// 成功 → 返回新的 Arc<HalConfig> 通过 RCU 替换旧值
+    /// 失败 → 保持旧 Arc<HalConfig>，返回 PartialFailure
+    fn apply_config_batch<const N: usize>(
+        &self,
+        cmds: [ConfigCommand; N]
+    ) -> Arc<HalConfig> {
+        let mut new_cfg = (*self.config).clone();
+        new_cfg.generation += 1;
+        let mut failures = Vec::new();
+
+        for cmd in &cmds {
+            match Self::apply_single(&mut new_cfg, cmd) {
+                Ok(_) => {}
+                Err(e) => {
+                    failures.push((cmd.name(), e));
+                }
+            }
+        }
+
+        if failures.is_empty() {
+            Arc::new(new_cfg)
+        } else {
+            // ponytail: all-or-nothing rollback → keep old Arc, notify Supervisor
+            self.notify_supervisor(ConfigStatus::PartialFailure {
+                generation: self.config.generation + 1,
+                attempted: N,
+                succeeded: N - failures.len(),
+                failures,
+            });
+            Arc::clone(&self.config)  // 回滚：保持旧配置
+        }
     }
 
     /// Supervisor 调用此方法发起配置变更
@@ -167,6 +199,13 @@ enum ConfigStatus {
     Applied { generation: u64 },
     /// 拒绝（硬件/权限/CAPABILITY 不足）
     Rejected { reason: String },
+    /// 批次部分失败：all-or-nothing 回滚（保持旧配置）
+    PartialFailure {
+        generation: u64,
+        attempted: usize,
+        succeeded: usize,
+        failures: Vec<(String, Error)>,
+    },
 }
 ```
 

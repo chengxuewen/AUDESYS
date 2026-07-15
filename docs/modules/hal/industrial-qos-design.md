@@ -291,14 +291,14 @@ match status {
 ### 多产线 Security Domain 隔离
 
 ```rust
-// cell_1 Supervisor
-qos.set_security_domain("cell_1")?;
+// l1.control 域 Supervisor
+qos.set_security_domain("l1.control.reactor_a")?;
 // 所有 Signal 自动加 keyexpr 前缀 (amw_zenoh)
-// cell_1 的 "encoder.axis.0.position" → "cell_1/encoder.axis.0.position"
+// "encoder.axis.0.position" → "l1.control.reactor_a.encoder.axis.0.position"
 
-// cell_2 Supervisor 注册到不同域
-qos.set_security_domain("cell_2")?;
-// cell_2 的 keyexpr 查找 "cell_1/**" → 零结果
+// l3.supervisory 域 Supervisor 注册到不同域
+qos.set_security_domain("l3.supervisory.hmi")?;
+// l3.supervisory 的 keyexpr 查找 "l1.control.*" → 零结果
 ```
 
 ---
