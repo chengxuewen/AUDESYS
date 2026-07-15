@@ -18,7 +18,7 @@
 //! - D53: Phase 0 → Phase 1 M0.3 transition
 
 // Phase 0 token — proves workspace compiles & links.
-// Keep until Phase 1 M0.4 (amw_inproc implementation).
+// Superseded by amw_inproc crate (Phase 1 M0.4).
 #[derive(Debug)]
 pub struct HalCoreLinked;
 
@@ -37,8 +37,7 @@ pub mod qos;
 // ── Layer 6: Middleware ──
 pub mod middleware;
 
-// ── Phase 0 mock (remove in Phase 1 M0.4) ──
-pub mod mock_transport;
+// ── Phase 0 mock (removed in Phase 1 M0.4) ──
 
 // Re-exports for convenience
 pub use discovery::{DiscoveryEntry, DiscoveryEvent, HalDiscovery, WatchCallback, WatchHandle};
