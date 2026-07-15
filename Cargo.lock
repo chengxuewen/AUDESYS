@@ -3,23 +3,31 @@
 version = 4
 
 [[package]]
-name = "amw_inproc"
-version = "0.1.0"
-dependencies = [
- "audesys-hal-core",
-]
-
-[[package]]
 name = "anstyle"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
+name = "audesys-amw-inproc"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-core",
+]
+
+[[package]]
 name = "audesys-hal-core"
 version = "0.1.0"
 dependencies = [
  "mockall",
+]
+
+[[package]]
+name = "audesys-hal-flatbuffers"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-core",
+ "flatbuffers",
 ]
 
 [[package]]
@@ -64,14 +72,6 @@ name = "futures-core"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e3450815272ef58cec6d564423f6e755e25379b217b0bc688e295ba24df6b1d"
-
-[[package]]
-name = "hal-flatbuffers"
-version = "0.1.0"
-dependencies = [
- "audesys-hal-core",
- "flatbuffers",
-]
 
 [[package]]
 name = "mockall"

@@ -2,8 +2,8 @@
 resolver = "3"
 members = [
   "crates/audesys-hal-core",
-  "crates/amw_inproc",
-  "crates/hal-flatbuffers",
+  "crates/audesys-amw-inproc",
+  "crates/audesys-hal-flatbuffers",
 ]
 
 [workspace.package]
