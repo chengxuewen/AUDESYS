@@ -1,0 +1,5 @@
+# FB cross-language tests — generated code IS committed for schema version tracking
+__pycache__/
+*.pyc
+roundtrip
+*.bin
