@@ -42,8 +42,11 @@ Rules 中通过 `See skill: <name>` 引用 Skills，形成 "规则约束 → 技
 | `design-system` | `design-system/SKILL.md` | AUDESYS 工业控制平台 UI 设计系统：颜色、排版、组件、布局规范 |
 | `doc-audit` | `doc-audit/SKILL.md` | 文档架构审计：并行检查架构/设计/决策/参考之间的自洽性、完整性和缺口，交互式确认每项发现 |
 | `openspec-propose` | `openspec-propose/SKILL.md` | 一步生成完整变更提案：设计、规格、任务 |
-| `openspec-apply-change` | `openspec-apply-change/SKILL.md` | 实施变更中的任务：开始、继续、逐步执行 |
-| `openspec-archive-change` | `openspec-archive-change/SKILL.md` | 归档已完成变更：记录决策、更新记忆、清理产物 |
+| `openspec-apply-change` | `openspec-apply-change/SKILL.md` | 实施变更中的任务（OAI 工作流） |
+| `openspec-apply` | `openspec-apply/SKILL.md` | MSRCS 变更实施（C++17/Qt5.15/ROS2，MODACS 遗留） |
+| `openspec-archive-change` | `openspec-archive-change/SKILL.md` | 归档已完成变更（OAI 工作流） |
+| `openspec-archive` | `openspec-archive/SKILL.md` | MSRCS 变更归档（MODACS 遗留） |
+| `openspec-verify` | `openspec-verify/SKILL.md` | MSRCS 变更验证（MODACS 遗留） |
 | `openspec-explore` | `openspec-explore/SKILL.md` | 探索模式：思考伙伴，用于探索想法、调查问题、澄清需求 |
 | `openspec-sync-specs` | `openspec-sync-specs/SKILL.md` | 将 delta specs 同步到主规格（不归档变更） |
 
