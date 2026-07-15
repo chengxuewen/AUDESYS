@@ -50,50 +50,49 @@
 - **日期**: 2026-07-09
 - **决定**: 用三种正交原语覆盖四种系统（LinuxCNC / OpenPLC / ROS2 / dora-rs）的全部通信模式，不引入第 4 种
 - **理由**: Signal（单写多读最新值覆盖）与 StreamChannel（多写多读有缓冲队列）不可合并——ROS2 十年教训
-- **参考**: `docs/hal-detailed-design.md` §1
+- **参考**: `docs/modules/hal/hal-protocol-design.md`
 
 ## D11: amw 中间件抽象层 = HalTransport + HalDiscovery + HalQoS
 - **日期**: 2026-07-09
 - **决定**: 参考 ROS2 rmw 模式，定义 amw（AUDESYS Middleware）三极 trait，传输/发现/QoS 实现可替换
 - **理由**: 不绑死 Zenoh/DDS/MQTT，换实现不换 API。Phase 1 用 amw_inproc，Phase 2+ 用 amw_zenoh
-- **参考**: `docs/hal-detailed-design.md` §2–3
+- **参考**: `docs/modules/hal/amw-middleware-design.md`
 
 ## D12: 统一类型系统 = 14 种
 - **日期**: 2026-07-09
 - **决定**: 11 种标量（Bool/S8/U8/S16/U16/S32/U32/S64/U64/F32/F64）+ String + Blob + Array<T>
 - **理由**: 覆盖 IEC 61131-3 全部类型（TIME/DATE/TOD/DT 映射到现有数值类型），WSTRING 不引入（UTF-8 only），Blob 不进类型推导
-- **参考**: `docs/hal-detailed-design.md` §4
+- **参考**: `docs/modules/hal/iec-type-system-design.md`
 
 ## D13: 四系统混合线程调度
 - **日期**: 2026-07-09
 - **决定**: RT 线程 = LinuxCNC 显式函数列表 + ROS2 control 的 read→update→write 管线 + OpenPLC 扫描屏障 + dora-rs 事件驱动 I/O 线程
 - **理由**: 三类执行需求（硬实时控制 / I/O 通信 / 流数据）不能放进同一个调度模型
-- **参考**: `docs/detail/hal/thread-scheduling-design.md`
+- **参考**: `docs/modules/hal/thread-scheduling-design.md`
 
-## D14: HAL 详细设计 = 独立文档策略
-- **日期**: 2026-07-09
-- **决定**: HAL 详细设计独立为 `docs/hal-detailed-design.md`，不在 `docs/architecture.md` 内展开
-- **理由**: architecture.md 保持系统概览角色（~2300 行，6 个主章均衡），详细规范独立维护
-- **参考**: `docs/hal-detailed-design.md`（3,185 行，16 章）
+## D14: HAL 详细设计 = 模块化子文档（修订）
+- **日期**: 2026-07-09（原始），2026-07-15 修订
+- **决定**: HAL 详细设计维护为 `docs/modules/hal/` 目录下 18 份独立子文档，不再合并为单文档。`architecture.md` 按主题引用对应子文档。
+- **理由**: 子文档独立维护降低修改冲突，每份文档聚焦一个设计主题，可独立审核和更新。
+- **参考**: `docs/modules/hal/`（18 份子文档，覆盖 17 个设计主题）
 
-## D15: 文档目录结构 = detail/ 子目录
-- **日期**: 2026-07-09
-- **决定**: 独立设计文档放入 `docs/detail/{module}/` 子目录，合并后主文档在 `docs/` 根目录
-- **理由**: 减少 docs/ 根目录文件数量，按模块组织；主合并文档作为入口
-- **当前结构**: `docs/modules/hal/` 含 12 份子文档
-- **当前结构**: `docs/detail/hal/` 含 11 份子文档
+## D15: 文档目录结构 = modules/hal/ 子目录（修订）
+- **日期**: 2026-07-09（原始），2026-07-15 修订
+- **决定**: 设计文档放入 `docs/modules/{module}/` 子目录，每个子文档独立维护
+- **理由**: 减少单文件膨胀，按主题粒度组织；每份文档可被独立引用和版本追踪
+- **当前结构**: `docs/modules/hal/` 含 18 份子文档
 
 ## D16: 工业 QoS 三层执行
 - **日期**: 2026-07-09
 - **决定**: Deadline 在 RT 数据面（amw 内部同周期 tick 触发）、Liveliness 在控制面（Zenoh 原生）、Security Domain 在配置面（静态 keyexpr 标记）
 - **理由**: 不同维度的执行时间和可靠性要求不同，不能全放进 RT 线程
-- **参考**: `docs/hal-detailed-design.md` §3
+- **参考**: `docs/modules/hal/industrial-qos-design.md`
 
 ## D17: Config Barrier + LockLevel
 - **日期**: 2026-07-09
 - **决定**: 所有配置变更排队到 RT 周期边界批量应用（Config Barrier），LockLevel 从运行时锁变更为配置权限分级
 - **理由**: 多进程 Supervisor 可能随时发 RPC，不能依赖 LinuxCNC 式的开发者自觉。Run 级别拒绝所有 RPC
-- **参考**: `docs/detail/hal/config-barrier-design.md`
+- **参考**: `docs/modules/hal/config-barrier-design.md`
 
 ## D18: HAL 协议设计 = 团队审核驱动
 - **日期**: 2026-07-09
@@ -105,13 +104,13 @@
 - **日期**: 2026-07-09
 - **决定**: RT 数据面 Rust 独占（< 1μs），I/O 通信 Rust + C++ FlatBuffers over UDS（~10μs），控制面/HMI 15 种语言 FlatBuffers over Zenoh（~100μs）
 - **理由**: SCHED_FIFO 线程需要无 GC/无 JIT/无异步运行时，仅 Rust 满足。C++ FFI 桥接限非 RT 线程。FlatBuffers 作为统一跨语言序列化格式
-- **参考**: `docs/detail/hal/multi-language-strategy.md`
+- **参考**: `docs/modules/hal/multi-language-strategy.md`
 
-## D20: 参考文档库 = 22 篇竞品分析
+## D20: 参考文档库 = 41 篇竞品分析（含两轮扩展，22→41）
 - **日期**: 2026-07-13
-- **决定**: 建立 `docs/reference/` 参考文档库，覆盖 7 大类别 22 个工业自动化产品/项目
+- **决定**: 建立 `docs/reference/` 参考文档库，覆盖 12 大类别 41 个工业自动化产品/项目（原 22 篇，2026-07-15 扩展至 41 篇）
 - **理由**: 为 AUDESYS HAL/Studio/Runtime 设计提供竞品架构参考，避免闭门造车。每篇含"对 AUDESYS 参考价值"章节，直接将竞品架构映射到 AUDESYS 设计
-- **覆盖范围**: DCS（中控/和利时/Honeywell/Emerson）、软PLC（truST/QiTech/OpenPLC）、SCADA/组态（Ignition/KingView/FUXA/InTouch/LabVIEW）、仪器仪表/通信（HART/FF/PROFIBUS/OPC UA/RuSTy）、IDE/平台（CODESYS/Qtouch/Beckhoff/Siemens）、机器人/数据流（ROS2/dora-rs/LinuxCNC）
+- **覆盖范围**: DCS（中控/和利时/Honeywell/Emerson）、软PLC（truST/QiTech/OpenPLC）、SCADA/组态（Ignition/KingView/FUXA/InTouch/LabVIEW）、仪器仪表/通信（HART/FF/PROFIBUS/OPC UA/RuSTy）、IDE/平台（CODESYS/Qtouch/Beckhoff/Siemens）、机器人/数据流（ROS2/dora-rs/LinuxCNC）、3D打印机固件（Klipper/Marlin/Smoothieware/RepRapFirmware）、CNC控制器（Machinekit/GRBL/GRBLHAL/LinuxCNC-STM32）、FPGA运动控制卡（Pico-PPMC/RMC）、MCU智能固件（SimpleFOC/FluidNC）、现场总线协议栈（Beremiz/Forklift-PLC/4diac-FORTE/SOES/IgH EtherCAT/CANopenNode/CANfestival）
 - **文档格式**: 统一 7 章节（产品画像、技术特性、功能概览、现状与生态、市场定位、产品特色、对AUDESYS参考价值），≥800 行，中文撰写，技术术语保留英文原文
 
 ## D21: Studio IDE 技术栈 = Tauri + React + TypeScript
@@ -178,7 +177,7 @@
 - **G2**: 删除后文本连贯性 — 无指向已删除 MODACS 上下文的孤立引用
 - **G3**: @modacs/* 不自动替换 — 仅移除
 - **G4**: 每次修改后运行不区分大小写的 `grep -ri modacs` 验证
-- **G5**: HAL 详细文档统一入口为 `docs/hal-detailed-design.md`，子文档在 `docs/detail/hal/` 归档
+- **G5**: HAL 详细文档在 `docs/modules/hal/` 目录下各子文档独立维护，architecture.md 按主题引用对应子文档
 
 ## D31: 集成化实施路线图 = 统一里程碑表
 - **日期**: 2026-07-13
@@ -196,10 +195,10 @@
 - **日期**: 2026-07-13（原始），2026-07-13 修订
 - **决定**: 放弃 Ludwig v0.1 alpha，采用标准 Rust 测试 + AAA 模式直接从设计规范提取测试场景
 - **理由**: Ludwig v0.1 alpha（19 commits、1 维护者 bus factor=1、无 crates.io 发布、no-proptest yet）不满足生产级工具链可靠性要求。规范驱动开发增加中间产物维护成本（9 份 .md 文件），直接 TDD 提供同等可追溯性（// 来源注释）无工具风险。优先级 A 测试（类型系统 + HalQoS + Config Barrier）约 26 个纯逻辑测试在 HalTransport trait 定义前独立可测
-- **参考**: .agents/rules/common/testing.md（AAA 模式、80% 覆盖率、TDD 工作流）、docs/hal-detailed-design.md §1-7（测试场景提取源）、欧洲 XFEL 虚拟 PLC 验证模式（Phase 2 参考）
-- **决定**: 使用 Ludwig（github.com/samdvr/ludwig）将 Markdown 设计规范自动转换为 Rust test stubs
-- **理由**: 三层验证（结构性→确定性→判断性）最适合当前文档驱动状态。手工从 8 份设计规范编写测试会遗漏边界情况
-- **参考**: Ludwig 三步验证模型、SpecDD 源邻规范模式、SDD 分类学（arXiv 2602.00180）
+- **参考**: .agents/rules/common/testing.md（AAA 模式、80% 覆盖率、TDD 工作流）、`docs/modules/hal/` 各子文档（测试场景提取源）、欧洲 XFEL 虚拟 PLC 验证模式（Phase 2 参考）
+- ~~**决定**: 使用 Ludwig（github.com/samdvr/ludwig）将 Markdown 设计规范自动转换为 Rust test stubs~~ *[已于2026-07-13废弃，见上方修订]*
+- ~~**理由**: 三层验证（结构性→确定性→判断性）最适合当前文档驱动状态。手工从 8 份设计规范编写测试会遗漏边界情况~~
+- ~~**参考**: Ludwig 三步验证模型、SpecDD 源邻规范模式、SDD 分类学（arXiv 2602.00180）~~
 
 ## D34: 模块构建顺序 = hal-core 驱动并行
 - **日期**: 2026-07-13

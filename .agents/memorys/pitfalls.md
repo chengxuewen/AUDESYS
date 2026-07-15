@@ -14,7 +14,7 @@
 
 ### 架构文档膨胀
 - **问题**: HAL 详细设计曾尝试放入 architecture.md，导致 HAL 章节体积为其他章节的 10 倍
-- **方案**: D14 — 独立 `docs/hal-detailed-design.md`（3,185 行）作为详细规范，architecture.md §一 用一行跨引用指向。子文档放入 `docs/detail/hal/`
+- **方案**: D14 — HAL 详细设计维护为 `docs/modules/hal/` 下 18 份独立子文档，architecture.md §一 按主题引用对应子文档。
 
 ### 延迟声明不可验证
 - **问题**: 原始延迟声明（< 1μs, ~10μs）不带前提条件和验证方法，属于"乐观估计"

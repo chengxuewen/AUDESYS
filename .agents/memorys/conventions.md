@@ -20,10 +20,10 @@
 
 ## 文档组织
 - 架构概览：`docs/architecture.md`（系统级，各模块均衡）
-- 详细设计主文档：`docs/{module}-detailed-design.md`（独立维护，不膨胀架构文档）
+- 详细设计主文档：`docs/{module}-detailed-design.md`（独立维护，不膨胀架构文档）。HAL 例外：采用 `docs/modules/hal/` 子文档模式（D14/D15）
 - 子文档归档：`docs/modules/{module}/`（独立设计文档、审核输出、对比分析）
 - 参考文档：`docs/reference/{产品名}.md`（竞品分析，独立文件）
-- 跨引用模式：architecture.md §X 内用 `详见 docs/hal-detailed-design.md` 一行指向
+- 跨引用模式：architecture.md §X 内用 `详见 docs/modules/hal/<子文档>.md` 一行指向
 
 ## 提交规范
 - 格式：遵循 conventional commits 规范（feat/fix/docs/chore/refactor）
@@ -45,7 +45,7 @@
 - 禁止 `console.log`（生产代码），禁止 `as any` / `@ts-ignore`
 
 ## HAL 协议设计约定
-- 命名规范：Signal = `component.interface.name`，StreamChannel = `domain.stream_name`，Action = `action.{id}.{status|feedback}`
+- 命名规范：Signal = `component.interface.name`，StreamChannel = `domain.stream_name`，RPC = `action.{id}.{status|feedback}`（命名模式，非第四原语）
 - 组件名：kebab-case，Pin 名：snake_case
 - 禁止桥接外部协议 — AUDESYS HAL 是原生协议，被移植代码改造后以 HAL 为原生通信层
 - 端口/功能：移植自 LinuxCNC/OpenPLC/ROS2/dora-rs 功能以 HAL 原语对接，非协议桥接
