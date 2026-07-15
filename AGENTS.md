@@ -6,7 +6,7 @@
 **Branch:** `main`
 
 ## OVERVIEW
-AUDESYS — 工业控制系统运行时模拟平台。从 MODACS 分离，聚焦 Studio IDE、Runtime 运行时、Simulator 仿真器、HAL 硬件抽象层。当前早期阶段，零源代码，HAL 详细设计已完成（3 专家团队审核），参考文档库已建成（22 篇竞品分析）。
+AUDESYS — 工业控制系统运行时模拟平台。从 MODACS 分离，聚焦 Studio IDE、Runtime 运行时、Simulator 仿真器、HAL 硬件抽象层。当前早期阶段，零源代码，HAL 详细设计已完成（3 专家团队审核），参考文档库已建成（41 篇竞品分析）。
 
 ## STRUCTURE
 ```
@@ -21,16 +21,10 @@ AUDESYS/
 │   └── memorys/        # 4 个项目记忆文件（status/conventions/decisions/pitfalls）
 ├── docs/
 │   ├── architecture.md           # ~1,700 行 — 系统架构概览（6 主章）
-│   ├── hal-detailed-design.md    # 3,400+ 行 — HAL 详细设计（17 章，合并自 12 份子文档）
 │   ├── modules/                  # 按模块组织的详细设计子文档
-│   │   └── hal/                  # 12 份 HAL 子文档（设计稿、审核输出、多语言策略）
-│   ├── reference/                # 22 篇竞品参考文档（DCS/SCADA/软PLC/组态/仪表/IDE）
-│   ├── architecture.md           # ~1,700 行 — 系统架构概览（6 主章）
-│   ├── hal-detailed-design.md    # 3,400+ 行 — HAL 详细设计（17 章，合并自 12 份子文档）
-│   ├── reference/                # 22 篇竞品参考文档（DCS/SCADA/软PLC/组态/仪表/IDE）
-│   └── detail/hal/               # 12 份 HAL 子文档（设计稿、审核输出、多语言策略）
-│   ├── hal-detailed-design.md    # 3,400+ 行 — HAL 详细设计（17 章，合并自 12 份子文档）
-│   └── detail/hal/               # 12 份 HAL 子文档（设计稿、审核输出、多语言策略）
+│   │   └── hal/                  # 18 份 HAL 子文档（独立维护，覆盖 17 个设计主题）
+│   ├── reference/                # 41 篇竞品参考文档（12 大类别）
+│   ├── plans/                    # P0 实施计划文档
 ├── SKILL.md            # 技能注册表（superpowers + 项目专属 + agents）
 ├── AGENTS.md           # 本文件 — 项目知识库入口
 ├── README.md           # 项目简介
@@ -47,8 +41,7 @@ AUDESYS/
 | 架构决策 | `.agents/memorys/decisions.md` | D1-D19 + G1-G5 |
 | 编码约定 | `.agents/memorys/conventions.md` | 命名、不可变性、TS 规范、HAL 设计约定 |
 | 已知坑点 | `.agents/memorys/pitfalls.md` | MODACS 适配 + HAL 设计审核 |
-| HAL 详细设计 | `docs/hal-detailed-design.md` | 协议原语、amw、类型系统、线程调度、多语言等 17 章 |
-| HAL 子文档 | `docs/modules/hal/` | 12 份独立设计文档 + 对比分析 |
+| HAL 详细设计 | `docs/modules/hal/` | 18 份独立子文档：协议原语、amw、类型系统、线程调度、多语言等 17 个设计主题 |
 | 架构文档 | `docs/architecture.md` | 系统级模块概览、HAL §一 精简到 168 行交叉引用 |
 | 多语言策略 | `docs/modules/hal/multi-language-strategy.md` | Rust/C++/15 语言三层架构 + FlatBuffers |
 | 语言规则 | `.agents/rules/{lang}/` | 各语言专属规则 |
@@ -56,7 +49,7 @@ AUDESYS/
 | Agent 使用指南 | `.opencode/agent-guide.md` | OMO 编排体系、5 层模型路由 |
 | 技能注册表 | `SKILL.md` | superpowers + 项目专属技能清单 |
 | 通用规则 | `.agents/rules/common/` | 安全、编码风格、测试、Git 工作流 |
-| 参考文档库 | `docs/reference/` | 22 篇竞品分析（DCS/SCADA/软PLC/组态/仪表/IDE），每篇 ≥800 行 |
+| 参考文档库 | `docs/reference/` | 41 篇竞品分析（12 大类别），每篇 ≥800 行 |
 | 安全规则 | `.agents/rules/common/security.md` | Secret management、XSS、CSRF |
 
 ## CODE MAP
@@ -67,7 +60,7 @@ _当前无源代码。以下为架构文档中规划的模块：_
 | Studio IDE (§11) | 🔲 计划中 | `apps/studio` + `packages/studio-core/` |
 | Runtime (§6) | 🔲 计划中 | `apps/runtime/`（6 模块套件） |
 | Simulator (§15) | 🔮 Phase 3/4 | AVD Manager（7 种虚拟设备） |
-| HAL 硬件抽象 | 🟡 详细设计完成 | `docs/hal-detailed-design.md` |
+| HAL 硬件抽象 | 🟡 详细设计完成 | `docs/modules/hal/`（18 份子文档） |
 | 工业调试桥 | 🔲 计划中 | — |
 | 实时控制 | 🔲 计划中 | — |
 
@@ -77,7 +70,7 @@ _当前无源代码。以下为架构文档中规划的模块：_
 - **去 MODACS 化**: 保持零 MODACS 残留，每次修改后运行 `grep -ri modacs . --exclude-dir=.git --exclude-dir=.sisyphus`
 - **精确编辑**: 不全局 MODACS→AUDESYS 替换，使用手术式编辑
 - **@modacs/* 移除**: 移除所有 `@modacs/*` 引用，不自动替换为 `@audesys/*`
-- **文档组织**: 概览 → `architecture.md`，详细设计 → `{module}-detailed-design.md`，子文档 → `detail/{module}/`
+- **文档组织**: 概览 → `architecture.md`，详细设计 → `docs/modules/{module}/` 子文档
 
 ### TypeScript
 - 公共 API 显式类型注解
