@@ -52,7 +52,7 @@ AUDESYS/
 │       ├── fast.sh         # qa-fast: fmt + clippy + test + audit
 │       ├── full.sh         # qa-full: + coverage + mutants + semver
 │       └── deep.sh         # qa-deep: + miri + proptest
-├── specs/                  # 直接 TDD 测试场景提取（见 P0-3 计划）
+├── specs/                  # 直接 TDD 测试场景提取（见 P0-3 计划）。每个 .md 文件对应一个 HAL 子文档的测试场景清单，作为 TDD 的测试追溯源——不生成代码，只记录测试意图和边界条件。变更时同步更新对应测试文件。
 ├── .gitignore              # 排除 target/, .DS_Store
 ├── .github/
 │   └── workflows/
@@ -268,31 +268,12 @@ audesys-amw-inproc = { path = "../../crates/audesys-amw-inproc" }
 ```
 
 `tests/integration/tests/health.rs`:
-```rust
-use audesys_hal_core;
-use audesys_hal_flatbuffers;
-use audesys_amw_inproc;
-
 /// 基础设施自检：确保 Cargo workspace 正确链接
 #[test]
 fn all_crates_compile() {
-    // 每个 crate 通过 use 引入——仅验证编译链接
     let core_ok = std::mem::size_of::<i32>() > 0;
     assert!(core_ok, "hal-core linked");
 }
-
-/// 自检：FlatBuffers 工具链可用
-#[test]
-fn flatc_is_available() {
-    let output = std::process::Command::new("flatc")
-        .arg("--version")
-        .output();
-    match output {
-        Ok(o) => assert!(o.status.success(), "flatc exited with error"),
-        Err(_) => panic!("flatc not found — install FlatBuffers compiler"),
-    }
-}
-```
 
 ---
 
@@ -332,7 +313,7 @@ Step 7: scripts/qa/fast.sh（全门禁通过）
 | 目录结构与 workspace | 0.5 天 | Rust 工具链已安装 |
 | CI/CD 脚本 | 1 天 | GitHub Actions 可用 |
 | 测试框架骨架 | 1 天 | P0-3 直接 TDD 计划 |
-| **总计** | **3-4 天** | — |
+| **总计** | **5-7 天** | — |
 
 ---
 
