@@ -9,3 +9,4 @@ description = "AUDESYS HAL core trait definitions — L1 RT data plane"
 
 [dev-dependencies]
 mockall = { version = "0.13", default-features = false }
+audesys-amw-inproc = { path = "../audesys-amw-inproc" }

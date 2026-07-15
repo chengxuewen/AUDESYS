@@ -19,6 +19,7 @@ dependencies = [
 name = "audesys-hal-core"
 version = "0.1.0"
 dependencies = [
+ "audesys-amw-inproc",
  "mockall",
 ]
 
