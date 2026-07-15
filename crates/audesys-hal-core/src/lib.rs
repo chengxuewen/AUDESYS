@@ -23,9 +23,9 @@
 pub struct HalCoreLinked;
 
 // ── Layer 0-1: Foundation types ──
+pub mod encoding;
 pub mod types;
 pub mod value;
-
 // ── Layer 2-3: Communication primitives ──
 pub mod stream;
 pub mod transport;
@@ -41,6 +41,7 @@ pub mod middleware;
 
 // Re-exports for convenience
 pub use discovery::{DiscoveryEntry, DiscoveryEvent, HalDiscovery, WatchCallback, WatchHandle};
+pub use encoding::{decode_halvalue, encode_halvalue};
 pub use middleware::{
     AmwConfig, AmwFactory, AmwMetrics, AmwMiddleware, AuditEvent, AuditLog, AuditResult,
 };
