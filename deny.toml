@@ -1,0 +1,24 @@
+# deny.toml — AUDESYS dependency audit
+#
+# Phase 0: license compliance + security advisory check
+# Phase 1: add duplicate detection, source verification
+
+[advisories]
+vulnerability = "deny"
+unmaintained = "warn"
+yanked = "deny"
+
+[licenses]
+unlicensed = "deny"
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "Unicode-3.0",
+]
+copyleft = "warn"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"

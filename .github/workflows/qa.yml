@@ -1,0 +1,57 @@
+# AUDESYS CI/CD — qa-fast workflow (Phase 0)
+# Gates: cargo test + clippy + fmt + deny + unwrap-budget
+# OS matrix: macOS + Linux (Windows deferred to Phase 1 per D21)
+#
+# D32: CI-first — infrastructure before code
+# D36: Progressive CI — qa-fast at every commit
+
+name: qa-fast
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  qa-fast:
+    name: qa-fast (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install system dependencies
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update && sudo apt-get install -y flatbuffers-compiler
+          else
+            brew install flatbuffers
+          fi
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ matrix.os }}-cargo-
+
+      - name: Run qa-fast
+        run: bash scripts/qa-fast.sh
