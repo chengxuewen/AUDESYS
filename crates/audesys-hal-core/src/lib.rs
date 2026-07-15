@@ -1,27 +1,58 @@
-//! AUDESYS HAL Core — trait definitions for L1 RT data plane.
+//! AUDESYS HAL Core — hardware abstraction layer foundation.
 //!
-//! Phase 0: trait stubs only.
-//! Phase 1: concrete types + amw_inproc implementation.
+//! # Architecture (D10-D19)
+//! - Signal: single-writer, multi-reader, latest-value
+//! - StreamChannel: multi-writer, multi-reader, ordered-queue
+//! - RPC: request/reply with idempotency
 //!
 //! # Decision references
-//! - D10: Signal / StreamChannel / RPC three primitives
-//! - D12: 14-type unified type system
-//! - D16: HalQoS three dimensions
-//! - D19: Rust RT data plane
+//! - D10: three-primitive design
+//! - D11: amw middleware abstraction
+//! - D12: 14-type unified system
+//! - D13: four-system hybrid scheduling
+//! - D16: industrial QoS three-layer
+//! - D17: Config Barrier + LockLevel
+//! - D19: multi-language FlatBuffers
+//! - D33: direct TDD (no Ludwig)
+//! - D50: test-harness auto-generation
+//! - D53: Phase 0 → Phase 1 M0.3 transition
 
-/// A zero-sized token proving hal-core is linked.
-/// Used by the Phase 0 health check test.
+// Phase 0 token — proves workspace compiles & links.
+// Keep until Phase 1 M0.4 (amw_inproc implementation).
+#[derive(Debug)]
 pub struct HalCoreLinked;
 
-// ── Mock Transport (Phase 0 — test infrastructure) ──
+// ── Layer 0-1: Foundation types ──
+pub mod types;
+pub mod value;
 
-/// Mock HalTransport for unit testing Priority B tests (~37 tests).
-///
-/// In Phase 1, use [mockall](https://docs.rs/mockall) for auto-generation.
-/// Phase 0: manual mock struct — see `mock_transport.rs`.
-///
-/// Hand-written mock — real `HalTransport` trait defined in Phase 1.
-/// 来源: docs/modules/hal/hal-protocol-design.md Signal §
+// ── Layer 2-3: Communication primitives ──
+pub mod stream;
+pub mod transport;
+
+// ── Layer 4-5: Service abstractions ──
+pub mod discovery;
+pub mod qos;
+
+// ── Layer 6: Middleware ──
+pub mod middleware;
+
+// ── Phase 0 mock (remove in Phase 1 M0.4) ──
 pub mod mock_transport;
 
-// ponytail: trait stubs only — implementations in Phase 1
+// Re-exports for convenience
+pub use discovery::{DiscoveryEntry, DiscoveryEvent, HalDiscovery, WatchCallback, WatchHandle};
+pub use middleware::{
+    AmwConfig, AmwFactory, AmwMetrics, AmwMiddleware, AuditEvent, AuditLog, AuditResult,
+};
+pub use qos::{
+    ConfigCommand, ConfigStatus, DeadlineCallback, DeadlineHandle, HalQoS, LivelinessStatus,
+    LockLevel,
+};
+pub use stream::{StreamReader, StreamWriter};
+pub use transport::{HalTransport, RpcHandler, SignalCallback};
+pub use types::{
+    CircuitBreakerAction, CircuitBreakerConfig, ConsumerErrorPolicy, HalError, HalPinDirection,
+    HalPinType, HalResult, Metadata, QueuePolicy, StreamConfig, Subscription, Timestamp,
+};
+pub use value::HalValue;
