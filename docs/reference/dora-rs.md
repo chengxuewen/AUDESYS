@@ -919,14 +919,14 @@ AUDESYS HAL 继承了 ROS2 社区十年验证的教训（D10：Signal 与 Stream
 
 **AUDESYS HAL 中的借鉴：**
 
-1. **4KB SHM 阈值**（`docs/hal-detailed-design.md` 明确参考）：
+1. **4KB SHM 阈值**（`docs/modules/hal/` 明确参考）：
    ```yaml
    # AUDESYS StreamChannel
    shm_threshold: 4KB        # >= 4KB 走 Zenoh SHM 零拷贝
    ```
    与 dora-rs 的 `ZERO_COPY_THRESHOLD` 设计一致。
 
-2. **Blob 透传模式**（`docs/hal-detailed-design.md` §多语言策略）：
+2. **Blob 透传模式**（`docs/modules/hal/multi-language-strategy.md`）：
    ```
    小控制报文用 FlatBuffers 零拷贝访问标量，
    大载荷走 Blob 透传（HAL 不解析 Arrow IPC / Protobuf / CAN frame）。
@@ -975,7 +975,7 @@ dora-rs 的多语言模型与 AUDESYS 的 D19 决策（多语言策略 = Rust Co
 **关键启示：**
 
 1. **Python 在非 RT 路径可用**：dora-rs 证明了 Python（通过 PyO3）可以在非 RT 的数据处理和 AI 推理路径中有效使用，只要不进入 RT 线程
-2. **Arrow vs FlatBuffers 不是互斥的**：两者可在同一系统中分层使用 — FlatBuffers 处理小标量控制消息（HAL 原生类型），Arrow/Protobuf 通过 Blob 透传处理大载荷（参考 `docs/hal-detailed-design.md` §多语言策略）
+2. **Arrow vs FlatBuffers 不是互斥的**：两者可在同一系统中分层使用 — FlatBuffers 处理小标量控制消息（HAL 原生类型），Arrow/Protobuf 通过 Blob 透传处理大载荷（参考 `docs/modules/hal/multi-language-strategy.md`）
 
 ### 7.5 Operator 调度模型 — 对 AUDESYS D13 的验证
 
@@ -984,7 +984,7 @@ AUDESYS D13 设计了四系统混合线程调度模型（RT 线程 + I/O 线程 
 | AUDESYS D13 调度路径 | dora-rs 对应实践 | 验证结论 |
 |---------------------|-----------------|---------|
 | **RT 线程**（LinuxCNC 显式函数列表） | dora-rs：`--rt` flag（SCHED_FIFO + mlockall + CPU affinity） | dora-rs 实践验证了 **SCHED_FIFO + CPU 亲和性** 是有效的软实时方案，但需 PREEMPT_RT 内核才能达到硬实时 |
-| **I/O 线程**（dora-rs 事件驱动） | dora-rs：Tokio 异步 I/O，事件驱动 Node 循环 | 验证了 `docs/hal-detailed-design.md` §5.1.4 的判断："dora-rs 是事件驱动的，不存在固定周期"（第 796-821 行） |
+| **I/O 线程**（dora-rs 事件驱动） | dora-rs：Tokio 异步 I/O，事件驱动 Node 循环 | 验证了 `docs/modules/hal/thread-scheduling-design.md` 的判断："dora-rs 是事件驱动的，不存在固定周期"（第 796-821 行） |
 | **Stream Worker**（dora-rs 风格事件驱动） | dora-rs：Node 在 for 循环中阻塞接收事件 | 对应 AUDESYS 的 "数据流路径吞吐优先—借鉴 dora-rs 事件驱动"（第 839 行） |
 | **控制周期**（OpenPLC 扫描屏障） | dora-rs：定时器 `dora/timer/millis/N` | dora-rs 的定时器模式可作为周期控制的参考，但缺少 OpenPLC 的扫描屏障语义 |
 

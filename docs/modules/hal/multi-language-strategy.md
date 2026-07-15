@@ -1,6 +1,7 @@
-# AUDESYS HAL 多语言策略
+> 拆分自 docs/hal-detailed-design.md（2026-07-15）
 
-> 生成日期：2026-07-09
+## 10. 多语言策略
+
 > 设计目标：定义 HAL 的多语言支持分层策略，RT 线程纯 Rust，跨语言走 FlatBuffers
 
 ---
@@ -98,8 +99,8 @@ pub extern "C" fn hal_signal_read_pin(
 
 | | FlatBuffers | Protobuf | Cap'n Proto | 裸 struct |
 |---|---|---|---|---|
-| 零拷贝读取 | ✅ | ❌（需 deserialize）| ✅ | ✅ |
-| 无 heap 分配（读取）| ✅ | ❌ | ✅ | ✅ |
+| 零拷贝读取 | ✅ | ❌（需 deserialize） | ✅ | ✅ |
+| 无 heap 分配（读取） | ✅ | ❌ | ✅ | ✅ |
 | 跨语言代码质量 | ✅ 优秀 | ✅ 优秀 | ⚠️ 参差不齐 | ❌ 需手动 |
 | 生成代码体积 | 4KB | 61KB | 中等 | 0KB（无生成器）|
 | 支持语言数 | 15（官方）| 11+ | 8+ | — |
@@ -195,3 +196,5 @@ flatc --python -o py_bindings/ hal_value.fbs signal.fbs
 | 不引入 gRPC/Thrift | 微秒级控制无法承受 HTTP/2 + TLS 开销。非 RT 层已有 JSON-RPC 覆盖控制面 |
 | 不引入 WASM 组件模型 | JIT 非确定性 + 零工业 RT 案例。作为长期跟踪（Phase 4+），非当前方向 |
 | 按 Phase 逐步开放语言 | 先 Rust（L1），再 C++（L2 驱动），再 Python/Node（L3 配置），最后 Go/Java（L3 企业集成）|
+
+---

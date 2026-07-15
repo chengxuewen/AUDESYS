@@ -719,7 +719,7 @@ Beckhoff 在开源和生态开放性方面有独特策略：
 **生态开放性的核心价值**：Beckhoff 的开放策略是其竞争力的关键。EtherCAT 协议开源使得任何厂商都可以开发 EtherCAT 设备，TwinCAT 的开放接口（ADS、TcCOM）使得第三方可以开发集成方案。这种"核心闭源 + 接口开放"的模式在工业软件领域是成功的范式。
 | 可发现性 | AMS Router 路由表（静态配置 + 动态注册） | HalDiscovery（目前定为 amw 内置） |
 | 安全性 | Secure ADS（Build 4026+），ADS-over-MQTT | HalQoS Security Domain 隔离 |
-| 协议开放度 | 完全公开（Beckhoff 提供完整规范的 PDF） | HAL 详细设计中（docs/hal-detailed-design.md） |
+| 协议开放度 | 完全公开（Beckhoff 提供完整规范的 PDF） | HAL 详细设计中（docs/modules/hal/） |
 
 **AUDESYS 借鉴点**：
 1. ADS 的 **Index Group / Index Offset 寻址**展示了用数值对替代字符串命名的性能优势。AUDESYS 的 Signal 命名（component.interface.name）可考虑在内部表示中编译为数值对以提高运行时效率
