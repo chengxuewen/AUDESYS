@@ -369,7 +369,12 @@ fn test_s_qos_023() {
     ];
     // Monotonic: each is less than or equal to the next
     for i in 0..levels.len() - 1 {
-        assert!(levels[i] <= levels[i + 1], "LockLevel {:?} should be <= {:?}", levels[i], levels[i + 1]);
+        assert!(
+            levels[i] <= levels[i + 1],
+            "LockLevel {:?} should be <= {:?}",
+            levels[i],
+            levels[i + 1]
+        );
     }
     // Explicit PartialOrd check
     assert!(LockLevel::None < LockLevel::Load);

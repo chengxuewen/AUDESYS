@@ -6,7 +6,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use audesys_amw_inproc::{create_stream_channel, InprocFactory, InprocTransport, StaticDiscovery};
+use audesys_amw_inproc::{InprocFactory, InprocTransport, StaticDiscovery, create_stream_channel};
 use audesys_hal_core::{
     AmwConfig, AmwFactory, AmwMiddleware, ConsumerErrorPolicy, DiscoveryEvent, HalDiscovery,
     HalTransport, HalValue, QueuePolicy, StreamConfig, Timestamp,
@@ -15,10 +15,7 @@ use audesys_hal_core::{
 // ── helpers ──
 
 fn now_ts() -> Timestamp {
-    Timestamp {
-        secs: 1,
-        micros: 0,
-    }
+    Timestamp { secs: 1, micros: 0 }
 }
 
 fn default_stream_config() -> StreamConfig {
@@ -46,10 +43,8 @@ fn test_s_sig_001() {
     let ts = now_ts();
 
     // Act
-    t.publish_signal("motor.speed", HalValue::F32(100.0), ts)
-        .unwrap();
-    t.publish_signal("motor.speed", HalValue::F32(200.0), ts)
-        .unwrap();
+    t.publish_signal("motor.speed", HalValue::F32(100.0), ts).unwrap();
+    t.publish_signal("motor.speed", HalValue::F32(200.0), ts).unwrap();
     let (val, _) = t.read_signal("motor.speed").unwrap().unwrap();
 
     // Assert
@@ -79,8 +74,7 @@ fn test_s_sig_002() {
 
     let ts = now_ts();
     // Act
-    t.publish_signal("sensor.temp", HalValue::F64(42.5), ts)
-        .unwrap();
+    t.publish_signal("sensor.temp", HalValue::F64(42.5), ts).unwrap();
 
     // Assert — both readers received the same value
     assert_eq!(received_a.lock().unwrap().len(), 1);
@@ -123,8 +117,7 @@ fn test_s_sig_004() {
     )
     .unwrap();
 
-    t.publish_signal("motor.speed", HalValue::F32(50.0), ts)
-        .unwrap();
+    t.publish_signal("motor.speed", HalValue::F32(50.0), ts).unwrap();
 
     // pull mode
     let (pull_val, _) = t.read_signal("motor.speed").unwrap().unwrap();
@@ -134,8 +127,7 @@ fn test_s_sig_004() {
     assert_eq!(pushed.lock().unwrap().len(), 1);
 
     // pull_batch mode
-    t.publish_signal("motor.torque", HalValue::F32(75.0), ts)
-        .unwrap();
+    t.publish_signal("motor.torque", HalValue::F32(75.0), ts).unwrap();
     let snap = t.snapshot_signals("motor.*").unwrap();
     assert!(!snap.is_empty());
 }
@@ -156,8 +148,7 @@ fn test_s_sig_005() {
 
     let ts = now_ts();
     // Act
-    t.publish_signal("io.digital.input.0", HalValue::Bool(true), ts)
-        .unwrap();
+    t.publish_signal("io.digital.input.0", HalValue::Bool(true), ts).unwrap();
 
     // Assert — callback already executed (synchronous)
     let vals = received.lock().unwrap();
@@ -173,10 +164,8 @@ fn test_s_sig_006() {
     let ts = now_ts();
 
     // Act — publish with optional interface segment
-    t.publish_signal("motion.axis.0.pos", HalValue::F64(1.5), ts)
-        .unwrap(); // with interface
-    t.publish_signal("robot.cmd_vel", HalValue::F64(0.3), ts)
-        .unwrap(); // without interface
+    t.publish_signal("motion.axis.0.pos", HalValue::F64(1.5), ts).unwrap(); // with interface
+    t.publish_signal("robot.cmd_vel", HalValue::F64(0.3), ts).unwrap(); // without interface
 
     // Assert — both readable
     assert!(t.read_signal("motion.axis.0.pos").unwrap().is_some());
@@ -195,7 +184,7 @@ fn test_s_sig_007() {
     let valid_names = [
         "io.digital.input.0",
         "plc.rack0.slot3.di5",
-        "a", // minimal
+        "a",           // minimal
         "motion.axis", // two segments
     ];
 
@@ -230,26 +219,13 @@ fn test_s_sig_008() {
     )
     .unwrap();
 
-    let ts = Timestamp {
-        secs: 99,
-        micros: 500_000,
-    };
+    let ts = Timestamp { secs: 99, micros: 500_000 };
     // Act
-    t.publish_signal("callback.test", HalValue::String("hello".into()), ts)
-        .unwrap();
+    t.publish_signal("callback.test", HalValue::String("hello".into()), ts).unwrap();
 
     // Assert
-    assert_eq!(
-        received_val.lock().unwrap().as_ref(),
-        Some(&HalValue::String("hello".into()))
-    );
-    assert_eq!(
-        *received_ts.lock().unwrap(),
-        Some(Timestamp {
-            secs: 99,
-            micros: 500_000,
-        })
-    );
+    assert_eq!(received_val.lock().unwrap().as_ref(), Some(&HalValue::String("hello".into())));
+    assert_eq!(*received_ts.lock().unwrap(), Some(Timestamp { secs: 99, micros: 500_000 }));
 }
 
 #[test]
@@ -265,8 +241,7 @@ fn test_s_sig_009() {
 
     // Act — Blob payload (within limits)
     let blob_data = vec![0xABu8; 1024]; // 1KB
-    t.publish_signal("blob_sig", HalValue::Blob(blob_data.clone()), ts)
-        .unwrap();
+    t.publish_signal("blob_sig", HalValue::Blob(blob_data.clone()), ts).unwrap();
     let (val, _) = t.read_signal("blob_sig").unwrap().unwrap();
     // Assert
     assert_eq!(val, HalValue::Blob(blob_data));
@@ -283,8 +258,7 @@ fn test_s_sig_010() {
 
     // Act — 1000 publish/read roundtrips
     for i in 0..1000 {
-        t.publish_signal("latency.test", HalValue::S32(i), ts)
-            .unwrap();
+        t.publish_signal("latency.test", HalValue::S32(i), ts).unwrap();
         let (val, _) = t.read_signal("latency.test").unwrap().unwrap();
         // Assert
         assert_eq!(val, HalValue::S32(i));
@@ -371,11 +345,9 @@ fn test_s_ch_003() {
     let ts = now_ts();
 
     // Default depth (256)
-    let (w1, r1) = create_stream_channel(StreamConfig {
-        queue_depth: 256,
-        ..default_stream_config()
-    })
-    .unwrap();
+    let (w1, r1) =
+        create_stream_channel(StreamConfig { queue_depth: 256, ..default_stream_config() })
+            .unwrap();
     for i in 0..10 {
         w1.write(HalValue::S32(i), ts).unwrap();
     }
@@ -386,11 +358,8 @@ fn test_s_ch_003() {
     assert_eq!(count, 10);
 
     // Minimum depth (1)
-    let (w2, _r2) = create_stream_channel(StreamConfig {
-        queue_depth: 1,
-        ..default_stream_config()
-    })
-    .unwrap();
+    let (w2, _r2) =
+        create_stream_channel(StreamConfig { queue_depth: 1, ..default_stream_config() }).unwrap();
     // With depth=1 and DropOldest, writes succeed (oldest dropped)
     w2.write(HalValue::S32(100), ts).unwrap();
     w2.write(HalValue::S32(200), ts).unwrap(); // drops 100
@@ -460,10 +429,8 @@ fn test_s_ch_005() {
     // The error_policy is set at channel creation. Test that the default
     // Notify policy is accepted and the channel operates normally.
     // Arrange
-    let config = StreamConfig {
-        error_policy: ConsumerErrorPolicy::Notify,
-        ..default_stream_config()
-    };
+    let config =
+        StreamConfig { error_policy: ConsumerErrorPolicy::Notify, ..default_stream_config() };
     let (writer, reader) = create_stream_channel(config).unwrap();
     let ts = now_ts();
 
@@ -480,10 +447,7 @@ fn test_s_ch_006() {
     // S-CH-006: Circuit Breaker — optional; Phase 1 default is off.
     // Test that circuit_breaker: None is accepted and channel works.
     // Arrange
-    let config = StreamConfig {
-        circuit_breaker: None,
-        ..default_stream_config()
-    };
+    let config = StreamConfig { circuit_breaker: None, ..default_stream_config() };
     let (writer, reader) = create_stream_channel(config).unwrap();
     let ts = now_ts();
 
@@ -500,10 +464,7 @@ fn test_s_ch_007() {
     // S-CH-007: SHM Threshold — default 4096. Messages below threshold
     // use normal serialized path.
     // Arrange
-    let config = StreamConfig {
-        shm_threshold_bytes: 4096,
-        ..default_stream_config()
-    };
+    let config = StreamConfig { shm_threshold_bytes: 4096, ..default_stream_config() };
     let (writer, reader) = create_stream_channel(config).unwrap();
     let ts = now_ts();
 
@@ -528,8 +489,7 @@ fn test_s_ch_008() {
 
     // Act — use domain.stream_name pattern for associated signals
     let t = InprocTransport::new();
-    t.publish_signal("lidar.scan.ranges", HalValue::Blob(vec![1, 2, 3]), ts)
-        .unwrap();
+    t.publish_signal("lidar.scan.ranges", HalValue::Blob(vec![1, 2, 3]), ts).unwrap();
     writer.write(HalValue::Blob(vec![1, 2, 3]), ts).unwrap();
 
     // Assert — both domain-named signal and stream work
@@ -557,9 +517,7 @@ fn test_s_ch_009() {
 
     // Act — String payload
     let msg = "hello stream";
-    writer
-        .write(HalValue::String(msg.to_string()), ts)
-        .unwrap();
+    writer.write(HalValue::String(msg.to_string()), ts).unwrap();
     let (val, _) = reader.read().unwrap().unwrap();
     assert_eq!(val, HalValue::String(msg.to_string()));
 }
@@ -607,8 +565,7 @@ fn test_s_rpc_001() {
     // exactly one response.
     // Arrange
     let t = InprocTransport::new();
-    t.register_rpc_handler("echo", Box::new(|params| Ok(params.to_vec())))
-        .unwrap();
+    t.register_rpc_handler("echo", Box::new(|params| Ok(params.to_vec()))).unwrap();
 
     // Act
     let result = t.rpc_call("echo", b"hello_rpc", 1000).unwrap();
@@ -624,17 +581,22 @@ fn test_s_rpc_002() {
     // concurrent RPC calls to different methods don't cross responses.
     // Arrange
     let t = InprocTransport::new();
-    t.register_rpc_handler("upper", Box::new(|params| {
-        let s = std::str::from_utf8(params).map_err(|_| {
-            audesys_hal_core::HalError::Internal("utf8".into())
-        })?;
-        Ok(s.to_uppercase().into_bytes())
-    }))
+    t.register_rpc_handler(
+        "upper",
+        Box::new(|params| {
+            let s = std::str::from_utf8(params)
+                .map_err(|_| audesys_hal_core::HalError::Internal("utf8".into()))?;
+            Ok(s.to_uppercase().into_bytes())
+        }),
+    )
     .unwrap();
-    t.register_rpc_handler("len", Box::new(|params| {
-        let l = params.len() as u32;
-        Ok(l.to_le_bytes().to_vec())
-    }))
+    t.register_rpc_handler(
+        "len",
+        Box::new(|params| {
+            let l = params.len() as u32;
+            Ok(l.to_le_bytes().to_vec())
+        }),
+    )
     .unwrap();
 
     // Act — two distinct calls
@@ -685,8 +647,7 @@ fn test_s_rpc_004() {
     // Arrange
     let t = InprocTransport::new();
     // idempotent: getStatus — returns same result every time
-    t.register_rpc_handler("getStatus", Box::new(|_params| Ok(b"{\"ok\":true}".to_vec())))
-        .unwrap();
+    t.register_rpc_handler("getStatus", Box::new(|_params| Ok(b"{\"ok\":true}".to_vec()))).unwrap();
 
     // Act — call twice (simulating retry)
     let r1 = t.rpc_call("getStatus", b"", 1000).unwrap();
@@ -722,10 +683,13 @@ fn test_s_rpc_005() {
     let t = InprocTransport::new();
 
     // Success case
-    t.register_rpc_handler("loadComponent", Box::new(|params| {
-        // all-or-nothing: either all bytes processed or none
-        Ok(params.to_vec())
-    }))
+    t.register_rpc_handler(
+        "loadComponent",
+        Box::new(|params| {
+            // all-or-nothing: either all bytes processed or none
+            Ok(params.to_vec())
+        }),
+    )
     .unwrap();
 
     // Act
@@ -733,18 +697,15 @@ fn test_s_rpc_005() {
     assert_eq!(result, b"config_data");
 
     // Error case — handler returns Err (all-or-nothing failure)
-    t.register_rpc_handler("configureComponent", Box::new(|_params| {
-        Err(audesys_hal_core::HalError::Rejected {
-            code: 400,
-            reason: "invalid config".into(),
-        })
-    }))
+    t.register_rpc_handler(
+        "configureComponent",
+        Box::new(|_params| {
+            Err(audesys_hal_core::HalError::Rejected { code: 400, reason: "invalid config".into() })
+        }),
+    )
     .unwrap();
     let err = t.rpc_call("configureComponent", b"bad", 1000).unwrap_err();
-    assert!(matches!(
-        err,
-        audesys_hal_core::HalError::Rejected { .. }
-    ));
+    assert!(matches!(err, audesys_hal_core::HalError::Rejected { .. }));
 }
 
 #[test]
@@ -755,11 +716,14 @@ fn test_s_rpc_006() {
     let t = InprocTransport::new();
     let counter = Arc::new(std::sync::atomic::AtomicU32::new(0));
     let c = Arc::clone(&counter);
-    t.register_rpc_handler("concurrent", Box::new(move |_params| {
-        c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        std::thread::sleep(std::time::Duration::from_millis(20));
-        Ok(vec![1])
-    }))
+    t.register_rpc_handler(
+        "concurrent",
+        Box::new(move |_params| {
+            c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            Ok(vec![1])
+        }),
+    )
     .unwrap();
 
     // Act — fire 4 concurrent calls
@@ -772,10 +736,7 @@ fn test_s_rpc_006() {
 
     // Assert — all 4 completed
     assert_eq!(handles.len(), 4);
-    assert_eq!(
-        counter.load(std::sync::atomic::Ordering::SeqCst),
-        4
-    );
+    assert_eq!(counter.load(std::sync::atomic::Ordering::SeqCst), 4);
 }
 
 #[test]
@@ -794,17 +755,11 @@ fn test_s_rpc_007() {
     )
     .unwrap();
     let err = t.rpc_call("hang", b"", 1).unwrap_err();
-    assert!(matches!(
-        err,
-        audesys_hal_core::HalError::Timeout { .. }
-    ));
+    assert!(matches!(err, audesys_hal_core::HalError::Timeout { .. }));
 
     // 2. Rejected — method not found
     let err = t.rpc_call("no_handler", b"", 100).unwrap_err();
-    assert!(matches!(
-        err,
-        audesys_hal_core::HalError::NotFound { .. }
-    ));
+    assert!(matches!(err, audesys_hal_core::HalError::NotFound { .. }));
 
     // 3. Execution — handler internal failure
     t.register_rpc_handler(
@@ -818,10 +773,7 @@ fn test_s_rpc_007() {
     )
     .unwrap();
     let err = t.rpc_call("may_fail", b"", 1000).unwrap_err();
-    assert!(matches!(
-        err,
-        audesys_hal_core::HalError::Execution { .. }
-    ));
+    assert!(matches!(err, audesys_hal_core::HalError::Execution { .. }));
 }
 
 #[test]
@@ -872,8 +824,7 @@ fn test_s_rpc_009() {
     let t = InprocTransport::new();
 
     // Handler that echoes raw bytes (including non-UTF8)
-    t.register_rpc_handler("rawEcho", Box::new(|params| Ok(params.to_vec())))
-        .unwrap();
+    t.register_rpc_handler("rawEcho", Box::new(|params| Ok(params.to_vec()))).unwrap();
 
     // Act — send arbitrary binary payload
     let binary = vec![0x00, 0xFF, 0x7F, 0x80, 0xAB, 0xCD];
@@ -914,8 +865,7 @@ fn test_s_amw_001() {
     assert_eq!(val, HalValue::S32(1));
 
     // Act — RPC
-    t.register_rpc_handler("amwPing", Box::new(|_| Ok(b"pong".to_vec())))
-        .unwrap();
+    t.register_rpc_handler("amwPing", Box::new(|_| Ok(b"pong".to_vec()))).unwrap();
     assert_eq!(t.rpc_call("amwPing", b"", 1000).unwrap(), b"pong");
 
     // Act — Shutdown (clears state)
@@ -930,8 +880,7 @@ fn test_s_amw_002() {
     // Arrange
     let t = InprocTransport::new();
     let ts = now_ts();
-    t.publish_signal("disco.alpha", HalValue::Bool(true), ts)
-        .unwrap();
+    t.publish_signal("disco.alpha", HalValue::Bool(true), ts).unwrap();
     t.publish_signal("disco.beta", HalValue::F64(9.9), ts).unwrap();
     t.publish_signal("other.gamma", HalValue::S32(7), ts).unwrap();
 
@@ -983,8 +932,7 @@ fn test_s_amw_003() {
 
     // Assert — HalTransport delegation
     let ts = now_ts();
-    mw.publish_signal("factory.test", HalValue::S32(42), ts)
-        .unwrap();
+    mw.publish_signal("factory.test", HalValue::S32(42), ts).unwrap();
     let (val, _) = mw.read_signal("factory.test").unwrap().unwrap();
     assert_eq!(val, HalValue::S32(42));
 
@@ -1056,8 +1004,7 @@ fn test_s_type_002() {
 
     // Binary payload with arbitrary bytes (non-UTF8)
     let blob_data = vec![0x00, 0xFF, 0x80, 0x7F, 0xAB, 0xCD, 0xEF, 0x01];
-    t.publish_signal("opaque.blob", HalValue::Blob(blob_data.clone()), ts)
-        .unwrap();
+    t.publish_signal("opaque.blob", HalValue::Blob(blob_data.clone()), ts).unwrap();
 
     // Act
     let (val, _) = t.read_signal("opaque.blob").unwrap().unwrap();
@@ -1069,8 +1016,7 @@ fn test_s_type_002() {
     assert_eq!(val.pin_type(), audesys_hal_core::HalPinType::Blob);
 
     // Round-trip through RPC (raw bytes, no schema interpretation)
-    t.register_rpc_handler("blobEcho", Box::new(|params| Ok(params.to_vec())))
-        .unwrap();
+    t.register_rpc_handler("blobEcho", Box::new(|params| Ok(params.to_vec()))).unwrap();
     let result = t.rpc_call("blobEcho", &blob_data, 1000).unwrap();
     assert_eq!(result, blob_data);
 }
@@ -1101,19 +1047,14 @@ fn test_s_name_001() {
 
     // Assert — all readable
     for (_kind, name) in &valid {
-        assert!(
-            t.read_signal(name).unwrap().is_some(),
-            "should find signal: {}",
-            name
-        );
+        assert!(t.read_signal(name).unwrap().is_some(), "should find signal: {}", name);
     }
 
     // Reserved prefix: names starting with underscore are reserved
     // ponytail: InprocTransport doesn't enforce this — the rule is a
     // naming convention. Verify that names with leading underscore are
     // still accepted (the enforcement is at a higher layer).
-    t.publish_signal("_internal.meta", HalValue::S32(0), ts)
-        .unwrap();
+    t.publish_signal("_internal.meta", HalValue::S32(0), ts).unwrap();
     assert!(t.read_signal("_internal.meta").unwrap().is_some());
 }
 
@@ -1153,8 +1094,6 @@ fn test_s_latency_001() {
     );
 
     // Verify the counter reflects iterations
-    let published = t
-        .signals_published
-        .load(std::sync::atomic::Ordering::Relaxed);
+    let published = t.signals_published.load(std::sync::atomic::Ordering::Relaxed);
     assert_eq!(published, iterations);
 }

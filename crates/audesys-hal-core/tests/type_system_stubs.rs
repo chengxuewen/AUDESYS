@@ -351,12 +351,7 @@ fn test_type_24_numeric_edges() {
     for &byte in &[0x01u8, 0xFF, 0x42, 0x80] {
         encoded[1] = byte;
         let decoded = decode_halvalue(&encoded).expect("decode failed");
-        assert_eq!(
-            decoded,
-            HalValue::Bool(true),
-            "byte 0x{:02X} should be narrowed to true",
-            byte
-        );
+        assert_eq!(decoded, HalValue::Bool(true), "byte 0x{:02X} should be narrowed to true", byte);
     }
     // Zero byte → false
     encoded[1] = 0x00;
@@ -372,11 +367,7 @@ fn test_type_25_container_large() {
     // Act: encode and verify layout
     let encoded = encode_halvalue(&v);
     // Assert: empty blob = tag(1) + 4-byte zero-length = exactly 5 bytes
-    assert_eq!(
-        encoded.len(),
-        5,
-        "empty blob should be exactly 5 bytes (tag + 4-byte length)"
-    );
+    assert_eq!(encoded.len(), 5, "empty blob should be exactly 5 bytes (tag + 4-byte length)");
     let decoded = decode_halvalue(&encoded).expect("decode empty blob failed");
     assert_eq!(decoded, HalValue::Blob(vec![]));
     // Also verify single-byte and moderate-sized blobs
@@ -389,19 +380,13 @@ fn test_type_26_type_mapping() {
     // S-TYPE-026: Array large boundary — verify large arrays roundtrip correctly
     // Arrange: 10K-element S8 array (ponytail: not production-scale)
     let data = vec![0xABu8; 10000];
-    let v = HalValue::Array {
-        element_type: HalPinType::S8,
-        data,
-    };
+    let v = HalValue::Array { element_type: HalPinType::S8, data };
     // Act
     let encoded = encode_halvalue(&v);
     let decoded = decode_halvalue(&encoded).expect("decode large Array failed");
     // Assert: element_type and data preserved
     match &decoded {
-        HalValue::Array {
-            element_type,
-            data,
-        } => {
+        HalValue::Array { element_type, data } => {
             assert_eq!(*element_type, HalPinType::S8);
             assert_eq!(data.len(), 10000);
             assert_eq!(data[0], 0xAB);

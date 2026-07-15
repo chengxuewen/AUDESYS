@@ -17,12 +17,7 @@ use audesys_hal_core::{ConfigCommand, ConfigStatus, HalQoS, LockLevel};
 // ── Helper ──
 
 fn make_cmd(id: u64, method: &str) -> ConfigCommand {
-    ConfigCommand {
-        id,
-        method: method.to_string(),
-        params: vec![],
-        queued_at: Instant::now(),
-    }
+    ConfigCommand { id, method: method.to_string(), params: vec![], queued_at: Instant::now() }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -107,13 +102,9 @@ fn test_s_cfg_004_all_level_irreversible() {
     assert_eq!(qos.lock_level(), LockLevel::All);
 
     // Act: attempt any downgrade
-    for target in [
-        LockLevel::None,
-        LockLevel::Load,
-        LockLevel::Config,
-        LockLevel::Params,
-        LockLevel::Run,
-    ] {
+    for target in
+        [LockLevel::None, LockLevel::Load, LockLevel::Config, LockLevel::Params, LockLevel::Run]
+    {
         let result = qos.set_lock_level(target).unwrap();
         // Assert: all downgrades must be rejected
         assert!(
