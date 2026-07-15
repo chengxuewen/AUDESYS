@@ -1,7 +1,7 @@
 //! StreamChannel — multi-writer, multi-reader, ordered-queue semantics.
 //! 来源: docs/modules/hal/hal-protocol-design.md S-CH, docs/modules/hal/thread-scheduling-design.md
 
-use crate::types::{HalResult, StreamConfig, Subscription, Timestamp};
+use crate::types::{HalResult, Subscription, Timestamp};
 use crate::value::HalValue;
 
 /// Callback invoked for each StreamChannel message. MUST NOT block.
@@ -30,20 +30,5 @@ pub trait StreamReader: Send {
     fn subscribe(&self, cb: StreamCallback) -> HalResult<Subscription>;
 }
 
-/// Creates a new StreamChannel with the given configuration.
-/// Returns independent write and read handles.
-///
-/// ## Config parameters (S-CH-003, S-CH-004, S-CH-005)
-/// - queue_depth: default 256, min 1
-/// - queue_policy: DropOldest | Backpressure | DropNewest
-/// - error_policy: Block | Drop | Notify
-/// - circuit_breaker: optional (Phase 2+)
-pub fn create_stream_channel(
-    config: StreamConfig,
-) -> HalResult<(Box<dyn StreamWriter>, Box<dyn StreamReader>)> {
-    // ponytail: stub — real impl in amw_inproc (Phase 1 M0.4)
-    let _ = config;
-    todo!("StreamChannel: amw_inproc implementation (Phase 1 M0.4)")
-}
-
-// ponytail: traits only — impl in amw_inproc
+// ponytail: create_stream_channel factory lives in amw_inproc —
+// hal-core only defines the StreamWriter/StreamReader traits.
