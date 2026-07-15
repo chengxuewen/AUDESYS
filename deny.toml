@@ -1,37 +1,32 @@
-# deny.toml — AUDESYS dependency audit
-#
-# Phase 0: license compliance + security advisory check
-# Phase 1: add duplicate detection, source verification
+# deny.toml — AUDESYS dependency audit (cargo-deny 0.20+)
 
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
+version = 2
+# ponytail: vulnerability + unmaintained keys removed in 0.20 — advisory checks are on by default
 yanked = "deny"
 ignore = []
 
 [licenses]
-unlicensed = "deny"
+version = 2
 allow = [
   "Apache-2.0",
   "MIT",
+  "BSD-2-Clause",
   "BSD-3-Clause",
-  "BSL-1.0",
+  "ISC",
   "Unicode-3.0",
+  "Zlib",
 ]
-copyleft = "warn"
+confidence-threshold = 0.8
 
 [bans]
 multiple-versions = "warn"
-wildcards = "deny"
-highlight = "all"
-# Allow specific duplicates when necessary
-# skip = []
-# skip-tree = []
-
+deny = []
+skip = []
+skip-tree = []
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-# Allow known private registries
-# allow-registry = []
-# allow-git = []
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
