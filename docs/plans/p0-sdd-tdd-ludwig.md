@@ -94,6 +94,18 @@ crates/audesys-hal-core/
 Phase 1 优先使用 workspace 级集成测试（与 `tests/integration/` 骨架对齐），
 确保每个测试从外部调用者视角验证。纯逻辑单元测试可放在 crate 级 `mod tests`。
 
+### 2.5 覆盖率策略（参见 D30）
+
+覆盖率门禁按阶段渐进式收紧，与 D30 三层 QA 体系对齐：
+
+| 阶段 | 门禁 | 覆盖率要求 |
+|------|------|-----------|
+| Phase 0（CI 骨架） | qa-fast 仅 cargo test + clippy + rustfmt + cargo deny + unwrap budget | 无覆盖率门禁 |
+| Phase 1 M0.3–M4 | 优先级 A 测试，qa-fast 门禁 | 无覆盖率门禁（测试驱动，非覆盖率驱动） |
+| Phase 1 M5+ | 优先级 A+B 测试 | 80% 覆盖率门禁 |
+| Phase 2+ | 所有测试含优先级 C | 80% 覆盖率门禁（qa-full 增加 tarpaulin） |
+
+> 注：`.agents/rules/common/testing.md` 中「80% 覆盖率」为最终目标要求，按阶段渐进式达成。
 ---
 
 ## 3. 测试场景提取清单
@@ -182,6 +194,19 @@ cargo test  # 全部 RED (todo!() panics)
 
 ---
 
+# 5.1 分阶段覆盖率策略
+
+正交于 D30 三层 QA 策略（qa-fast / qa-full / qa-deep），覆盖率门禁按阶段渐进而非 Phase 1 即强制执行：
+
+| 阶段 | 覆盖率门禁 | 说明 |
+|------|-----------|------|
+| Phase 0（CI 骨架） | 无覆盖率门禁 | qa-fast 仅运行 cargo test + clippy + rustfmt + cargo-deny + unwrap-budget；coverage 不在 qa-fast 范围内 |
+| Phase 1 M0.3-M4 | 无覆盖率门禁 | 优先完成优先级 A 测试（类型系统 + HalQoS + Config Barrier，纯逻辑）；覆盖率在代码驱动阶段才有意义 |
+| Phase 1 M5+ | 80%（优先级 A+B） | 对优先级 A（~32 测试）和 B（~37 测试）合计覆盖 80%；qa-full 引入 tarpaulin 覆盖率门禁 |
+| Phase 2+ | 80%（全部测试，含优先级 C） | 含 Scan Barrier、线程调度等需 RT 上下文的测试；qa-full 扩展至全部 crate |
+
+**说明**：`.agents/rules/common/testing.md` 声明的 80% 覆盖率为项目总体目标，Phase 0/1 前中期不强制执行。覆盖率门禁仅在代码量足以产生有意义的统计后才启用（见 D30）。qa-fast 阶段仅验证测试能否编译运行，不测量覆盖率。
+
 ## 5. TDD 工作流
 
 ```
@@ -218,6 +243,37 @@ cargo test  # 全部 RED (todo!() panics)
 - [ ] 每个测试顶部有 `来源: docs/modules/hal/（具体子文档见 D14）` 追溯注释
 - [ ] `cargo test` 输出无 panic、无 ignore
 - [ ] CI/CD qa-fast 门禁全绿
+
+## 6.1 Priority B 测试的 HalTransport mock 接口
+
+优先级 B 测试（Signal/StreamChannel/RPC，~37 测试）需 mock 传输层。在 `crates/audesys-hal-core/` 中定义 `#[cfg(test)]` mock trait：
+
+```rust
+// crates/audesys-hal-core/src/transport.rs
+use crate::{HalValue, Result};
+
+#[cfg(test)]
+trait MockHalTransport {
+    /// Mock Signal publish — 模拟单播/多播发布
+    fn mock_publish(&mut self, signal: &str, value: HalValue) -> Result<()>;
+
+    /// Mock Signal subscribe — 返回模拟接收端
+    fn mock_subscribe(&mut self, signal: &str) -> Result<MockReceiver>;
+
+    /// Mock StreamChannel open — 返回发送端/接收端对
+    fn mock_stream_open(&mut self, channel: &str) -> Result<(MockSender, MockReceiver)>;
+
+    /// Mock RPC call — 同步请求/响应
+    fn mock_rpc_call(&mut self, method: &str, params: &[u8]) -> Result<Vec<u8>>;
+}
+
+#[cfg(test)]
+struct MockReceiver { /* ... */ }
+#[cfg(test)]
+struct MockSender { /* ... */ }
+```
+
+**Mock 策略**：优先使用 [`mockall`](https://docs.rs/mockall) 自动从真实 `HalTransport` trait 生成 mock（`#[automock] trait HalTransport`），避免手工同步接口签名。若 mockall 在 Phase 1 引入过重（需 nightly-only 特性），则手写 `MockHalTransport` struct。mock 实现仅存在于 `#[cfg(test)]`，不进入 production crate 导出。
 
 ---
 
