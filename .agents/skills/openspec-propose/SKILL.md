@@ -1,166 +1,216 @@
 ---
 name: openspec-propose
 description: >-
-  Propose a new change for MSRCS with structured artifacts (proposal, design,
-  tasks). Use when the user wants to quickly describe what they want to build
-  and get a complete proposal ready for implementation.
+  Propose a new change for AUDESYS with structured artifacts (proposal, design,
+  tasks). Generates .sisyphus/plans/<name>/proposal.md + design.md + tasks.md.
+  Use when the user describes what they want to build and needs a complete proposal ready for implementation.
 license: MIT
 compatibility: Designed for Claude Code, GitHub Copilot, and similar agents.
 disable-model-invocation: false
 metadata:
   author: openspec
-  version: "1.0"
+  version: "2.0"
   category: workflow
-  project: MSRCS
+  project: AUDESYS
 ---
 
-# OpenSpec Propose — MSRCS
+# OpenSpec Propose — AUDESYS
 
-Propose a new change for the MSRCS project. Generate structured artifacts that prepare the work for implementation.
+Create a structured change proposal for AUDESYS. Produce three artifacts that together answer
+"what are we building, how does it fit, and what's the plan?"
 
 When ready to implement, follow with `/openspec-apply`.
 
 ---
 
-**Input**: The user's request should include a change name (kebab-case) OR a description of what they want to build in the MSRCS codebase.
+**Input**: The user describes a feature, fix, or refactor. Do not start without a feature description.
 
 ---
 
 ## Steps
 
-### 1. Understand what the user wants
+### 1. Confirm the change name
 
-If no clear input provided, ask what they want to build:
+Ask: "What should we call this change? (kebab-case, e.g. `add-signal-monitoring`)"
 
-> "What change do you want to work on? Describe what you want to build or fix in MSRCS."
+**DO NOT auto-generate without asking.** Validate: lowercase letters, digits, hyphens only.
 
-From their description, derive a kebab-case name (e.g., "add video feed panel" → `add-video-feed-panel`).
+### 2. Gather context
 
-**Do NOT proceed without understanding what the user wants to build.**
+Before writing any artifact, understand the existing surface area:
 
-### 2. Create the proposal directory
+#### a. Read relevant specs
 
-Create a structured proposal directory under `.sisyphus/plans/`:
+Search `openspec/specs/` for specs related to the change by module prefix:
+`hal-type-system`, `hal-qos`, `hal-protocol`, `hal-config-barrier`.
+Read every spec whose module overlaps. Note if no relevant spec exists.
+
+#### b. Read project memory
+
+- `.agents/memorys/status.md` — current phase, module status, known gaps
+- `.agents/memorys/decisions.md` — D1-D50 architecture decisions
+- `.agents/memorys/pitfalls.md` — known sharp edges (MODACS removal, DDS traps, CI gotchas)
+- `.agents/memorys/conventions.md` — naming, immutability, TS/Rust/HAL conventions
+
+#### c. Assess affected layers
+
+| Layer | Location | When affected |
+|-------|----------|---------------|
+| **HAL Core** | `crates/audesys-hal-core/` | New traits, types, primitives, error types |
+| **amw_inproc** | `crates/amw_inproc/` | Transport/Discovery implementation changes |
+| **FlatBuffers** | `crates/hal-flatbuffers/` + `.fbs` schemas | New/changed cross-language types |
+| **Studio** | `apps/studio/` | Tauri+React+TypeScript frontend changes (D21) |
+
+#### d. Assess affected transports
+
+| Transport | Phase | Purpose |
+|-----------|-------|---------|
+| **amw_inproc** | Phase 1 | In-process HAL Transport/Discovery (D11) |
+| **amw_zenoh** | Phase 2 | Network transport via Zenoh (future) |
+
+Most Phase 1 changes target `amw_inproc` only.
+
+### 3. Create the proposal directory
 
 ```bash
 mkdir -p .sisyphus/plans/<change-name>
 ```
 
-This directory will hold the proposal artifacts.
+### 4. Write proposal.md
 
-### 3. Create proposal artifacts
+Create `.sisyphus/plans/<change-name>/proposal.md` with these sections:
+- **What** — 2-4 sentences, specific
+- **Why** — problem, use case, gap
+- **Scope** — in scope / out of scope
+- **Layers Affected** — checklist: HAL Core / amw_inproc / FlatBuffers / Studio
+- **Transports Affected** — amw_inproc: yes/no/partial, amw_zenoh: yes/no/partial
+- **Existing Specs** — list `openspec/specs/<name>.md` with one-line description each
+- **New Specs Needed** — list or "None"
+- **Risks** — 2-4 bullet points (thread safety, FFI, build, interop)
+- **Success Criteria** — how we know it's done
+- **References** — links to issues, design docs, external references
 
-Create the following artifacts in the proposal directory:
+### 5. Write design.md
 
-#### a. `proposal.md` — What & Why
+Create `.sisyphus/plans/<change-name>/design.md` with these sections:
+- **Architecture** — ASCII diagram or text description showing modules, data flow, ownership
+- **Files to Touch** — Create / Modify / Delete sub-tables with file paths and purpose
+- **Data Flow** — critical path from entry to exit (Signal: write→store→callback; RPC: invoke→dispatch→result)
+- **Integration Points** — HAL trait boundary, amw boundary, FlatBuffers boundary, Studio boundary
+- **Rust/HAL Specifics** — new traits/structs, Signal/StreamChannel wiring (D10), thread safety (Send+Sync, Config Barrier D17), YAML→FlatBuffers config (D24)
+- **Error Handling** — HAL 5-layer error model (D46): type/transport/resource/discovery/scheduling
+- **Testing Strategy** — checklist: Rust unit, integration, FlatBuffers round-trip, amw_inproc E2E, qa-fast gate (`./scripts/qa/qa-fast.sh`)
+- **Dependencies** — new cargo deps, FlatBuffers schema changes (or "None")
 
-Describe:
-- **Problem**: What's the current limitation or bug? Reference existing code.
-- **Goal**: What should be achieved?
-- **Scope**: Which MSRCS packages are affected?
-  - e.g., `src/ms_rcs_hmi/`, `src/ms_rcs_control/`, `CMakeLists.txt`
-- **Out of scope**: What is deliberately NOT being changed?
-- **Success criteria**: How will we know it's done?
+### 6. Write tasks.md
 
-#### b. `design.md` — How
-
-Describe the solution architecture:
-- **Approach**: High-level design decisions
-- **C++/Qt/ROS2 specifics**:
-  - New classes/functions needed
-  - Qt signal/slot wiring
-  - ROS2 topic/service interfaces
-  - Thread safety considerations
-- **Files to modify**: List specific files with brief notes
-- **Dependencies**: Any new pixi/npm/ROS2 dependencies
-- **Migration**: If changing existing code, what's the upgrade path?
-
-#### c. `tasks.md` — Implementation steps
-
-Break the work into atomic tasks:
+Create `.sisyphus/plans/<change-name>/tasks.md`. Tasks must be **atomic, ordered, independently testable** — each produces one verifiable result. Structure in phases:
 
 ```markdown
-## Tasks
+# Tasks: <Change-Name>
 
-- [ ] Task 1: [brief description, file references]
-- [ ] Task 2: [brief description, file references]
-- [ ] Task 3: [brief description, file references]
+## Phase 1: Foundation
+
+- [ ] **Add `<trait/struct>` to HAL Core**
+  - File: `crates/audesys-hal-core/src/<path>/<file>.rs`
+  - Verify: `cargo check -p audesys-hal-core`
+
+- [ ] **Implement for amw_inproc**
+  - File: `crates/amw_inproc/src/<file>.rs`
+  - Verify: `cargo check -p amw_inproc`
+
+## Phase 2: Transport & Bindings
+
+- [ ] **Update FlatBuffers schema** (if needed)
+  - File: `crates/hal-flatbuffers/<file>.fbs`
+  - Verify: `cargo build -p hal-flatbuffers`
+
+## Phase 3: Tests
+
+- [ ] **Add Rust unit tests** (AAA pattern, D33)
+  - File: same as implementation
+  - Verify: `cargo test -p audesys-hal-core`
+
+- [ ] **Add integration tests**
+  - File: `tests/<name>_test.rs`
+  - Verify: `cargo test --test <name>_test`
+
+- [ ] **Run qa-fast gate**
+  - Verify: `./scripts/qa/qa-fast.sh` (5 gates: test/clippy/fmt/deny/unwrap)
+
+## Phase 4: Documentation & Cleanup
+
+- [ ] **Write/update spec file**
+  - File: `openspec/specs/<name>.md` (SDD format: ID→precondition→operation→expected→edge cases)
+
+- [ ] **Update project memory** (after implementation)
+  - `.agents/memorys/status.md`, `decisions.md`, `pitfalls.md` as applicable
 ```
 
-Each task should be:
-- Small enough to implement in one session
-- Independently testable (build, lint, or unit test)
-- Ordered by dependency (do task 1 before task 2)
+Adjust phases to fit the change: single-file fix → 3 tasks; multi-module feature → 15+ tasks across 5 phases.
 
-### 4. Review and confirm
+### 7. Present and iterate
 
-Show the user what was created:
-
-```
-## Proposal: <change-name>
-
-**Artifacts created:**
-- `.sisyphus/plans/<change-name>/proposal.md` — What & why
-- `.sisyphus/plans/<change-name>/design.md` — How
-- `.sisyphus/plans/<change-name>/tasks.md` — Tasks
-
-**Tasks: N/M complete** — Ready for implementation!
-```
-
-Confirm with the user:
-- Does the proposal capture their intent?
-- Any adjustments needed to scope or design?
+Display summary — change name, artifact list, line counts. Let user request changes, iterate until approved.
 
 ---
 
-## MSRCS-Specific Guidelines
+## File Path Conventions
 
-### Package references
-When a change affects specific MSRCS packages, always reference the actual source path:
+| Purpose | Path |
+|---------|------|
+| HAL Core | `crates/audesys-hal-core/src/` |
+| amw_inproc | `crates/amw_inproc/src/` |
+| FlatBuffers schemas | `crates/hal-flatbuffers/*.fbs` |
+| Studio | `apps/studio/src/` |
+| Specs | `openspec/specs/` |
+| Plans | `.sisyphus/plans/<change-name>/` |
+| Integration tests | `tests/` |
 
-| Package | Path | Type |
+---
+
+## AUDESYS-Specific Guidelines
+
+### Crate references
+
+| Crate | Path | Type |
 |---------|------|------|
-| HMI Window | `src/ms_rcs_hmi/ms_rcs_hmi_window/` | C++ Qt5/ROS2 |
-| HMI WebView | `src/ms_rcs_hmi/ms_rcs_hmi_webview/` | C++ Qt5 WebEngine |
-| Dashboard | `src/ms_rcs_hmi/ms_rcs_hmi_dashboard/` | C++ Qt5 |
-| HMI Common | `src/ms_rcs_hmi/ms_rcs_hmi_common/` | C++ rosidl messages |
-| Control Client | `src/ms_rcs_control/ms_rcs_control_client/` | Python ROS2 |
-| Config Server | `src/ms_rcs_config/` | C++ + Python + React |
-| Media | `src/ms_rcs_media/` | C++ (capture/receiver) |
+| HAL Core | `crates/audesys-hal-core/` | Rust (traits, types, primitives) |
+| amw-inproc | `crates/amw_inproc/` | Rust (HAL Transport/Discovery in-process) |
+| HAL FlatBuffers | `crates/hal-flatbuffers/` | Rust + .fbs schemas |
+| Studio | `apps/studio/` | Tauri + React + TypeScript (D21) |
 
-### Build commands to reference
+### Build commands
 
 ```bash
-# Full build
-./make.sh
-
-# HMI-only build
-./make.sh --packages ms_rcs_hmi_common ms_rcs_hmi_window ms_rcs_hmi_webview
-
-# Debug build
-./make.sh --debug
-
-# Skip packaging (build only)
-./make.sh --skip-pack --skip-archive
+cargo build                                    # Full build
+cargo build --package audesys-hal-core --package amw_inproc  # HAL-only
+cargo test                                     # Debug build + tests
+./scripts/qa/qa-fast.sh                        # QA fast gate (5 checks)
 ```
 
-### C++ conventions to reference in design
+### Rust conventions
 
-- C++17 standard, RAII, smart pointers
-- Qt5.15 (conda-forge, not system Qt)
-- ROS2 Jazzy (rclcpp, ament_cmake)
-- Multi-process HMI uses QWindow::fromWinId embedding
-- Thread safety: Qt QueuedConnection, ROS2 spin + call_async
-- Config via YAML + config_server FastAPI bridge
+- Rust stable toolchain, ownership, borrowing, traits
+- HAL traits + FlatBuffers for cross-language interop (D19)
+- amw_inproc for Phase 1 transport (D11)
+- Multi-language via FlatBuffers schema (D19)
+- Thread safety: Config Barrier (D17) for RT config changes
+- Config via YAML → FlatBuffers (D24)
 
 ---
 
 ## Guardrails
 
-- Create ALL artifacts needed for implementation
-- Always reference actual MSRCS file paths and package names
-- If context is critically unclear, ask the user — but prefer making reasonable decisions to keep momentum
-- If a proposal with that name already exists, ask if user wants to continue it or create a new one
+- **Always ask for the change name** — do not generate one without user confirmation
+- **Read specs before proposing** — ignoring existing SDD contracts is waste
+- **Layer assessment must be explicit** — "maybe affects FlatBuffers" is not acceptable; decide and document
+- **Transport assessment must be explicit** — amw_inproc-only? amw_zenoh? Both? Document the split
+- **Tasks must be atomic** — each task produces one verifiable result (compiling code, passing tests)
+- Always reference actual AUDESYS file paths and crate names
+- If context is critically unclear, ask — but prefer reasonable decisions to keep momentum
+- If a proposal with that name already exists, ask to continue or create new
 - Do NOT propose changes to `version.txt` — versioning is user-managed
-- Do NOT propose changes to QExt or OpenCTK submodules — those are separate repositories
+- Do NOT propose changes to external dependencies — separate repositories
 - Verify each artifact file exists after writing before proceeding
+- Do NOT reference MODACS — fully de-MODACS-ized project (D3)

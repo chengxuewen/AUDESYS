@@ -24,6 +24,8 @@
 - 子文档归档：`docs/modules/{module}/`（独立设计文档、审核输出、对比分析）
 - 参考文档：`docs/reference/{产品名}.md`（竞品分析，独立文件）
 - 跨引用模式：architecture.md §X 内用 `详见 docs/modules/hal/<子文档>.md` 一行指向
+- crate 命名：正式引用使用 `audesys-hal-core`，非正式/速记语境可用 `hal-core`
+- 新 crate 命名模式：`crates/{module}/` 下划线分隔（如 `amw_inproc`、`hal-flatbuffers`），Cargo.toml name 字段与目录名一致
 
 ## 提交规范
 - 格式：遵循 conventional commits 规范（feat/fix/docs/chore/refactor）

@@ -18,10 +18,10 @@ pub struct HalCoreLinked;
 /// Mock HalTransport for unit testing Priority B tests (~37 tests).
 ///
 /// In Phase 1, use [mockall](https://docs.rs/mockall) for auto-generation.
-/// Phase 0: manual mock struct placeholder.
-#[cfg(test)]
-pub mod mock {
-    // ponytail: mock stubs — no implementation in Phase 0
-}
+/// Phase 0: manual mock struct — see `mock_transport.rs`.
+///
+/// Hand-written mock — real `HalTransport` trait defined in Phase 1.
+/// 来源: docs/modules/hal/hal-protocol-design.md Signal §
+pub mod mock_transport;
 
 // ponytail: trait stubs only — implementations in Phase 1

@@ -214,7 +214,7 @@
 
 ## D36: CI/CD 流水线 = 渐进式三层 QA
 - **日期**: 2026-07-13
-- **决定**: Phase 0: qa-fast（fmt+clippy+test+audit+unwrap-budget）。Phase 1 中期: qa-full（coverage+mutants+semver）。Phase 2: qa-deep（miri+proptest+adversarial LLM）
+- **决定**: Phase 0: qa-fast（fmt+clippy+test+deny+unwrap-budget）。Phase 1 中期: qa-full（coverage+mutants+semver）。Phase 2: qa-deep（miri+proptest+adversarial LLM）
 - **理由**: dora-rs 验证突变测试是最高价值门禁（检测同义反复测试）。unwrap-budget ratchet 防止 panic 累积
 - **参考**: dora-rs qa-poc-report-2026-04-09
 
@@ -260,14 +260,14 @@
 - **理由**: ponytail plugin 方式与现有 superpowers/oh-my-opencode 一致。OpenSpace（AI agent 技能进化引擎）作为辅助开发工具启用，不进入 AUDESYS 核心架构
 - **参考**: opencode.json plugin 数组、init-mcp-openspace.mjs
 
-## D44: D14/D15 逆转 = hal-detailed-design.md 拆分为 18 份独立子文档
+## D44: D14/D15 逆转 = hal-detailed-design.md 拆分为 19 份独立子文档
 - **日期**: 2026-07-15
-- **决定**: 逆转 D14/D15，删除合并文档 hal-detailed-design.md（3386行），保留并扩展 docs/modules/hal/ 下 18 份独立子文档。architecture.md §一 按主题引用子文档。
+- **决定**: 逆转 D14/D15，删除合并文档 hal-detailed-design.md（3386行），保留并扩展 docs/modules/hal/ 下 19 份独立子文档。architecture.md §一 按主题引用子文档。
 - **理由**: 子文档独立维护降低修改冲突。合并操作不可逆（丢失独立文档的编辑历史），实际修改中发现子文档模式更利于并行编辑。7 份缺失子文档从合并文档提取完成。
-- **参考**: docs/modules/hal/（18 份子文档），architecture.md §一
+- **参考**: docs/modules/hal/（19 份子文档，覆盖 17 个设计主题），architecture.md §一
 ## D45: Runtime 设计文档 = IPC 安全 + 可观测性 + 硬件 + 升级
 - **日期**: 2026-07-15
-- **决定**: Phase 1 前必须有 Runtime 设计文档覆盖：IPC 安全（UDS+HMAC，Zenoh mTLS，RBAC），可观测性（health/metrics/logs/alerts + AmwMetrics），硬件需求（三档规格 + PREEMPT_RT checklist），升级策略（schema版本/迁移/hot-swap/OTA/rollback）
+- **决定**: Phase 1 前必须有 Runtime 设计文档覆盖：IPC 安全(495行)（UDS+HMAC，Zenoh mTLS，RBAC），可观测性（health/metrics/logs/alerts + AmwMetrics），硬件需求（三档规格 + PREEMPT_RT checklist），升级策略(282行)（schema版本/迁移/hot-swap/OTA/rollback）
 - **理由**: 50 项文档审计发现 Runtime 运维/安全/升级三个关键缺口（3 CRITICAL），这些缺口会阻断 Phase 1 生产部署。
 - **参考**: docs/modules/runtime/ 4 份设计文档，架构审计 gap-optimizer 报告
 ## D46: HAL 错误模型设计 = 5 层分类 + 状态机
@@ -282,11 +282,40 @@
 - **参考**: .agents/skills/doc-audit/SKILL.md，审计报告 b73 区块
 ## D48: SDD 规范生成 = 设计文档→测试规范自动化管道
 - **日期**: 2026-07-15
-- **决定**: 从 4 份 HAL 设计文档提取 121 项规范（docs/specs/）：类型系统(30)、HalQoS(30)、Config Barrier(24)、协议(37)。每项规范含 ID→前置条件→操作→期望结果→边界条件→测试映射。Pair-writing 团队 4 人并行生成。
+- **决定**: 从 4 份 HAL 设计文档提取 121 项规范（openspec/specs/）：类型系统(30)、HalQoS(30)、Config Barrier(24)、协议(37)。每项规范含 ID→前置条件→操作→期望结果→边界条件→测试映射。Pair-writing 团队 4 人并行生成。
 - **理由**: 为 Phase 0 M0.3 直接 TDD 做准备。规范可直接转写为 Rust #[test] 函数，AAA 模式已预结构化。优先级 B 规范（Scan Barrier、线程调度）等 Mock trait 定义后按需生成。
-- **参考**: docs/specs/ 4 份规范文档，SDD 汇总 b68-b70 区块
+- **参考**: openspec/specs/ 4 份规范文档，SDD 汇总 b68-b70 区块
 ## D49: 50 项审计修复流程 = 交互审核 + 团队模式 + 批量执行
 - **日期**: 2026-07-15
 - **决定**: 50 项审计发现采用交互式逐项审核（question() 确认），CHAT/团队模式并行修复（doc-fixers 3人团队 + 2 background agents），12 commits 原子提交。
 - **理由**: 批量自动修复不可靠（文档编辑需人类判断）。交互审核保证每项修复方案经确认。团队 + background 并行最大化吞吐。12 次原子提交确保每项逻辑变更独立可审计。
 - **参考**: 审计报告 b73 区块，提交记录 7d72c90..aadcb3e
+## D50: test-harness 技能 = 多语言自动化测试工具架
+- **日期**: 2026-07-15
+- **决定**: 新建 .agents/skills/test-harness/SKILL.md（447行），支持 6 种交互模式：SDD→测试生成 (stubs/AAA骨架/完整填充 三层)、测试→规范反向追溯、用例执行与修复、增量测试 (git diff)、项目测试基础设施初始化、覆盖率报告。覆盖 5 种语言 (Rust/TS/Python/C++/C)。Phase 感知：自动跳过未就绪模块。
+- **理由**: SDD 121 项规范缺乏自动化转写管道。模式 1 (SDD→测试) 直接解决 D33 直接 TDD 的测试生成瓶颈。多语言支持匹配 D19 策略。Phase 感知避免生成不可运行的测试。
+- **参考**: .agents/skills/test-harness/SKILL.md，openspec/specs/ 4 份规范文档
+
+## D51: 技能库扩展 = skill-creator + 7 Studio 参考技能
+- **日期**: 2026-07-15
+- **决定**: 新增 skill-creator（从 webrtc-kit 移植，适配 AUDESYS HAL/FlatBuffers/Rust）和 7 个 Studio 参考技能（ref-codesys/ref-beckhoff/ref-qtouch/ref-ignition/ref-fuxa/ref-intouch/ref-labview）
+- **理由**: skill-creator 支持从 HAL traits/SDD specs/FlatBuffers schemas/Cargo crates 自动生成技能。7 参考技能为 Studio IDE 设计提供竞品参考（D21/D22/D25）
+- **参考**: .agents/skills/skill-creator/SKILL.md，.agents/skills/ 下 7 个 ref-* 技能目录
+
+## D52: 参考模式缺口识别 = 41 篇竞品交叉验证
+- **日期**: 2026-07-15
+- **决定**: 41 篇竞品交叉验证识别 3 CRITICAL（OPC UA 内置、Web-first HMI、模板驱动 HMI）+ 6 HIGH（数字孪生、多人工程、包管理器、诊断链、CEE 容量模型、PLCopen XML）+ 8 MEDIUM 模式缺口。CRITICAL 项列入 Architecture 待评估，HIGH 项列入 Phase 2+ 路线图。
+- **理由**: 避免闭门造车，确保 AUDESYS 不与工业主流实践脱节。
+- **参考**: docs/reference/ 41 篇竞品分析，模式缺口报告
+
+## D53: Phase 0 完成定义修订 = CI 就绪，crate 骨架 Phase 1 M0.3
+- **日期**: 2026-07-15
+- **决定**: Phase 0 "P0 基础设施就绪" 仅指 CI/CD 管道（qa-fast 5 门禁全绿）。amw_inproc 和 hal-flatbuffers crate 骨架属于 Phase 1 M0.3（hal-core 驱动并行）。hal-core 当前仅有 trait stubs（HalCoreLinked token），实际 HalTransport/HalDiscovery/HalQoS 在 Phase 1 M0.3 定义。
+- **理由**: status.md 的 "P0基础设施就绪" 与 D34 "Phase 0 完成后四件同时启动" 存在歧义——澄清 Phase 0 = CI 就绪，Phase 1 M0.3 = crate 骨架 + trait 定义。
+- **参考**: D30 三层 QA、D32 CI 先行策略、D34 模块构建顺序
+
+## D54: 技能移植 = 7 项 openspec 技能从 webrtc-kit 增强
+- **日期**: 2026-07-15
+- **决定**: 从 webrtc-kit 项目对比分析移植 7 项增强：skill-creator 新建（HAL trait/SDD spec/FlatBuffers/Cargo crate 四种输入源），test-harness 新增 Mode 7 选择性测试运行（git diff → cargo test -p），openspec-propose 结构化升级（强制名称确认+上下文收集+layer/backend 评估+结构化模板），openspec-apply TDD 支持（test-first 执行+7 门禁验证+spec 交叉引用+规则层级），doc-audit 三项增强（孤立测试检测+决策新鲜度+CROSS-CHECK.md），openspec-verify 交叉层验证（spec 一致性检查+孤立测试检测），openspec-explore 4-source 知识源模型（Specs/Design Docs/Project Memory/Codebase）
+- **理由**: webrtc-kit 技能在结构化程度、验证严密性和知识组织方面优于 AUDESYS 原有版本。并行移植 7 项实现技能库同步升级。
+- **参考**: .agents/skills/ 下 7 个 openspec 技能文件，webrtc-kit/.agents/skills/ 对比分析

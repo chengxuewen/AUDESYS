@@ -2,7 +2,7 @@
 name: openspec-explore
 description: >-
   Enter explore mode — a thinking partner for exploring ideas, investigating
-  problems, and clarifying requirements for MSRCS (C++17 / Qt5.15 / ROS2 Jazzy).
+  problems, and clarifying requirements for AUDESYS (Rust + HAL + amw_inproc multi-language).
   Use when the user wants to think through something before or during a change.
 license: MIT
 compatibility: Designed for Claude Code, GitHub Copilot, and similar agents.
@@ -11,10 +11,10 @@ metadata:
   author: openspec
   version: "1.0"
   category: workflow
-  project: MSRCS
+  project: AUDESYS
 ---
 
-# OpenSpec Explore — MSRCS
+# OpenSpec Explore — AUDESYS
 
 Enter explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
 
@@ -39,67 +39,73 @@ Enter explore mode. Think deeply. Visualize freely. Follow the conversation wher
 
 **Explore the problem space**
 - Ask clarifying questions that emerge from what they said
-- Challenge assumptions about C++/Qt/ROS2 architecture
-- Reframe the problem in MSRCS context
-- Find analogies from similar remote control station systems
+- Challenge assumptions about Rust/HAL architecture
+- Reframe the problem in AUDESYS context
+- Find analogies from similar industrial control system stations
 
-**Investigate the MSRCS codebase**
+**Investigate the AUDESYS codebase**
 - Map existing architecture relevant to the discussion
-  - `src/ms_rcs_hmi/` — HMI modules (window, webview, dashboard)
-  - `src/ms_rcs_control/` — Control client
-  - `src/ms_rcs_config/` — Configuration server
-  - `src/ms_rcs_media/` — Media capture/receiver
-  - `CMakeLists.txt` — Top-level build (~19k lines)
-- Find integration points across packages
-- Identify patterns already in use (RAII, smart pointers, ament_cmake)
-- Surface hidden complexity (thread safety, DDS QoS, X11 embedding)
+  - `crates/audesys-hal-core/` — HAL traits, types, primitives (D10/D11/D12)
+  - `crates/amw_inproc/` — In-process HAL transport/discovery
+  - `crates/hal-flatbuffers/` — FlatBuffers schema + bindings (D19)
+  - `apps/studio/` — Tauri + React + TypeScript IDE (D21)
+  - `Cargo.toml` — Virtual workspace manifest
+- Find integration points across crates
+- Identify patterns already in use (Signal/StreamChannel/RPC primitives, amw trait impls)
+- Surface hidden complexity (Config Barrier RT cycles, type system IEC 61131-3 mapping, SCHED_FIFO)
 
 **Compare options**
-- Brainstorm multiple C++ approaches
-- Build comparison tables (e.g., QWidget vs QGraphicsView vs QML)
-- Sketch tradeoffs for Qt/ROS2 integration
+- Brainstorm multiple Rust/architecture approaches
+- Build comparison tables (e.g., amw_inproc vs amw_zenoh vs amw_iceoryx)
+- Sketch tradeoffs for HAL/Runtime integration
 - Recommend a path (if asked)
 
 **Visualize**
 ```
-┌─────────────────────────────────────────┐
-│     Use ASCII diagrams liberally        │
-├─────────────────────────────────────────┤
-│                                         │
-│   ┌────────────┐     ┌──────────────┐   │
-│   │ HMI Host   │     │ WebView      │   │
-│   │ (Window)   │────▶│ (Child)      │   │
-│   └────────────┘     └──────────────┘   │
-│         │                                │
-│         ▼                                │
-│   ┌────────────┐     ┌──────────────┐   │
-│   │ Dashboard  │     │ Media        │   │
-│   │            │     │ Receiver     │   │
-│   └────────────┘     └──────────────┘   │
-│                                         │
-│   MSRCS process architecture            │
-└─────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────┐
+│     Use ASCII diagrams liberally                      │
+├───────────────────────────────────────────────────────┤
+│                                                       │
+│   ┌────────────────┐     ┌──────────────────────┐     │
+│   │ Studio (Tauri) │     │ Runtime              │     │
+│   │ React + TS     │────▶│ Process Manager      │     │
+│   └────────────────┘     └──────────────────────┘     │
+│         │                         │                   │
+│         ▼                         ▼                   │
+│   ┌────────────────┐     ┌──────────────────────┐     │
+│   │ HAL Core       │     │ Config Server        │     │
+│   │ (traits/types) │     │ (YAML → FlatBuffers) │     │
+│   └────────────────┘     └──────────────────────┘     │
+│         │                                             │
+│         ▼                                             │
+│   ┌────────────────┐     ┌──────────────────────┐     │
+│   │ amw_inproc     │     │ HAL FlatBuffers      │     │
+│   │ (D11 in-proc)  │     │ (D19 cross-lang)     │     │
+│   └────────────────┘     └──────────────────────┘     │
+│                                                       │
+│   AUDESYS HAL architecture                            │
+└───────────────────────────────────────────────────────┘
 ```
 
 **Surface risks and unknowns**
-- Identify what could go wrong with Qt/ROS2 integration
+- Identify what could go wrong with HAL/Runtime integration
 - Find gaps in understanding of the existing code
-- Suggest spikes or investigations (e.g., "test WebRTC with pixi OpenSSL")
+- Suggest spikes or investigations (e.g., "test FlatBuffers round-trip latency with criterion")
 
 ---
 
 ## Check for Context
 
-At the start, quickly check what exists:
-
+Quickly assess which of the 4 knowledge sources (see below) are relevant before digging in. At the start, quickly check what exists:
 ```bash
-ls src/ms_rcs_*/   # List all packages
-cat version.txt     # Current version
+ls crates/          # List all crates
+cat Cargo.toml      # Current workspace structure
+cat rust-toolchain.toml  # Toolchain version
 ```
 
 This tells you:
-- What packages are present
-- The current version
+- What crates are present
+- The current Rust toolchain version
 - What the user might be working on
 
 ### When exploring existing changes
@@ -116,22 +122,53 @@ If the user mentions an existing change or work-in-progress:
 Think freely. When insights crystallize, you might offer:
 - "This feels solid enough to start a proposal. Want me to create one?"
 - Or keep exploring — no pressure to formalize
+## Knowledge Sources
+
+When exploring, draw from four structured sources in order of priority:
+
+### 1. Specs (`openspec/specs/`)
+- Type system: `hal-type-system-spec.md` (S-TYPE-001–030, 14 IEC 61131-3 types)
+- QoS: `hal-qos-spec.md` (S-QOS-001–030, deadline/liveliness/security_domain)
+- Config Barrier: `config-barrier-spec.md` (S-CB-001–024, RT cycle boundary gating)
+- Protocol: `hal-protocol-spec.md` (S-PROTO-001–037, Signal/StreamChannel/RPC)
+- **Check FIRST** when questions involve HAL types, QoS behavior, or config gating
+
+### 2. Design Docs (`docs/modules/`)
+- HAL detailed design: `docs/modules/hal/` (18 sub-documents covering 17 design topics)
+- Runtime design: `docs/modules/runtime/` (IPC security, observability, hardware, upgrade)
+- **Check when** questions involve architecture rationale or design decisions
+
+### 3. Project Memory (`.agents/memorys/`)
+- `status.md` — current phase, module states, active crates
+- `decisions.md` — D1–D50 architecture decisions with rationale
+- `conventions.md` — naming, immutability, TypeScript/Rust conventions
+- `pitfalls.md` — known gotchas, design review findings, anti-patterns
+- **Check when** questions involve "why was this done this way?" or project history
+
+### 4. Codebase (`crates/`, `apps/`)
+- `crates/audesys-hal-core/` — HAL traits, types, primitives (D10/D11/D12)
+- `crates/amw_inproc/` — in-process transport/discovery (D11, Phase 1)
+- `crates/hal-flatbuffers/` — FlatBuffers schema + bindings (D19, cross-language)
+- `apps/studio/` — Tauri + React + TypeScript IDE (D21, Phase 1)
+- **Check when** questions involve actual implementation details
 
 ---
 
-## MSRCS Project Awareness
+## AUDESYS Project Awareness
 
-When exploring, keep these MSRCS specifics in mind:
+When exploring, keep these AUDESYS specifics in mind:
 
 | Concern | Details |
 |---------|---------|
-| Build system | pixi env → make.sh / colcon |
-| C++ standard | C++17, RAII, smart pointers |
-| Qt version | Qt5.15 (conda-forge) |
-| ROS2 version | Jazzy (ROS 2 Jazzy Jalisco) |
-| Process mgmt | PM2 + ms_rcs.sh |
-| Config | C++ config_server + Python FastAPI + React |
-| HMI | Multi-process with QWindow::fromWinId embedding |
+| Build system | cargo workspace → cargo build / cargo test |
+| Rust standard | Rust stable, ownership, borrowing, traits |
+| HAL primitives | Signal / StreamChannel / RPC (D10) |
+| Middleware | amw_inproc (Phase 1), amw_zenoh (Phase 2) (D11) |
+| Type system | IEC 61131-3 mapped — 14 types (D12) |
+| Multi-language | FlatBuffers schemas + codegen (D19) |
+| RT config | HAL Config Barrier at cycle boundary (D17) |
+| Studio | Tauri window management (D21) |
+| Config format | YAML dev → FlatBuffers runtime (D24) |
 
 ---
 
@@ -150,20 +187,20 @@ When exploring, keep these MSRCS specifics in mind:
 
 **User brings a vague idea:**
 ```
-User: I'm thinking about adding a video feed panel
+User: I'm thinking about adding a signal monitoring panel
 
-You: Video feed could go in several places. Let me think about this...
+You: Signal monitoring could go in several places. Let me think about this...
 
-      VIDEO FEED OPTIONS IN MSRCS
+      SIGNAL MONITORING OPTIONS IN AUDESYS
       ═══════════════════════════════════════════
 
       ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-      │ New HMI      │  │ Dashboard    │  │ WebView      │
-      │ Child Window │  │ Package      │  │ HTML Canvas  │
+      │ Studio Panel │  │ Runtime       │  │ Config       │
+      │ (Tauri)      │  │ Dashboard     │  │ Web UI       │
       ├──────────────┤  ├──────────────┤  ├──────────────┤
-      │ Separate     │  │ Integrated   │  │ Cross-       │
-      │ process      │  │ in host      │  │ platform     │
-      │ +embed       │  │ QWidget      │  │ WebEngine    │
+      │ Integrated   │  │ Separate      │  │ Browser-     │
+      │ in IDE       │  │ monitoring    │  │ based        │
+      │ React + TS   │  │ process       │  │ PWA (D21)    │
       └──────────────┘  └──────────────┘  └──────────────┘
 
       Where's your head at?
@@ -171,39 +208,39 @@ You: Video feed could go in several places. Let me think about this...
 
 **User brings a specific problem:**
 ```
-User: The HMI embedding is broken
+User: The HAL Signal write is not propagating
 
-You: [reads test_graphics_host.cpp and related files]
+You: [reads hal-core signal module and related files]
 
-     Let me trace what happens when a child window announces...
+     Let me trace what happens when a Signal write occurs...
 
-     child.show() → hide() → winId() → publish WId via DDS
-         │                                           │
-         │                                           ▼
-         │                                    host subscriber
-         │                                    QMetaMethod::invoke
-         │                                           │
-         ▼                                           ▼
-     QWindow::fromWinId + createWindowContainer → show child
+     write_signal() → Config Barrier check (D17) → amw_inproc publish
+         │                                               │
+         │                                               ▼
+         │                                    subscriber callback
+         │                                    latest-value overwrite
+         │                                               │
+         ▼                                               ▼
+     Signal::new_value → notify subscribers (latest-value semantics)
 
      Where's the failure point?
 ```
 
 **User wants to compare options:**
 ```
-User: Should we use QML or QWidget for the dashboard?
+User: Should we use amw_inproc or amw_zenoh for Phase 1?
 
-You: Let's look at what MSRCS already does...
+You: Let's look at what AUDESYS already does...
 
-     QWidget (current)   vs   QML (via QQuickWidget)
+     amw_inproc (current)  vs   amw_zenoh (Phase 2+)
      ─────────────────────────────────────────────────
-     Mature in codebase    │  New, needs setup
-     Direct Qt5 support    │  Works with Qt5
-     ROS2 compat proven    │  TBD integration
-     Tests/examples exist  │  No examples yet
+     Mature in codebase     │  New, needs setup
+     Zero-copy in-process   │  Network transport
+     No external deps       │  Zenoh protocol dep
+     Phase 0/1 ready        │  Phase 2+ target
 
-     Unless there's a specific QML feature needed,
-     QWidget is the lower-risk path.
+     Unless you need network transport right now,
+     amw_inproc is the lower-risk path for Phase 1.
 ```
 
 ---
@@ -236,10 +273,10 @@ When it feels like things are crystallizing, you might summarize:
 ## Guardrails
 
 - **Don't implement** — Never write code or implement features. Creating artifacts is fine, writing application code is not.
-- **Don't fake understanding** — If something is unclear (e.g., ROS2 DDS QoS, X11 embedding), dig deeper
+- **Don't fake understanding** — If something is unclear (e.g., Config Barrier RT cycles, SCHED_FIFO), dig deeper
 - **Don't rush** — Discovery is thinking time, not task time
 - **Don't force structure** — Let patterns emerge naturally
 - **Don't auto-capture** — Offer to save insights, don't just do it
 - **Do visualize** — A good diagram is worth many paragraphs
-- **Do explore the codebase** — Ground discussions in MSRCS reality
+- **Do explore the codebase** — Ground discussions in AUDESYS reality
 - **Do question assumptions** — Including the user's and your own

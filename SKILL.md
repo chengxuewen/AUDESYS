@@ -39,16 +39,28 @@ Rules 中通过 `See skill: <name>` 引用 Skills，形成 "规则约束 → 技
 
 | 技能 | 文件 | 内容 |
 |------|------|------|
+| 技能 | 文件 | 内容 |
+|------|------|------|
+| `book-to-skill` | `book-to-skill/SKILL.md` | 将书籍/文档转换为 agent 技能，提取框架、原则、技术、反模式 |
 | `design-system` | `design-system/SKILL.md` | AUDESYS 工业控制平台 UI 设计系统：颜色、排版、组件、布局规范 |
 | `doc-audit` | `doc-audit/SKILL.md` | 文档架构审计：并行检查架构/设计/决策/参考之间的自洽性、完整性和缺口，交互式确认每项发现 |
+| `test-harness` | `test-harness/SKILL.md` | 多语言自动化测试工具架：SDD→测试生成 (Rust/TS/Python/C++/C)、AAA 模式、反向追溯、覆盖率报告、Phase 感知 |
 | `openspec-propose` | `openspec-propose/SKILL.md` | 一步生成完整变更提案：设计、规格、任务 |
 | `openspec-apply-change` | `openspec-apply-change/SKILL.md` | 实施变更中的任务（OAI 工作流） |
-| `openspec-apply` | `openspec-apply/SKILL.md` | MSRCS 变更实施（C++17/Qt5.15/ROS2，MODACS 遗留） |
+| `openspec-apply` | `openspec-apply/SKILL.md` | AUDESYS 变更实施（Rust + HAL + amw_inproc）<!-- openspec-apply-change is the experimental workflow variant; both maintained --> |
 | `openspec-archive-change` | `openspec-archive-change/SKILL.md` | 归档已完成变更（OAI 工作流） |
-| `openspec-archive` | `openspec-archive/SKILL.md` | MSRCS 变更归档（MODACS 遗留） |
-| `openspec-verify` | `openspec-verify/SKILL.md` | MSRCS 变更验证（MODACS 遗留） |
+| `openspec-archive` | `openspec-archive/SKILL.md` | AUDESYS 变更归档 |
+| `openspec-verify` | `openspec-verify/SKILL.md` | 验证 AUDESYS 变更实现的正确性 |
 | `openspec-explore` | `openspec-explore/SKILL.md` | 探索模式：思考伙伴，用于探索想法、调查问题、澄清需求 |
 | `openspec-sync-specs` | `openspec-sync-specs/SKILL.md` | 将 delta specs 同步到主规格（不归档变更） |
+| `skill-creator` | `skill-creator/SKILL.md` | 从项目构件（HAL traits、SDD specs、FlatBuffers schemas、Cargo crates）自动生成技能 |
+| `ref-beckhoff` | `ref-beckhoff/SKILL.md` | Beckhoff TwinCAT 参考文档技能 |
+| `ref-codesys` | `ref-codesys/SKILL.md` | CODESYS 参考文档技能 |
+| `ref-fuxa` | `ref-fuxa/SKILL.md` | FUXA SCADA 参考文档技能 |
+| `ref-ignition` | `ref-ignition/SKILL.md` | Ignition SCADA 参考文档技能 |
+| `ref-intouch` | `ref-intouch/SKILL.md` | InTouch HMI 参考文档技能 |
+| `ref-labview` | `ref-labview/SKILL.md` | LabVIEW 参考文档技能 |
+| `ref-qtouch` | `ref-qtouch/SKILL.md` | Qtouch 参考文档技能 |
 
 ## 代理（Agents）
 
@@ -75,6 +87,6 @@ AI 助手会自动匹配适用的技能并加载。也可在对话中指定：
 
 ## 添加新技能
 
-1. 在 `.agents/skills/` 下创建 `<name>.md`
+1. 在 `.agents/skills/<name>/` 下创建子目录和 `SKILL.md`
 2. 在本文档的「项目专属技能」表格中添加条目
 3. 在对应的规则文件中添加 `See skill: <name>` 引用

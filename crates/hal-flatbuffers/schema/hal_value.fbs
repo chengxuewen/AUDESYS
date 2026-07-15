@@ -1,0 +1,46 @@
+// AUDESYS HAL Value Types — FlatBuffers Schema
+// Corresponds to D12: 14-type unified type system
+// See docs/modules/hal/iec-type-system-design.md
+
+namespace audesys.hal;
+
+// Scalar types (D12: 11 scalar types)
+// Phase 1: stub. Full 14-type system (Bool/S8/U8/S16/U16/S32/U32/S64/U64/F32/F64 + String + Blob + Array<T>)
+// in M0.4.
+
+enum HalType : byte {
+  Bool = 0,
+  S8 = 1,
+  U8 = 2,
+  S16 = 3,
+  U16 = 4,
+  S32 = 5,
+  U32 = 6,
+  S64 = 7,
+  U64 = 8,
+  F32 = 9,
+  F64 = 10,
+  String = 11,
+  Blob = 12
+}
+
+union HalValueData {
+  bool_val: bool,
+  s32_val: int,
+  f64_val: double,
+  string_val: string,
+  blob_val: [ubyte]
+}
+
+table HalValue {
+  type: HalType;
+  data: HalValueData;
+}
+
+table HalSignal {
+  name: string;           // component.interface.name (D10)
+  value: HalValue;
+  timestamp_ns: ulong;
+}
+
+root_type HalSignal;

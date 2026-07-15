@@ -7,6 +7,7 @@
 vulnerability = "deny"
 unmaintained = "warn"
 yanked = "deny"
+ignore = []
 
 [licenses]
 unlicensed = "deny"
@@ -22,3 +23,15 @@ copyleft = "warn"
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+highlight = "all"
+# Allow specific duplicates when necessary
+# skip = []
+# skip-tree = []
+
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# Allow known private registries
+# allow-registry = []
+# allow-git = []

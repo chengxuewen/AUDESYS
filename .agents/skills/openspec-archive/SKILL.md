@@ -1,7 +1,7 @@
 ---
 name: openspec-archive
 description: >-
-  Archive a completed MSRCS change proposal after implementation and verification.
+  Archive a completed AUDESYS change proposal after implementation and verification.
   Use when the user wants to finalize a change — record decisions, update memory,
   clean up artifacts.
 license: MIT
@@ -11,12 +11,12 @@ metadata:
   author: openspec
   version: "1.0"
   category: workflow
-  project: MSRCS
+  project: AUDESYS
 ---
 
-# OpenSpec Archive — MSRCS
+# OpenSpec Archive — AUDESYS
 
-Archive a completed MSRCS change proposal. Record what was done, update project memory, and clean up working artifacts.
+Archive a completed AUDESYS change proposal. Record what was done, update project memory, and clean up working artifacts.
 
 ---
 
@@ -137,7 +137,7 @@ Or keep it for reference — the user decides.
 
 ---
 
-## MSRCS-Specific Archival Context
+## AUDESYS-Specific Archival Context
 
 ### Memory files to update
 
@@ -151,19 +151,19 @@ Or keep it for reference — the user decides.
 ### When to record an ADR (decisions.md)
 
 Any of these during the change:
-- New Qt/ROS2 integration pattern established
-- Build system change (new cmake target, new package)
-- Process management change (new PM2 app, new startup profile)
-- Architectural tradeoff resolved (e.g., QWidget vs QML)
+- New HAL/Runtime integration pattern established
+- Build system change (new crate, new workspace member)
+- Process management change (new Runtime component)
+- Architectural tradeoff resolved (e.g., amw_inproc vs amw_zenoh)
 - Thread safety strategy decision
 
 ### When to record a pitfall (pitfalls.md)
 
 Any of these during the change:
 - Build error that required non-obvious fix
-- Qt/ROS2 runtime issue (signal not firing, DDS QoS mismatch)
-- Toolchain incompatibility (CMake version, compiler, pixi)
-- Process/chrome issue (X11 embedding, DISPLAY, PM2)
+- HAL/Runtime runtime issue (Signal not propagating, Config Barrier timing)
+- Toolchain incompatibility (Rust version, cargo feature resolution)
+- Process/embedding issue (Tauri window management, DISPLAY)
 - Thread safety issue (race condition, deadlock)
 
 ---
@@ -173,7 +173,7 @@ Any of these during the change:
 - Always prompt for change selection if not provided
 - Do NOT block archive on warnings — just inform and confirm
 - Do NOT modify `version.txt` — only the user may update it
-- Do NOT modify QExt/OpenCTK submodules from here
+- Do NOT modify external dependencies from here
 - Write changelog entries in Chinese (per project convention)
 - Memory file updates should be concise, not verbose
 - If the change involves no new pitfalls or decisions, skip those files

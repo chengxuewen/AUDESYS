@@ -1,7 +1,7 @@
 ---
 name: openspec-verify
 description: >-
-  Verify that an MSRCS change proposal was implemented correctly. Use after
+  Verify that an AUDESYS change proposal was implemented correctly. Use after
   implementation tasks are complete to ensure code compiles, tests pass, and
   the change meets design requirements.
 license: MIT
@@ -11,12 +11,12 @@ metadata:
   author: openspec
   version: "1.0"
   category: workflow
-  project: MSRCS
+  project: AUDESYS
 ---
 
-# OpenSpec Verify — MSRCS
+# OpenSpec Verify — AUDESYS
 
-Verify that an MSRCS change proposal was implemented correctly. This is the quality gate before archiving.
+Verify that an AUDESYS change proposal was implemented correctly. This is the quality gate before archiving.
 
 ---
 
@@ -52,14 +52,14 @@ Run LSP diagnostics on all changed files:
 git diff --name-only HEAD
 ```
 
-For each modified `.cpp`, `.hpp`, `.h`, `.py`, `.cmake` file, verify LSP diagnostics are clean (no errors, warnings are acceptable per project `.clangd` config).
+For each modified `.rs`, `.fbs`, `.toml` file, verify LSP diagnostics are clean (no errors, warnings are acceptable per project config).
 
 ### 4. Build verification
 
-Build the affected packages:
+Build the affected crates:
 
 ```bash
-./make.sh --packages <affected-packages> --skip-pack --skip-archive
+cargo build --package <crate-name>
 ```
 
 The build MUST pass without errors. Document any pre-existing warnings that are not related to the change.
@@ -70,13 +70,40 @@ Compare the implementation against `design.md`:
 
 | Criterion | Check |
 |-----------|-------|
-| Architecture matches design | All new classes/functions exist as specified |
-| Interfaces match spec | ROS2 topics/services match expected names |
-| Qt signal/slot wiring correct | Connections established as designed |
-| Build system changes correct | CMakeLists.txt / package.xml updated |
+| Architecture matches design | All new traits/structs/functions exist as specified |
+| Interfaces match spec | HAL Signal/StreamChannel (D10) match expected pin names |
+| amw wiring correct | Transport/discovery traits implemented as designed |
+| Build system changes correct | Cargo.toml [dependencies] updated |
 | No scope creep | No unrelated modifications |
 
-### 6. Regression check
+### 6. Spec consistency check
+
+Verify changed code aligns with openspec/specs/:
+
+**a. Identify affected specs**
+For each changed Rust trait method or FlatBuffers schema, grep openspec/specs/*.md for matching spec IDs or type names. If no matching spec exists, flag as missing coverage.
+
+**b. Cross-layer verification**
+| Layer | Location | Check |
+|-------|----------|-------|
+| HAL traits | crates/audesys-hal-core/src/ | grep method name in spec |
+| FlatBuffers | crates/hal-flatbuffers/ | schema fields match spec type definitions |
+| amw | crates/amw_inproc/ | transport trait impls match spec |
+
+**c. Run spec validation** (best-effort)
+If a verify_specs.sh or similar script exists in scripts/, run it. Non-blocking if script absent or fails on missing artifacts — flag as WARN not FAIL.
+
+### 7. Orphan test check
+
+Verify all test files are discoverable:
+
+- **Rust unit tests**: `#[cfg(test)] mod tests` in source files are auto-discovered
+- **Rust integration tests**: All `.rs` files in `crates/*/tests/` should be auto-discovered by `cargo test --workspace`
+- **FlatBuffers tests**: Any test file checking .fbs round-trip should be referenced in CI scripts
+
+Report any test file that exists on disk but is NOT discoverable by `cargo test --workspace`.
+
+### 8. Regression check
 
 Ensure no existing functionality is broken:
 
@@ -84,17 +111,24 @@ Ensure no existing functionality is broken:
 - Verify that removed/modified code has proper migration
 - Check for any accidental changes to unrelated files via `git diff`
 
-### 7. Report results
+### 9. Report results
 
 ```
 ## Verification: <change-name>
 
 ### Results
 
-- Tasks: 7/7 complete
+- Tasks: N/N complete
 - LSP diagnostics: PASS (0 errors)
-- Build: PASS (<package-name>)
+- Build: PASS (<crate-name>)
 - Design match: PASS
+
+### Spec Coverage
+- [x] Spec consistency     — M/N APIs verified
+- [ ] Missing spec for: <method name>
+
+### Orphan Tests
+- [x] No orphan tests found
 
 ### Summary
 
@@ -113,27 +147,30 @@ Action needed before archive.
 
 ## Additional Checks
 
-### For C++ changes
-- `lsp_diagnostics` on all `.cpp`/`.hpp` files
-- Build succeeds with `./make.sh --skip-pack`
-- No new compiler warnings added (unless matching project baseline)
-- Qt signal/slot connections type-safe (use `&QObject::method` syntax)
-- ROS2 thread safety: no `spin_until_future_complete` in callback context
+### For Rust changes
+- `lsp_diagnostics` on all `.rs` files
+- Build succeeds with `cargo build`
+- No new clippy warnings added (unless matching project baseline)
+- Use `#[derive]` macros where applicable, avoid manual boilerplate
+- Thread safety: no blocking operations in async context without `tokio::task::spawn_blocking`
 
-### For CMake changes
-- `ament_cmake` conventions followed
-- `package.xml` dependencies declared
-- No duplicate `find_package` calls
-- `target_link_libraries` uses non-keyword form when using `ament_target_dependencies`
+### For Cargo changes
+- `cargo` workspace conventions followed
+- `Cargo.toml [dependencies]` declared
+- No duplicate dependency declarations
+- Feature flags properly gated
 
-### For Python changes (control_client, config_web)
-- Syntax check: `python3 -m py_compile <file>`
-- ROS2 node properly uses `rclpy` conventions
+### For FlatBuffers changes (.fbs schemas)
+- Schema syntax is valid
+- Generated bindings compile for all target languages
+- Field IDs are stable (no collisions)
+- Version compatibility maintained
 
-### For HMI changes
-- QWindow embedding verified: child process announces WId, host embeds correctly
-- DISPLAY variable available (GUI nodes)
-- PM2 process management configured if applicable
+### For HAL changes
+- HAL Signal/StreamChannel (D10) primitives used correctly
+- amw_inproc (D11) trait implementations complete
+- HAL Config Barrier (D17) respected for config mutations
+- Type system (D12) conformance — IEC 61131-3 mapping correct
 
 ---
 
@@ -144,5 +181,5 @@ Action needed before archive.
 - If a pre-existing issue is blocking verification, document it separately
 - Do NOT force-pass if build fails — fix the issue or revert
 - LSP diagnostics takes priority over subjective code review
-- If tests exist, run them: `colcon test --packages-select <pkg>`
+- If tests exist, run them: `cargo test --package <crate-name>`
 - Report clearly what passed and what failed

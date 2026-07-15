@@ -1,0 +1,10 @@
+[package]
+name = "hal-flatbuffers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+flatbuffers = "25"
+audesys-hal-core = { path = "../audesys-hal-core" }
+

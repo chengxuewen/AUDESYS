@@ -112,10 +112,10 @@ AUDESYS/
 
 | 规范文档 | 设计来源 | 规范项数 | 可直接转写为测试数 |
 |----------|----------|:--------:|:------------------:|
-| `docs/specs/type-system-sdd.md` | iec-type-system-design.md | 30 | ~15 |
-| `docs/specs/hal-qos-sdd.md` | industrial-qos-design.md | 30 | ~12 |
-| `docs/specs/config-barrier-sdd.md` | config-barrier-design.md | 24 | ~5 |
-| `docs/specs/protocol-sdd.md` | hal-protocol-design.md | 37 | ~37 |
+| `openspec/specs/hal-type-system-spec.md` | iec-type-system-design.md | 30 | ~15 |
+| `openspec/specs/hal-qos-spec.md` | industrial-qos-design.md | 30 | ~12 |
+| `openspec/specs/config-barrier-spec.md` | config-barrier-design.md | 24 | ~5 |
+| `openspec/specs/hal-protocol-spec.md` | hal-protocol-design.md | 37 | ~37 |
 | **总计** | | **121** | **~69** |
 
 | 优先级 | 范围 | 估计测试数 | 依赖条件 | 时间窗口 |
@@ -129,7 +129,7 @@ AUDESYS/
 ```rust
 /// HAL 类型系统：Bool 类型序列化往返
 ///
-/// 来源: docs/specs/type-system-sdd.md
+/// 来源: openspec/specs/hal-type-system-spec.md
 #[test]
 fn bool_roundtrip_preserves_value() {
     // Arrange
@@ -148,7 +148,7 @@ fn bool_roundtrip_preserves_value() {
 
 每个测试顶部必须包含 `来源:` 注释指向对应的 SDD 规范文档。Code Review 时验证追溯完整性。
 
-**验证方式**: `grep -c '# SDD-' docs/specs/*.md` → 总计 121 项。
+**验证方式**: `grep -c '# SDD-' openspec/specs/*.md` → 总计 121 项。
 
 ---
 
@@ -174,7 +174,7 @@ fn bool_roundtrip_preserves_value() {
 | `docs/architecture.md` — 系统架构概览 | ✅ | Phase 0 |
 | `docs/modules/hal/` — 18 份 HAL 子文档 | ✅ | Phase 0 |
 | `docs/modules/runtime/` — 4 份 Runtime 设计文档 | ✅ | Phase 0 |
-| `docs/specs/` — 4 份 SDD 规范文档（121 项） | ✅ | Phase 0 |
+| `openspec/specs/` — 4 份 SDD 规范文档（121 项） | ✅ | Phase 0 |
 | `docs/plans/` — 3 份 P0 计划文档 | ✅ | Phase 0 |
 
 P0 完成时所有设计文档已存在（50 项审计修复已完成）。P0 不要求新增设计文档。
@@ -288,5 +288,5 @@ ls .github/workflows/qa.yml
 find docs/ -name '*.md' | wc -l  # 预期 ≥ 68
 
 # SDD 规范计数
-grep -c '# SDD-' docs/specs/*.md  # 预期总计 121
+grep -c '# SDD-' openspec/specs/*.md  # 预期总计 121
 ```
