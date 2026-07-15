@@ -1,12 +1,12 @@
 // AUDESYS HAL Value Types — FlatBuffers Schema
-// Corresponds to D12: 14-type unified type system
+// Full 15-variant type system (D12): 11 scalars + Blob + String + Array<T>
 // See docs/modules/hal/iec-type-system-design.md
+//
+// Type tag order matches hal-core encoding.rs tags 0-13.
 
 namespace audesys.hal;
 
-// Scalar types (D12: 11 scalar types)
-// Phase 1: stub. Full 14-type system (Bool/S8/U8/S16/U16/S32/U32/S64/U64/F32/F64 + String + Blob + Array<T>)
-// in M0.4.
+// ── Scalar type tags (D12: 11 scalar + 2 container + 1 array) ──
 
 enum HalType : byte {
   Bool = 0,
@@ -20,25 +20,65 @@ enum HalType : byte {
   U64 = 8,
   F32 = 9,
   F64 = 10,
-  String = 11,
-  Blob = 12
+  Blob = 11,
+  String = 12
 }
 
-union HalValueData {
-  bool_val: bool,
-  s32_val: int,
-  f64_val: double,
-  string_val: string,
-  blob_val: [ubyte]
+// ── Thin wrapper tables for scalars (required by FlatBuffers union) ──
+
+table BoolVal    { value: bool; }
+table S8Val      { value: byte; }
+table U8Val      { value: ubyte; }
+table S16Val     { value: short; }
+table U16Val     { value: ushort; }
+table S32Val     { value: int; }
+table U32Val     { value: uint; }
+table S64Val     { value: long; }
+table U64Val     { value: ulong; }
+table F32Val     { value: float; }
+table F64Val     { value: double; }
+table BlobVal    { data: [ubyte]; }
+table StringVal  { value: string; }
+
+// ── Type-erased array container (Option B from D12 review) ──
+// data contains FlatBuffers-serialized elements of element_type.
+// Consumer knows element type from component contract.
+
+table ArrayData {
+  element_type: HalType;
+  data: [ubyte];
 }
+
+// ── Value union — covers all 15 HalValue variants ──
+
+union HalValueData {
+  bool_val: BoolVal,
+  s8_val: S8Val,
+  u8_val: U8Val,
+  s16_val: S16Val,
+  u16_val: U16Val,
+  s32_val: S32Val,
+  u32_val: U32Val,
+  s64_val: S64Val,
+  u64_val: U64Val,
+  f32_val: F32Val,
+  f64_val: F64Val,
+  blob_val: BlobVal,
+  string_val: StringVal,
+  array_val: ArrayData
+}
+
+// ── Main value table ──
 
 table HalValue {
   type: HalType;
   data: HalValueData;
 }
 
+// ── Named signal with timestamp (D10: component.interface.name) ──
+
 table HalSignal {
-  name: string;           // component.interface.name (D10)
+  name: string;
   value: HalValue;
   timestamp_ns: ulong;
 }
