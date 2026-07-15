@@ -2,7 +2,7 @@
 
 ## 当前阶段
 - **HAL 详细设计阶段** — 2026-07-09，HAL 协议设计经团队审核（3 专家 × 27 项发现）并生成详细文档
-- **参考文档库建成** — 2026-07-13，22 篇工业自动化竞品参考文档（docs/reference/），覆盖 DCS/SCADA/软PLC/组态/仪器仪表/IDE 七大类别，总计 19,722 行
+- **参考文档库扩展** — 2026-07-15，参考库从 22 篇扩至 41 篇（docs/reference/），新增 3D打印机固件/CNC控制器/FPGA运动控制卡/MCU智能固件/现场总线协议栈 5 个类别，总计 19 篇新文档
 - **文档驱动开发** — 零源代码，以架构文档和设计规范为先导
 - **MODACS 适配完成** — 2026-07-08，所有 MODACS 引用已移除，重新品牌为 AUDESYS
 - **实施规划评审完成** — 2026-07-13，基于文档驱动设计 + 外部研究，完成交互式实施规划评审，新增 D31-D41 共 11 项决策
@@ -14,7 +14,7 @@
 - D31-D41 已记录于 `.agents/memorys/decisions.md`（D33 经团队审查修订：Ludwig→直接 TDD）
 - 覆盖：集成路线图、Phase 0 启动、SDD→TDD 过渡、模块构建顺序、Cargo Workspace、CI/CD 流水线、SCHED_FIFO 测试、Studio 集成、FlatBuffers Schema、发布策略、开发流程
 ## 仓库状态
-- **首次提交**: `a024b10` — `chore: adapt AUDESYS project identity from MODACS split`
+- **最新提交**: `36de3e7` — `chore: add pixi environment and CI shell scripts`
 - **最新提交**: `ffbf480` — `docs: add HAL multi-language strategy, condense architecture.md §一`（待提交 D21-D30）
 - **源代码**: 无（零 `src/`、`lib/`、`apps/` 目录）
 - **测试**: 无测试基础设施
@@ -40,6 +40,7 @@
   - `docs/detail/hal/`（12 份独立设计文档，含原始审核输出 + 对比分析 + 多语言策略）
   - `docs/architecture.md` §一 精简到 168 行，跨引用指向 `hal-detailed-design.md`
 - 新增参考文档库：
+  - `docs/reference/`（41 篇竞品参考文档，覆盖 DCS/SCADA/软PLC/组态/仪器仪表/IDE/3D打印固件/CNC控制器/FPGA运动控制卡/MCU固件/现场总线协议栈 12 个类别）
   - `docs/reference/`（22 篇竞品参考文档，覆盖 DCS/SCADA/软PLC/组态/仪器仪表/IDE 七大类别）
   - 每篇 7 章节（产品画像/技术特性/功能概览/现状与生态/市场定位/产品特色/对AUDESYS参考价值）
   - 全部中文撰写，技术术语保留英文原文，不确定信息标注"待确认"
