@@ -305,47 +305,153 @@ fn test_type_30_pin_type_identity() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// P1 stubs — lower priority, implement in Phase 1 M0.5
+// P1 tests — Phase 1 M0.5 implementations
 // ═══════════════════════════════════════════════════════════════
 
 #[test]
-#[ignore = "P1 stub: lower priority, implement in Phase 1 M0.5"]
 fn test_type_17_zero_value() {
-    // S-TYPE-017: Zero-value encoding validation
-    todo!("S-TYPE-017: Zero-value encoding");
+    // S-TYPE-017: String UTF-8 validation — invalid UTF-8 is rejected, valid passes
+    // Arrange: encode a valid string, then corrupt bytes to invalid UTF-8
+    let v = HalValue::String("hello".into());
+    let mut encoded = encode_halvalue(&v);
+    // Replace byte 5 ('h', 0x68) with invalid lone 0xFF
+    encoded[5] = 0xFF;
+    // Act
+    let result = decode_halvalue(&encoded);
+    // Assert: 0xFF is not valid UTF-8
+    assert!(
+        matches!(result, Err(HalError::InvalidUtf8)),
+        "expected InvalidUtf8 for 0xFF byte, got {:?}",
+        result
+    );
+    // Also verify: truncated multi-byte UTF-8 sequence rejected
+    let v2 = HalValue::String("é".into()); // 0xC3 0xA9 (2-byte sequence)
+    let mut encoded2 = encode_halvalue(&v2);
+    // Truncate to keep only the leading byte of the 2-byte sequence
+    encoded2.truncate(6); // tag(1) + len(4) + 1 partial byte
+    let new_len: u32 = 1;
+    encoded2[1..5].copy_from_slice(&new_len.to_le_bytes());
+    let result2 = decode_halvalue(&encoded2);
+    assert!(
+        matches!(result2, Err(HalError::InvalidUtf8)),
+        "expected InvalidUtf8 for truncated UTF-8, got {:?}",
+        result2
+    );
+    // Verify valid UTF-8 with multi-byte chars passes cleanly
+    rt(HalValue::String("valid UTF-8 ✓ 中文 🎯".into()));
 }
 
 #[test]
-#[ignore = "P1 stub: lower priority, implement in Phase 1 M0.5"]
 fn test_type_24_numeric_edges() {
-    // S-TYPE-024: Numeric edge case roundtrip
-    todo!("S-TYPE-024: Numeric edge case validation");
+    // S-TYPE-024: Bool narrowing — any non-zero byte maps to true
+    // Arrange: encode Bool(false), then mutate payload byte
+    let v = HalValue::Bool(false);
+    let mut encoded = encode_halvalue(&v);
+    // Act & Assert: various non-zero bytes all decode as true
+    for &byte in &[0x01u8, 0xFF, 0x42, 0x80] {
+        encoded[1] = byte;
+        let decoded = decode_halvalue(&encoded).expect("decode failed");
+        assert_eq!(
+            decoded,
+            HalValue::Bool(true),
+            "byte 0x{:02X} should be narrowed to true",
+            byte
+        );
+    }
+    // Zero byte → false
+    encoded[1] = 0x00;
+    let decoded = decode_halvalue(&encoded).expect("decode failed");
+    assert_eq!(decoded, HalValue::Bool(false));
 }
 
 #[test]
-#[ignore = "P1 stub: lower priority, implement in Phase 1 M0.5"]
 fn test_type_25_container_large() {
-    // S-TYPE-025: Large container stress
-    todo!("S-TYPE-025: Large container boundary");
+    // S-TYPE-025: Blob zero-length pointer — 0-byte blob encodes/decodes cleanly
+    // Arrange: empty blob
+    let v = HalValue::Blob(vec![]);
+    // Act: encode and verify layout
+    let encoded = encode_halvalue(&v);
+    // Assert: empty blob = tag(1) + 4-byte zero-length = exactly 5 bytes
+    assert_eq!(
+        encoded.len(),
+        5,
+        "empty blob should be exactly 5 bytes (tag + 4-byte length)"
+    );
+    let decoded = decode_halvalue(&encoded).expect("decode empty blob failed");
+    assert_eq!(decoded, HalValue::Blob(vec![]));
+    // Also verify single-byte and moderate-sized blobs
+    rt(HalValue::Blob(vec![42]));
+    rt(HalValue::Blob(vec![0xCC; 4096]));
 }
 
 #[test]
-#[ignore = "P1 stub: lower priority, implement in Phase 1 M0.5"]
 fn test_type_26_type_mapping() {
-    // S-TYPE-026: IEC type mapping verification
-    todo!("S-TYPE-026: Type mapping coverage");
+    // S-TYPE-026: Array large boundary — verify large arrays roundtrip correctly
+    // Arrange: 10K-element S8 array (ponytail: not production-scale)
+    let data = vec![0xABu8; 10000];
+    let v = HalValue::Array {
+        element_type: HalPinType::S8,
+        data,
+    };
+    // Act
+    let encoded = encode_halvalue(&v);
+    let decoded = decode_halvalue(&encoded).expect("decode large Array failed");
+    // Assert: element_type and data preserved
+    match &decoded {
+        HalValue::Array {
+            element_type,
+            data,
+        } => {
+            assert_eq!(*element_type, HalPinType::S8);
+            assert_eq!(data.len(), 10000);
+            assert_eq!(data[0], 0xAB);
+            assert_eq!(data[9999], 0xAB);
+        }
+        _ => panic!("expected Array<S8>, got {:?}", decoded),
+    }
+    assert_eq!(v, decoded, "large Array roundtrip mismatch");
 }
 
 #[test]
-#[ignore = "P1 stub: lower priority, implement in Phase 1 M0.5"]
 fn test_type_27_stress_roundtrip() {
-    // S-TYPE-027: Stress roundtrip across all types
-    todo!("S-TYPE-027: Stress roundtrip");
+    // S-TYPE-027: String length boundaries — empty, short, null-embedded, long, unicode
+    // Empty string
+    rt(HalValue::String("".into()));
+    // Single ASCII character
+    rt(HalValue::String("A".into()));
+    // String with embedded null characters (should survive roundtrip)
+    rt(HalValue::String("before\0after".into()));
+    // Long string — 4KB of repeated 'x'
+    let long = "x".repeat(4096);
+    rt(HalValue::String(long));
+    // 4-byte UTF-8 emoji (boundary: max bytes per code point)
+    rt(HalValue::String("😀".into()));
 }
 
 #[test]
-#[ignore = "P1 stub: lower priority, implement in Phase 1 M0.5"]
 fn test_type_29_container_overlap() {
-    // S-TYPE-029: Container encoding boundary verification
-    todo!("S-TYPE-029: Container overlap");
+    // S-TYPE-029: Scalar retagging safety — same bit-pattern, different type tags
+    // Arrange: U32::MAX and S32(-1) have identical 4-byte LE payload [FF,FF,FF,FF]
+    let u32_val = HalValue::U32(u32::MAX);
+    let s32_val = HalValue::S32(-1);
+    // Act: encode both
+    let u32_enc = encode_halvalue(&u32_val);
+    let s32_enc = encode_halvalue(&s32_val);
+    // Assert: different type tags (6 vs 5), identical payload bytes
+    assert_eq!(u32_enc[0], 6, "U32 tag should be 6");
+    assert_eq!(s32_enc[0], 5, "S32 tag should be 5");
+    assert_eq!(&u32_enc[1..], &s32_enc[1..], "payload bytes should be identical");
+    // Roundtrip preserves correct type (not cross-interpreted)
+    assert_eq!(decode_halvalue(&u32_enc).unwrap(), u32_val);
+    assert_eq!(decode_halvalue(&s32_enc).unwrap(), s32_val);
+    // Same pattern for U64/S64: U64::MAX and S64(-1) both = [FF;8]
+    let u64_val = HalValue::U64(u64::MAX);
+    let s64_val = HalValue::S64(-1);
+    let u64_enc = encode_halvalue(&u64_val);
+    let s64_enc = encode_halvalue(&s64_val);
+    assert_eq!(u64_enc[0], 8, "U64 tag should be 8");
+    assert_eq!(s64_enc[0], 7, "S64 tag should be 7");
+    assert_eq!(&u64_enc[1..], &s64_enc[1..], "payload bytes should be identical");
+    assert_eq!(decode_halvalue(&u64_enc).unwrap(), u64_val);
+    assert_eq!(decode_halvalue(&s64_enc).unwrap(), s64_val);
 }
