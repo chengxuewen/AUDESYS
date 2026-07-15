@@ -96,3 +96,21 @@
 ### GitHub MCP 认证依赖
 - **问题**: `local-github` MCP 需要 `GITHUB_TOKEN` 环境变量，当前未配置将导致认证失败
 - **方案**: 首次使用前需创建 GitHub Personal Access Token（classic），repo 或 public_repo 权限，通过 shell profile 或 `.env` 注入
+
+
+
+## 文档审计相关
+
+### 50 项交互式审计 — 发现分布
+- **问题**: 全量文档审计（architecture.md + 18 HAL子文档 + decisions/conventions/status/pitfalls + 3 P0计划）共发现 50 项：11 CRITICAL + 13 HIGH + 19 MEDIUM + 7 LOW
+- **原因**: 文档驱动阶段累积的债务（过期引用、Phase歧义、类型计数矛盾、安全域格式不一致）和设计缺口（IPC安全、可观测性、错误模型、硬件基线）
+- **方案**: 逐项交互审核确认（45项修复、5项延后），团队模式 + background agent 并行修复，12 commits 原子提交
+
+### 交互审核模式验证
+- **问题**: 50 项发现若批量自动修复会引入新矛盾
+- **方案**: 标准化交互审核模式：每项列详情→方案优劣→来源→影响→推荐，question() 确认后执行。此模式已固化进 doc-audit 技能
+
+### 并发编辑冲突 — 多子代理编辑同一文件
+- **问题**: architecture.md 被 bg_314cfa75 和直接编辑同时修改，可能产生冲突
+- **原因**: 大型审计修复中多个子代理处理同一份大型文档的不同切面
+- **方案**: architecture.md 的编辑应集中到单个 agent，其他 agent 处理独立文件。doc-audit 技能的 Conductor 规范已包含冲突处理规则

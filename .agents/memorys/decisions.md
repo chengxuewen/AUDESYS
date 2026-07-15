@@ -259,3 +259,34 @@
 - **决定**: ponytail 作为 OpenCode plugin 集成（`@dietrichgebert/ponytail`），每次推理自动注入防过度工程规则。OpenSpace 作为开发辅助 MCP 启用，需 Python 3.11+ + API Key
 - **理由**: ponytail plugin 方式与现有 superpowers/oh-my-opencode 一致。OpenSpace（AI agent 技能进化引擎）作为辅助开发工具启用，不进入 AUDESYS 核心架构
 - **参考**: opencode.json plugin 数组、init-mcp-openspace.mjs
+
+## D44: D14/D15 逆转 = hal-detailed-design.md 拆分为 18 份独立子文档
+- **日期**: 2026-07-15
+- **决定**: 逆转 D14/D15，删除合并文档 hal-detailed-design.md（3386行），保留并扩展 docs/modules/hal/ 下 18 份独立子文档。architecture.md §一 按主题引用子文档。
+- **理由**: 子文档独立维护降低修改冲突。合并操作不可逆（丢失独立文档的编辑历史），实际修改中发现子文档模式更利于并行编辑。7 份缺失子文档从合并文档提取完成。
+- **参考**: docs/modules/hal/（18 份子文档），architecture.md §一
+## D45: Runtime 设计文档 = IPC 安全 + 可观测性 + 硬件 + 升级
+- **日期**: 2026-07-15
+- **决定**: Phase 1 前必须有 Runtime 设计文档覆盖：IPC 安全（UDS+HMAC，Zenoh mTLS，RBAC），可观测性（health/metrics/logs/alerts + AmwMetrics），硬件需求（三档规格 + PREEMPT_RT checklist），升级策略（schema版本/迁移/hot-swap/OTA/rollback）
+- **理由**: 50 项文档审计发现 Runtime 运维/安全/升级三个关键缺口（3 CRITICAL），这些缺口会阻断 Phase 1 生产部署。
+- **参考**: docs/modules/runtime/ 4 份设计文档，架构审计 gap-optimizer 报告
+## D46: HAL 错误模型设计 = 5 层分类 + 状态机
+- **日期**: 2026-07-15
+- **决定**: 新建 docs/modules/hal/error-model-design.md（564行），覆盖 5 层错误分类（类型/传输/资源/发现/调度）、Signal 写入失败拒绝策略、StreamChannel 溢出恢复 + 熔断、传输断开 4 态机、类型不匹配检测、SlidingWindowCounter 升级路径。
+- **理由**: 审计发现错误模型覆盖仅 40%（StreamChannel+QoS已覆盖，Signal写失败/传输断连/类型不匹配完全缺失）。
+- **参考**: docs/modules/hal/error-model-design.md，架构审计 gap-optimizer 报告 H4
+## D47: doc-audit 技能 = 持续文档审计管道
+- **日期**: 2026-07-15
+- **决定**: 新建 .agents/skills/doc-audit/SKILL.md（242行），支持 6 维度审计：决策验证/文档一致性/参考验证/缺口优化/阶段审计(SDD+TDD+计划)/代码→规范追溯(Phase 1+)。支持团队模式（4-6 ultrabrain）和背景代理模式。提供 /doc-audit full/quick-fix/phase/decisions/consistency 命令。
+- **理由**: 50 项交互式审计验证了多视角并行审计模式的有效性。将审计流程固化为可复用技能，确保每次文档变更后可持续审计。
+- **参考**: .agents/skills/doc-audit/SKILL.md，审计报告 b73 区块
+## D48: SDD 规范生成 = 设计文档→测试规范自动化管道
+- **日期**: 2026-07-15
+- **决定**: 从 4 份 HAL 设计文档提取 121 项规范（docs/specs/）：类型系统(30)、HalQoS(30)、Config Barrier(24)、协议(37)。每项规范含 ID→前置条件→操作→期望结果→边界条件→测试映射。Pair-writing 团队 4 人并行生成。
+- **理由**: 为 Phase 0 M0.3 直接 TDD 做准备。规范可直接转写为 Rust #[test] 函数，AAA 模式已预结构化。优先级 B 规范（Scan Barrier、线程调度）等 Mock trait 定义后按需生成。
+- **参考**: docs/specs/ 4 份规范文档，SDD 汇总 b68-b70 区块
+## D49: 50 项审计修复流程 = 交互审核 + 团队模式 + 批量执行
+- **日期**: 2026-07-15
+- **决定**: 50 项审计发现采用交互式逐项审核（question() 确认），CHAT/团队模式并行修复（doc-fixers 3人团队 + 2 background agents），12 commits 原子提交。
+- **理由**: 批量自动修复不可靠（文档编辑需人类判断）。交互审核保证每项修复方案经确认。团队 + background 并行最大化吞吐。12 次原子提交确保每项逻辑变更独立可审计。
+- **参考**: 审计报告 b73 区块，提交记录 7d72c90..aadcb3e
