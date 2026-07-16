@@ -19,4 +19,7 @@ rand = "0.8"
 audesys-modbus = { path = "../audesys-modbus" }
 audesys-hart = { path = "../audesys-hart" }
 
+[[bin]]
+name = "audesys-controller"
+path = "src/main.rs"
 [dev-dependencies]
