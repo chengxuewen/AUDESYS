@@ -9,7 +9,9 @@ fn default_poll_interval_ms() -> u64 {
     100
 }
 
-fn default_slave_id() -> u8 { 1 }
+fn default_slave_id() -> u8 {
+    1
+}
 
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(tag = "type")]
