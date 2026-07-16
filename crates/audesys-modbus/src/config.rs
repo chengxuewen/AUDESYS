@@ -9,13 +9,7 @@ fn default_poll_interval_ms() -> u64 {
     100
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct ModbusConfig {
-    pub connection: ConnectionConfig,
-    pub mappings: Vec<RegisterMapping>,
-    #[serde(default = "default_poll_interval_ms")]
-    pub poll_interval_ms: u64,
-}
+fn default_slave_id() -> u8 { 1 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(tag = "type")]
@@ -23,7 +17,22 @@ pub enum ConnectionConfig {
     #[serde(rename = "tcp")]
     Tcp { host: String, port: u16 },
     #[serde(rename = "rtu")]
-    Rtu { device: String, baud: u32, parity: char, data_bits: u8, stop_bits: u8 },
+    Rtu {
+        device: String,
+        baud: u32,
+        parity: char,
+        data_bits: u8,
+        stop_bits: u8,
+        #[serde(default = "default_slave_id")]
+        slave_id: u8,
+    },
+}
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ModbusConfig {
+    pub connection: ConnectionConfig,
+    pub mappings: Vec<RegisterMapping>,
+    #[serde(default = "default_poll_interval_ms")]
+    pub poll_interval_ms: u64,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]

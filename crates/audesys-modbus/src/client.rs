@@ -66,9 +66,40 @@ impl ModbusClient {
         }
     }
 
+    pub fn new_rtu(
+
+        device: &str,
+        baud: u32,
+        parity: char,
+        data_bits: u8,
+        stop_bits: u8,
+    ) -> Result<Self, ModbusError> {
+        let c_device =
+            CString::new(device).map_err(|e| ModbusError::Connection(e.to_string()))?;
+        // SAFETY: c_device is a valid CString. Parameters fit in c_int/c_char.
+        let raw = unsafe {
+            ffi::modbus_new_rtu(
+                c_device.as_ptr(),
+                baud as std::os::raw::c_int,
+                parity as std::os::raw::c_char,
+                data_bits as std::os::raw::c_int,
+                stop_bits as std::os::raw::c_int,
+            )
+        };
+        // Drop c_device after the FFI call — modbus_new_rtu copies the string internally.
+        drop(c_device);
+
+        let ctx = NonNull::new(raw)
+            .ok_or_else(|| ModbusError::Connection("failed to create RTU context".into()))?;
+
+        Ok(Self { ctx, connected: AtomicBool::new(false) })
+    }
+
     pub fn set_slave(&self, id: u8) -> Result<(), ModbusError> {
         // SAFETY: ctx is non-null.
-        let ret = unsafe { ffi::modbus_set_slave(self.ctx.as_ptr(), id as std::os::raw::c_int) };
+        let ret = unsafe {
+            ffi::modbus_set_slave(self.ctx.as_ptr(), id as std::os::raw::c_int)
+        };
         if ret != 0 {
             return Err(ModbusError::Protocol(last_modbus_error()));
         }
@@ -235,5 +266,16 @@ impl ModbusClient {
             return Err(ModbusError::Io(last_modbus_error()));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_rtu_invalid_device() {
+        let client = ModbusClient::new_rtu("/nonexistent/device", 9600, 'N', 8, 1).unwrap();
+        assert!(client.connect().is_err());
     }
 }
