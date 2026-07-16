@@ -908,8 +908,8 @@ mod tests {
             HalValue::U32(4_294_967_295),
             HalValue::S64(-9_223_372_036_854_775_808),
             HalValue::U64(18_446_744_073_709_551_615),
-            HalValue::F32(3.14),
-            HalValue::F64(2.718281828),
+            HalValue::F32(std::f32::consts::PI),
+            HalValue::F64(std::f64::consts::E),
             HalValue::Blob(vec![1, 2, 3, 4, 5]),
             HalValue::String("unicode: 你好".into()),
             HalValue::Array { element_type: HalPinType::U32, data: vec![0x01, 0x00, 0x00, 0x00] },
@@ -1110,7 +1110,7 @@ mod tests {
         let frame_len = HEADER_SIZE as u32;
         let mut frame = Vec::new();
         frame.extend_from_slice(&frame_len.to_le_bytes());
-        frame.extend_from_slice(&vec![0u8; TOKEN_WIRE_SIZE]);
+        frame.extend_from_slice(&[0u8; TOKEN_WIRE_SIZE]);
         frame.push(METHOD_HEALTH_QUERY);
         client.write_all(&frame).expect("send");
         client.flush().ok();
@@ -1153,7 +1153,7 @@ mod tests {
         let frame_len = (HEADER_SIZE + payload.len()) as u32;
         let mut frame = Vec::new();
         frame.extend_from_slice(&frame_len.to_le_bytes());
-        frame.extend_from_slice(&vec![0u8; TOKEN_WIRE_SIZE]);
+        frame.extend_from_slice(&[0u8; TOKEN_WIRE_SIZE]);
         frame.push(METHOD_AUTH_REQUEST);
         frame.extend_from_slice(&payload);
 
@@ -1162,16 +1162,13 @@ mod tests {
 
         // Read response
         let mut lb = [0u8; 4];
-        match client.read_exact(&mut lb) {
-            Ok(()) => {
-                let rlen = u32::from_le_bytes(lb) as usize;
-                let mut resp = vec![0u8; rlen - 4];
-                client.read_exact(&mut resp).ok();
-                // Response format: [method_id][status][payload]
-                // SO_PEERCRED may succeed or fail depending on test environment
-                // Both outcomes are valid for this unit test
-            }
-            Err(_) => {} // timeout ok
+        if let Ok(()) = client.read_exact(&mut lb) {
+            let rlen = u32::from_le_bytes(lb) as usize;
+            let mut resp = vec![0u8; rlen - 4];
+            client.read_exact(&mut resp).ok();
+            // Response format: [method_id][status][payload]
+            // SO_PEERCRED may succeed or fail depending on test environment
+            // Both outcomes are valid for this unit test
         }
 
         server.stop();
@@ -1198,7 +1195,7 @@ mod tests {
         let frame_len = (HEADER_SIZE + sig.len()) as u32;
         let mut frame = Vec::new();
         frame.extend_from_slice(&frame_len.to_le_bytes());
-        frame.extend_from_slice(&vec![0u8; TOKEN_WIRE_SIZE]);
+        frame.extend_from_slice(&[0u8; TOKEN_WIRE_SIZE]);
         frame.push(METHOD_READ_SIGNAL);
         frame.extend_from_slice(sig);
 
@@ -1230,9 +1227,7 @@ mod tests {
         use audesys_hal_core::discovery::{
             DiscoveryEntry, HalDiscovery, WatchCallback, WatchHandle,
         };
-        use audesys_hal_core::middleware::{
-            AmwMetrics, AuditEvent, AuditLog, AuditResult as MwAuditResult,
-        };
+        use audesys_hal_core::middleware::AmwMetrics;
         use audesys_hal_core::qos::{ConfigStatus, LivelinessStatus};
         use audesys_hal_core::transport::{HalTransport, RpcHandler, SignalCallback};
         use audesys_hal_core::types::{HalResult, Subscription, Timestamp};

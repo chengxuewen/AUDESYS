@@ -329,14 +329,6 @@ mod tests {
                 signal_store: Mutex::new(std::collections::HashMap::new()),
             }
         }
-
-        fn published_signals(&self) -> Vec<(String, HalValue)> {
-            self.published.lock().unwrap().clone()
-        }
-
-        fn read_calls(&self) -> Vec<String> {
-            self.reads.lock().unwrap().clone()
-        }
     }
 
     impl AmwMiddleware for MockMiddleware {

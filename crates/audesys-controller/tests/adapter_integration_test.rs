@@ -161,7 +161,11 @@ fn test_engine_metrics_after_signals() {
         ))
         .unwrap();
     transport
-        .publish_signal("in.sensor", HalValue::F32(3.14), Timestamp { secs: 1, micros: 0 })
+        .publish_signal(
+            "in.sensor",
+            HalValue::F32(std::f32::consts::PI),
+            Timestamp { secs: 1, micros: 0 },
+        )
         .unwrap();
 
     let handle = engine.start_with_cycle(1);

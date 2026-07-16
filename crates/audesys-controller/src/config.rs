@@ -303,31 +303,28 @@ health_port: 3000
 
     #[test]
     fn test_validate_rejects_zero_cycle() {
-        let mut config = RuntimeConfig::default();
-        config.cycle_interval_ms = 0;
+        let config = RuntimeConfig { cycle_interval_ms: 0, ..Default::default() };
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_validate_rejects_invalid_lock_level() {
-        let mut config = RuntimeConfig::default();
-        config.startup_lock_level = "invalid".into();
+        let config = RuntimeConfig { startup_lock_level: "invalid".into(), ..Default::default() };
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_validate_accepts_all_lock_levels() {
         for level in &["none", "load", "config", "params", "run", "all"] {
-            let mut config = RuntimeConfig::default();
-            config.startup_lock_level = level.to_string();
+            let config =
+                RuntimeConfig { startup_lock_level: level.to_string(), ..Default::default() };
             assert!(config.validate().is_ok(), "should accept level '{}'", level);
         }
     }
 
     #[test]
     fn test_validate_rejects_zero_shutdown_timeout() {
-        let mut config = RuntimeConfig::default();
-        config.shutdown_timeout_ms = 0;
+        let config = RuntimeConfig { shutdown_timeout_ms: 0, ..Default::default() };
         assert!(config.validate().is_err());
     }
 
