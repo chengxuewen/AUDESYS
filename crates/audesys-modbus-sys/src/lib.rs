@@ -13,6 +13,27 @@ use std::os::raw::{c_char, c_int};
 /// `modbus_new_*` constructor (Tcp / Rtu).
 pub enum modbus_t {}
 
+// ── memory mapping struct ────────────────────────────────────────────────
+
+/// Server-side register/coil mapping.
+///
+/// Owned by libmodbus — use `modbus_mapping_free` to deallocate.
+#[repr(C)]
+pub struct modbus_mapping_t {
+    pub nb_bits: c_int,
+    pub start_bits: c_int,
+    pub nb_input_bits: c_int,
+    pub start_input_bits: c_int,
+    pub nb_input_registers: c_int,
+    pub start_input_registers: c_int,
+    pub nb_registers: c_int,
+    pub start_registers: c_int,
+    pub tab_bits: *mut u8,
+    pub tab_input_bits: *mut u8,
+    pub tab_input_registers: *mut u16,
+    pub tab_registers: *mut u16,
+}
+
 // ── protocol constants ───────────────────────────────────────────────────
 
 /// Max coils / discrete-inputs that can be read in one request.
@@ -32,6 +53,12 @@ pub const MODBUS_WRITE_SINGLE_COIL: u8 = 0x05;
 pub const MODBUS_WRITE_SINGLE_REGISTER: u8 = 0x06;
 pub const MODBUS_WRITE_MULTIPLE_COILS: u8 = 0x0F;
 pub const MODBUS_WRITE_MULTIPLE_REGISTERS: u8 = 0x10;
+
+// ── TCP constants ─────────────────────────────────────────────────────────
+
+pub const MODBUS_TCP_DEFAULT_PORT: c_int = 502;
+pub const MODBUS_TCP_SLAVE: u8 = 0xFF;
+pub const MODBUS_TCP_MAX_ADU_LENGTH: c_int = 260;
 
 // ── error recovery bitmask ───────────────────────────────────────────────
 
@@ -68,6 +95,8 @@ unsafe extern "C" {
     pub fn modbus_set_byte_timeout(ctx: *mut modbus_t, sec: u32, usec: u32) -> c_int;
 
     pub fn modbus_set_error_recovery(ctx: *mut modbus_t, error_recovery: c_int) -> c_int;
+
+    pub fn modbus_set_debug(ctx: *mut modbus_t, flag: c_int) -> c_int;
 
     // ── read ──────────────────────────────────────────────────────────
 
@@ -108,6 +137,41 @@ unsafe extern "C" {
         nb: c_int,
         data: *const u16,
     ) -> c_int;
+
+    // ── server-side ───────────────────────────────────────────────────
+
+    pub fn modbus_mapping_new(
+        nb_bits: c_int,
+        nb_input_bits: c_int,
+        nb_registers: c_int,
+        nb_input_registers: c_int,
+    ) -> *mut modbus_mapping_t;
+
+    pub fn modbus_mapping_free(mb_mapping: *mut modbus_mapping_t);
+
+    pub fn modbus_tcp_listen(ctx: *mut modbus_t, nb_connection: c_int) -> c_int;
+
+    pub fn modbus_tcp_accept(ctx: *mut modbus_t, s: *mut c_int) -> c_int;
+
+    pub fn modbus_receive(ctx: *mut modbus_t, req: *mut u8) -> c_int;
+
+    pub fn modbus_reply(
+        ctx: *mut modbus_t,
+        req: *const u8,
+        req_length: c_int,
+        mb_mapping: *mut modbus_mapping_t,
+    ) -> c_int;
+
+    pub fn modbus_reply_exception(
+        ctx: *mut modbus_t,
+        req: *const u8,
+        exception_code: c_int,
+    ) -> c_int;
+
+    // ── socket access ─────────────────────────────────────────────────
+
+    pub fn modbus_get_socket(ctx: *mut modbus_t) -> c_int;
+    pub fn modbus_set_socket(ctx: *mut modbus_t, s: c_int) -> c_int;
 
     // ── diagnostics ───────────────────────────────────────────────────
 

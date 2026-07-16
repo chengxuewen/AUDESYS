@@ -82,11 +82,11 @@ impl From<ModbusError> for HalError {
 /// Calls `modbus_strerror(0)` which reads the current thread's errno.
 /// The returned string is a copy, so no dangling pointer issues.
 pub fn last_modbus_error() -> String {
-    // SAFETY: modbus_strerror(0) reads errno and returns a static string.
-    // Passing 0 is the documented way to get the last error.
-    let ptr = unsafe { audesys_modbus_sys::modbus_strerror(std::os::raw::c_int::default()) };
+    // Read errno directly — modbus_strerror(0) may return "Undefined error: 0" on macOS.
+    let err = std::io::Error::last_os_error();
+    let ptr = unsafe { audesys_modbus_sys::modbus_strerror(err.raw_os_error().unwrap_or(0)) };
     if ptr.is_null() {
-        return String::from("unknown modbus error");
+        return format!("modbus error: {err}");
     }
     // SAFETY: ptr is non-null, points to a valid C string from libmodbus.
     unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned()
