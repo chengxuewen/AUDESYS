@@ -10,5 +10,11 @@ description = "AUDESYS Runtime Controller — hard real-time HAL execution engin
 audesys-hal-core = { path = "../audesys-hal-core" }
 audesys-amw-inproc = { path = "../audesys-amw-inproc" }
 audesys-runtime-common = { path = "../audesys-runtime-common" }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+libc = "0.2"
+hmac = "0.12"
+sha2 = "0.10"
+rand = "0.8"
 
 [dev-dependencies]
