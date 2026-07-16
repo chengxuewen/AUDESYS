@@ -93,3 +93,7 @@ node_modules
 # Test and build artifacts
 test-results
 *.tsbuildinfo
+# Studio IDE
+apps/studio/node_modules/
+apps/studio/dist/
+apps/studio/src-tauri/target/
