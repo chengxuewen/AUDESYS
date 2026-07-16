@@ -9,8 +9,8 @@ members = [
   "crates/audesys-modbus",
   "crates/audesys-hart",
   "crates/audesys-controller",
+  "crates/audesys-supervisor",
 ]
-
 [workspace.package]
 version = "0.1.0"
 edition = "2024"

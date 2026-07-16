@@ -1,0 +1,12 @@
+[package]
+name = "audesys-supervisor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AUDESYS Runtime Supervisor — process orchestration and monitoring"
+
+[dependencies]
+audesys-runtime-common = { path = "../audesys-runtime-common" }
+libc = "0.2"
+
