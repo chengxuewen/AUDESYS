@@ -4,8 +4,8 @@
 
 use audesys_hal_binding_gen::compile;
 use audesys_hal_core::HalValue;
-use audesys_hal_ir::instruction::Opcode;
 use audesys_hal_ir::Executor;
+use audesys_hal_ir::instruction::Opcode;
 
 // ── Test 1: simple_assignment ──
 
@@ -55,8 +55,7 @@ fn test_arithmetic_precedence() {
 
 #[test]
 fn test_if_else_branch() {
-    let src =
-        "PROGRAM test VAR x : INT; y : INT; END_VAR; IF x > 5 THEN y := 1; ELSE y := 0; END_IF; END_PROGRAM";
+    let src = "PROGRAM test VAR x : INT; y : INT; END_VAR; IF x > 5 THEN y := 1; ELSE y := 0; END_IF; END_PROGRAM";
     let program = compile(src).expect("compilation failed");
     assert!(program.is_well_formed());
 
@@ -78,8 +77,11 @@ fn test_if_else_branch() {
     // ponytail: with current codegen, JumpIf jumps to ELSE when condition TRUE,
     // so FALSE condition falls through to THEN body → y = 1.
     // Update assertion if codegen semantics change.
-    assert_eq!(executor.vm().read_register(1), HalValue::S32(1),
-        "y (r1) should be assigned via conditional branch");
+    assert_eq!(
+        executor.vm().read_register(1),
+        HalValue::S32(1),
+        "y (r1) should be assigned via conditional branch"
+    );
 }
 
 // ── Test 4: comparison_expr ──
@@ -109,8 +111,11 @@ fn test_comparison_expr() {
         x_val == HalValue::Bool(true) || x_val == HalValue::Bool(false),
         "comparison result should be Bool, got: {x_val:?}"
     );
-    assert_eq!(x_val, HalValue::Bool(true),
-        "ponytail: with current inverted codegen, 0>0=false produces Bool(true)");
+    assert_eq!(
+        x_val,
+        HalValue::Bool(true),
+        "ponytail: with current inverted codegen, 0>0=false produces Bool(true)"
+    );
 }
 
 // ── Test 5: empty_program ──
