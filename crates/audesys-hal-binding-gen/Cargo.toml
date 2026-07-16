@@ -1,0 +1,18 @@
+[package]
+name = "audesys-hal-binding-gen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ST → HAL IR binding generator — IEC 61131-3 Structured Text to register VM compiler"
+
+[dependencies]
+audesys-hal-core = { path = "../audesys-hal-core" }
+audesys-hal-ir = { path = "../audesys-hal-ir" }
+thiserror = "2"
+
+[dev-dependencies]
+audesys-hal-ir = { path = "../audesys-hal-ir" }
+
+[lints]
+workspace = true
