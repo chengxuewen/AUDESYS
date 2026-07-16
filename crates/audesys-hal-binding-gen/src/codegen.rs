@@ -114,6 +114,7 @@ impl Codegen {
                     let bit_op = match op {
                         BinOp::And => Opcode::And,
                         BinOp::Or => Opcode::Or,
+                        BinOp::Xor => Opcode::Xor,
                         _ => unreachable!(),
                     };
                     self.emit(Instruction::arith(bit_op, dest_reg, s, dest_reg));
@@ -274,6 +275,7 @@ fn op_to_arith_opcode(op: BinOp) -> Option<Opcode> {
         BinOp::Sub => Some(Opcode::Sub),
         BinOp::Mul => Some(Opcode::Mul),
         BinOp::Div => Some(Opcode::Div),
+        BinOp::Mod => Some(Opcode::Mod),
         _ => None,
     }
 }

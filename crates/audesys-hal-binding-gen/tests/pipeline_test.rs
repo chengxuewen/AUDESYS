@@ -145,3 +145,47 @@ fn test_undefined_variable_error() {
     let result = compile(src);
     assert!(result.is_err(), "using undeclared variable 'y' should fail compilation");
 }
+
+// ── Test 7: mod_operator ──
+
+#[test]
+fn test_mod_operator() {
+    let src = "PROGRAM test VAR x : INT; y : INT; z : INT; END_VAR; z := x MOD y; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.vm_mut().write_register(0, HalValue::S32(10));
+    executor.vm_mut().write_register(1, HalValue::S32(3));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(1));
+}
+
+// ── Test 8: xor_operator ──
+
+#[test]
+fn test_xor_operator() {
+    let src = "PROGRAM test VAR a : INT; b : INT; c : INT; END_VAR; c := a XOR b; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.vm_mut().write_register(0, HalValue::S32(0b1100));
+    executor.vm_mut().write_register(1, HalValue::S32(0b1010));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(0b0110));
+}
+
+// ── Test 9: mod_by_zero_saturates ──
+
+#[test]
+fn test_mod_by_zero_saturates() {
+    let src = "PROGRAM test VAR x : INT; y : INT; z : INT; END_VAR; z := x MOD y; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+
+    let mut executor = Executor::new(program);
+    executor.vm_mut().write_register(0, HalValue::S32(10));
+    executor.vm_mut().write_register(1, HalValue::S32(0));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(0));
+}

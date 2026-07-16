@@ -39,7 +39,8 @@ pub enum Token {
     Less,      // <
     GreaterEq, // >=
     LessEq,    // <=
-
+    Mod,       // MOD
+    Xor,       // XOR
     // Delimiters
     Semicolon, // ;
     Colon,     // :
@@ -273,6 +274,8 @@ fn match_keyword(s: &str) -> Token {
         "AND" => Token::And,
         "OR" => Token::Or,
         "NOT" => Token::Not,
+        "MOD" => Token::Mod,
+        "XOR" => Token::Xor,
         "INT" => Token::Int,
         "REAL" => Token::Real,
         "BOOL" => Token::Bool,

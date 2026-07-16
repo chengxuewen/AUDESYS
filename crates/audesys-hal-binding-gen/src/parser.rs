@@ -31,6 +31,8 @@ pub enum BinOp {
     Lte,
     And,
     Or,
+    Mod,
+    Xor,
 }
 
 /// Unary operator.
@@ -275,11 +277,11 @@ fn parse_if(p: &mut Parser) -> Result<Statement, ParseError> {
 /// Precedence levels (higher = binds tighter).
 fn precedence(op: &BinOp) -> u8 {
     match op {
-        BinOp::Or => 1,
+        BinOp::Or | BinOp::Xor => 1,
         BinOp::And => 2,
         BinOp::Eq | BinOp::Neq | BinOp::Gt | BinOp::Lt | BinOp::Gte | BinOp::Lte => 3,
         BinOp::Add | BinOp::Sub => 4,
-        BinOp::Mul | BinOp::Div => 5,
+        BinOp::Mul | BinOp::Div | BinOp::Mod => 5,
     }
 }
 
@@ -297,6 +299,8 @@ fn token_to_binop(token: &Token) -> Option<BinOp> {
         Token::LessEq => Some(BinOp::Lte),
         Token::And => Some(BinOp::And),
         Token::Or => Some(BinOp::Or),
+        Token::Mod => Some(BinOp::Mod),
+        Token::Xor => Some(BinOp::Xor),
         _ => None,
     }
 }
