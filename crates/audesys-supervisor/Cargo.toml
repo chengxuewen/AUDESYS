@@ -8,5 +8,7 @@ description = "AUDESYS Runtime Supervisor — process orchestration and monitori
 
 [dependencies]
 audesys-runtime-common = { path = "../audesys-runtime-common" }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
 libc = "0.2"
 

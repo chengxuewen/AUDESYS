@@ -101,6 +101,8 @@ version = "0.1.0"
 dependencies = [
  "audesys-runtime-common",
  "libc",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]
