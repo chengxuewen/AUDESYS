@@ -3,12 +3,13 @@
 
 use crate::instruction::Instruction;
 use crate::types::{ChannelBinding, SignalBinding};
+use serde::{Deserialize, Serialize};
 
 /// A compiled IEC 61131-3 program in HAL IR format.
 ///
 /// Contains signal/channel bindings (I/O mapping) and an executable
 /// instruction stream for the register VM.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HalProgram {
     /// Program name from ST source
     pub name: String,
@@ -81,5 +82,17 @@ mod tests {
         });
         assert_eq!(program.signals.len(), 1);
         assert_eq!(program.signals[0].hal_signal_name, "sensor.temp");
+    }
+
+    #[test]
+    fn test_halprogram_serde_roundtrip() {
+        let prog = HalProgram::new(
+            "test",
+            vec![Instruction::load_imm(0, HalValue::S32(42)), Instruction::halt()],
+        );
+        let bytes = bincode::serialize(&prog).unwrap();
+        let prog2: HalProgram = bincode::deserialize(&bytes).unwrap();
+        assert_eq!(prog.name, prog2.name);
+        assert_eq!(prog.instructions.len(), prog2.instructions.len());
     }
 }

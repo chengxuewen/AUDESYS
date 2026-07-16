@@ -2,6 +2,7 @@
 //! 来源: docs/modules/compiler/hal-ir-design.md §2.4, §2.5
 
 use crate::types::Operand;
+use serde::{Deserialize, Serialize};
 
 /// VM opcode — one byte to keep programs compact.
 ///
@@ -18,7 +19,7 @@ use crate::types::Operand;
 /// | Eq     | reg_a, reg_b | flags_zero ← (r[a] == r[b]) |
 /// | Nop    | 0 | No operation |
 /// | Halt   | 0 | End of scan cycle |
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Opcode {
     // Data movement
     Nop,
@@ -54,7 +55,7 @@ pub enum Opcode {
 }
 
 /// One VM instruction — opcode plus 0–3 operands.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Instruction {
     pub opcode: Opcode,
     pub operands: Vec<Operand>,

@@ -8,3 +8,5 @@ description = "AUDESYS HAL IR — register VM for executing compiled IEC 61131-3
 
 [dependencies]
 audesys-hal-core = { path = "../audesys-hal-core" }
+serde = { version = "1", features = ["derive"] }
+bincode = "1"

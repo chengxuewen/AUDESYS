@@ -2,9 +2,10 @@
 //! 来源: docs/modules/compiler/hal-ir-design.md §1, §2.2
 
 use audesys_hal_core::HalValue;
+use serde::{Deserialize, Serialize};
 
 /// I/O direction for signal and channel bindings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     Read,
     Write,
@@ -13,7 +14,7 @@ pub enum Direction {
 
 /// Maps a program variable to a HAL Signal (1.1).
 /// Compiler extracts these from ST variable declarations with AT %IW/%QW addresses.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SignalBinding {
     /// HAL Signal name, e.g., "sensor.counter" (D10: component.interface.name)
     pub hal_signal_name: String,
@@ -24,7 +25,7 @@ pub struct SignalBinding {
 
 /// Maps a program variable to a named StreamChannel (1.2).
 /// Used for logging, alarms, supervisor data channels.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChannelBinding {
     /// Channel name, e.g., "alarms.overheat" (D10: domain.stream_name)
     pub channel_name: String,
@@ -32,7 +33,7 @@ pub struct ChannelBinding {
 }
 
 /// Instruction operand — register index, immediate value, or signal name reference.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Operand {
     /// General-purpose register r0–r15
     Register(u8),
