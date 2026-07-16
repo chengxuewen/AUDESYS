@@ -18,8 +18,11 @@ sha2 = "0.10"
 rand = "0.8"
 audesys-modbus = { path = "../audesys-modbus" }
 audesys-hart = { path = "../audesys-hart" }
-
+audesys-hal-ir = { path = "../audesys-hal-ir" }
+bincode = "1"
 [[bin]]
 name = "audesys-controller"
 path = "src/main.rs"
 [dev-dependencies]
+bincode = "1"
+audesys-hal-binding-gen = { path = "../audesys-hal-binding-gen" }

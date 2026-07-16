@@ -14,6 +14,8 @@ use audesys_hal_core::middleware::AmwMiddleware;
 use audesys_hal_core::qos::{ConfigCommand, ConfigStatus, LockLevel};
 use audesys_hal_core::types::Timestamp;
 use audesys_hal_core::value::HalValue;
+use audesys_hal_ir::Executor;
+use audesys_hal_ir::program::HalProgram;
 use audesys_runtime_common::types::{HealthCheck, HealthCheckRegistry, HealthStatus, SourceId};
 use std::sync::{
     Arc, Mutex, RwLock,
@@ -50,6 +52,10 @@ pub struct Engine {
     metrics: Arc<RuntimeMetrics>,
     /// Lifecycle manager for child process supervision
     lifecycle: Arc<LifecycleManager>,
+    /// Loaded HAL IR program (compiled ST → VM instructions)
+    hal_program: Arc<RwLock<Option<HalProgram>>>,
+    /// HAL IR VM executor for cycle-by-cycle execution
+    hal_executor: Arc<RwLock<Option<Executor>>>,
 }
 
 impl Engine {
@@ -71,6 +77,8 @@ impl Engine {
             signals: Arc::new(RwLock::new(SignalRegistry::new())),
             metrics: Arc::new(RuntimeMetrics::new()),
             lifecycle,
+            hal_program: Arc::new(RwLock::new(None)),
+            hal_executor: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -115,6 +123,8 @@ impl Engine {
         let signals = Arc::clone(&self.signals);
         let metrics = Arc::clone(&self.metrics);
         let lifecycle = Arc::clone(&self.lifecycle);
+        let hal_program = Arc::clone(&self.hal_program);
+        let hal_executor = Arc::clone(&self.hal_executor);
 
         thread::spawn(move || {
             let interval = Duration::from_millis(cycle_interval_ms);
@@ -158,6 +168,20 @@ impl Engine {
                         if let Ok(value) = signals.read().unwrap().compute_signal(&name) {
                             let _ = signals.write().unwrap().update_value(&name, value);
                         }
+                    }
+                }
+                // 3.5 HAL IR EXECUTION — run VM program if loaded
+                {
+                    if let Some(ref mut executor) = *hal_executor.write().unwrap() {
+                        executor.reset();
+                        executor.run_to_halt();
+                        // Copy VM register 0 to "hal_output" signal as demo
+                        // ponytail: full signal binding resolution in Phase 2
+                        if let Some(ref _program) = *hal_program.read().unwrap() {
+                            let result = executor.vm().read_register(0);
+                            signals.write().unwrap().update_value("hal_output", result).ok();
+                        }
+                        executor.reset(); // reset for next cycle
                     }
                 }
                 // 4. WRITE BARRIER — publish Own signals through middleware
@@ -284,6 +308,21 @@ impl Engine {
     /// Run all health checks and return aggregate status.
     pub fn health_status(&self) -> HealthStatus {
         self.health.read().expect("health RwLock poisoned").aggregate()
+    }
+    /// Load a compiled HAL IR program into the engine.
+    ///
+    /// The program is deserialized from bincode, validated for well-formedness,
+    /// and its executor is initialized for cycle-by-cycle execution.
+    pub fn load_hal_program(&self, bytes: &[u8]) -> Result<(), String> {
+        let program: HalProgram = bincode::deserialize(bytes)
+            .map_err(|e| format!("Failed to deserialize HAL program: {}", e))?;
+        if !program.is_well_formed() {
+            return Err("Program is not well-formed".to_string());
+        }
+        let executor = Executor::new(program.clone());
+        *self.hal_program.write().unwrap() = Some(program);
+        *self.hal_executor.write().unwrap() = Some(executor);
+        Ok(())
     }
 
     /// Register a signal definition before starting the cycle.
