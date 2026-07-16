@@ -26,6 +26,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-controller"
+version = "0.1.0"
+dependencies = [
+ "audesys-amw-inproc",
+ "audesys-hal-core",
+ "audesys-runtime-common",
+]
+
+[[package]]
 name = "audesys-hal-core"
 version = "0.1.0"
 dependencies = [
@@ -73,6 +82,10 @@ version = "0.1.0"
 dependencies = [
  "pkg-config",
 ]
+
+[[package]]
+name = "audesys-runtime-common"
+version = "0.1.0"
 
 [[package]]
 name = "bitflags"

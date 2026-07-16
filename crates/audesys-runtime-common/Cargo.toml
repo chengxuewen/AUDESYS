@@ -1,0 +1,10 @@
+[package]
+name = "audesys-runtime-common"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "AUDESYS Runtime shared types — zero dependencies, pure data types for IPC security, health checks, and audit logging"
+
+[dependencies]
+
+[dev-dependencies]
