@@ -1,0 +1,10 @@
+[package]
+name = "audesys-hal-ir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AUDESYS HAL IR — register VM for executing compiled IEC 61131-3 programs"
+
+[dependencies]
+audesys-hal-core = { path = "../audesys-hal-core" }

@@ -59,6 +59,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-hal-ir"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-core",
+]
+
+[[package]]
 name = "audesys-hart"
 version = "0.1.0"
 dependencies = [

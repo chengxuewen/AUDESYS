@@ -73,3 +73,113 @@ impl HalValue {
         }
     }
 }
+
+// ── Arithmetic trait implementations for IR VM ──
+// ponytail: macro-generated binops for all 11 scalar types.
+// Type mismatches and containers (Blob/String/Array) return S32(0).
+// Full type checking is the compiler's responsibility (hal-ir-design.md §2.5).
+
+macro_rules! hal_binop {
+    ($trait:ident, $method:ident, $op:tt) => {
+        impl std::ops::$trait for HalValue {
+            type Output = HalValue;
+            fn $method(self, rhs: HalValue) -> HalValue {
+                match (self, rhs) {
+                    (HalValue::S8(a), HalValue::S8(b)) => HalValue::S8(a $op b),
+                    (HalValue::U8(a), HalValue::U8(b)) => HalValue::U8(a $op b),
+                    (HalValue::S16(a), HalValue::S16(b)) => HalValue::S16(a $op b),
+                    (HalValue::U16(a), HalValue::U16(b)) => HalValue::U16(a $op b),
+                    (HalValue::S32(a), HalValue::S32(b)) => HalValue::S32(a $op b),
+                    (HalValue::U32(a), HalValue::U32(b)) => HalValue::U32(a $op b),
+                    (HalValue::S64(a), HalValue::S64(b)) => HalValue::S64(a $op b),
+                    (HalValue::U64(a), HalValue::U64(b)) => HalValue::U64(a $op b),
+                    (HalValue::F32(a), HalValue::F32(b)) => HalValue::F32(a $op b),
+                    (HalValue::F64(a), HalValue::F64(b)) => HalValue::F64(a $op b),
+                    // ponytail: type mismatch → S32(0), full error model in Phase 2
+                    _ => HalValue::S32(0),
+                }
+            }
+        }
+    };
+}
+
+hal_binop!(Add, add, +);
+hal_binop!(Sub, sub, -);
+hal_binop!(Mul, mul, *);
+hal_binop!(Div, div, /);
+
+macro_rules! hal_bitop {
+    ($trait:ident, $method:ident, $op:tt) => {
+        impl std::ops::$trait for HalValue {
+            type Output = HalValue;
+            fn $method(self, rhs: HalValue) -> HalValue {
+                match (self, rhs) {
+                    (HalValue::Bool(a), HalValue::Bool(b)) => HalValue::Bool(a $op b),
+                    (HalValue::S8(a), HalValue::S8(b)) => HalValue::S8(a $op b),
+                    (HalValue::U8(a), HalValue::U8(b)) => HalValue::U8(a $op b),
+                    (HalValue::S16(a), HalValue::S16(b)) => HalValue::S16(a $op b),
+                    (HalValue::U16(a), HalValue::U16(b)) => HalValue::U16(a $op b),
+                    (HalValue::S32(a), HalValue::S32(b)) => HalValue::S32(a $op b),
+                    (HalValue::U32(a), HalValue::U32(b)) => HalValue::U32(a $op b),
+                    (HalValue::S64(a), HalValue::S64(b)) => HalValue::S64(a $op b),
+                    (HalValue::U64(a), HalValue::U64(b)) => HalValue::U64(a $op b),
+                    _ => HalValue::S32(0),
+                }
+            }
+        }
+    };
+}
+
+hal_bitop!(BitAnd, bitand, &);
+hal_bitop!(BitOr, bitor, |);
+
+impl std::ops::Neg for HalValue {
+    type Output = HalValue;
+    fn neg(self) -> HalValue {
+        match self {
+            HalValue::S8(v) => HalValue::S8(-v),
+            HalValue::S16(v) => HalValue::S16(-v),
+            HalValue::S32(v) => HalValue::S32(-v),
+            HalValue::S64(v) => HalValue::S64(-v),
+            HalValue::F32(v) => HalValue::F32(-v),
+            HalValue::F64(v) => HalValue::F64(-v),
+            _ => HalValue::S32(0),
+        }
+    }
+}
+
+impl std::ops::Not for HalValue {
+    type Output = HalValue;
+    fn not(self) -> HalValue {
+        match self {
+            HalValue::Bool(v) => HalValue::Bool(!v),
+            HalValue::S8(v) => HalValue::S8(!v),
+            HalValue::U8(v) => HalValue::U8(!v),
+            HalValue::S16(v) => HalValue::S16(!v),
+            HalValue::U16(v) => HalValue::U16(!v),
+            HalValue::S32(v) => HalValue::S32(!v),
+            HalValue::U32(v) => HalValue::U32(!v),
+            HalValue::S64(v) => HalValue::S64(!v),
+            HalValue::U64(v) => HalValue::U64(!v),
+            _ => HalValue::S32(0),
+        }
+    }
+}
+
+impl std::cmp::PartialOrd for HalValue {
+    fn partial_cmp(&self, other: &HalValue) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (HalValue::S8(a), HalValue::S8(b)) => a.partial_cmp(b),
+            (HalValue::U8(a), HalValue::U8(b)) => a.partial_cmp(b),
+            (HalValue::S16(a), HalValue::S16(b)) => a.partial_cmp(b),
+            (HalValue::U16(a), HalValue::U16(b)) => a.partial_cmp(b),
+            (HalValue::S32(a), HalValue::S32(b)) => a.partial_cmp(b),
+            (HalValue::U32(a), HalValue::U32(b)) => a.partial_cmp(b),
+            (HalValue::S64(a), HalValue::S64(b)) => a.partial_cmp(b),
+            (HalValue::U64(a), HalValue::U64(b)) => a.partial_cmp(b),
+            (HalValue::F32(a), HalValue::F32(b)) => a.partial_cmp(b),
+            (HalValue::F64(a), HalValue::F64(b)) => a.partial_cmp(b),
+            _ => None,
+        }
+    }
+}

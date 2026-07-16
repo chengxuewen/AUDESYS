@@ -5,6 +5,7 @@ members = [
   "crates/audesys-runtime-common",
   "crates/audesys-amw-inproc",
   "crates/audesys-hal-flatbuffers",
+  "crates/audesys-hal-ir",
   "crates/audesys-modbus-sys",
   "crates/audesys-modbus",
   "crates/audesys-hart",
