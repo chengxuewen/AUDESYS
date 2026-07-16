@@ -11,7 +11,7 @@ pub struct Timestamp {
 // ── Pin direction ──
 
 /// I/O direction for HAL pins.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HalPinDirection {
     In,
     Out,
@@ -21,7 +21,7 @@ pub enum HalPinDirection {
 // ── Pin type discriminator ──
 
 /// The concrete Rust type underlying a HAL value — used for Array<T> element_type, etc.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HalPinType {
     Bool,
     S8,

@@ -30,7 +30,7 @@ use crate::types::HalPinType;
 /// | —           | Blob(Vec<u8>) | var |
 /// | STRING      | String(String) | var |
 /// | —           | Array { element_type: HalPinType, data: Vec<u8> } | var |
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum HalValue {
     Bool(bool),
     S8(i8),

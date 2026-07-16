@@ -6,6 +6,8 @@ license.workspace = true
 repository.workspace = true
 description = "AUDESYS HAL core trait definitions — L1 RT data plane"
 
+[dependencies]
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 mockall = { version = "0.13", default-features = false }
