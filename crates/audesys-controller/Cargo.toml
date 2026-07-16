@@ -16,5 +16,7 @@ libc = "0.2"
 hmac = "0.12"
 sha2 = "0.10"
 rand = "0.8"
+audesys-modbus = { path = "../audesys-modbus" }
+audesys-hart = { path = "../audesys-hart" }
 
 [dev-dependencies]

@@ -15,6 +15,7 @@
 //! - D30: qa-fast / qa-full / qa-deep three-tier QA
 //! - D53: Phase 0 → Phase 1 M0.3 transition
 
+pub mod adapter_manager;
 pub mod config;
 pub mod engine;
 pub mod health;
@@ -23,6 +24,7 @@ pub mod lifecycle;
 pub mod metrics;
 
 pub mod signals;
+pub use adapter_manager::AdapterManager;
 pub use config::ConfigWatcher;
 pub use config::RuntimeConfig;
 pub use engine::Engine;
