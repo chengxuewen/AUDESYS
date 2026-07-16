@@ -132,6 +132,11 @@ macro_rules! hal_bitop {
 
 hal_bitop!(BitAnd, bitand, &);
 hal_bitop!(BitOr, bitor, |);
+hal_bitop!(BitXor, bitxor, ^);
+
+// ponytail: MOD semantics differ from IEC 61131-3 for negative operands
+// (IEC truncates toward -∞, Rust % truncates toward 0). Fix in Phase 2.
+hal_binop!(Rem, rem, %);
 
 impl std::ops::Neg for HalValue {
     type Output = HalValue;
