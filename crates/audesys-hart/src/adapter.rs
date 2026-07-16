@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use audesys_hal_core::{HalTransport, HalValue, Timestamp};
@@ -56,7 +56,7 @@ impl HartAdapter {
     }
 
     /// Start the poll loop in a background thread.
-    pub fn start(&self) {
+    pub fn start(&self) -> JoinHandle<()> {
         let client = Arc::clone(&self.client);
         let transport = Arc::clone(&self.transport);
         let mappings = self.mappings.clone();
@@ -93,7 +93,7 @@ impl HartAdapter {
                     thread::sleep(interval - elapsed);
                 }
             }
-        });
+        })
     }
 
     /// Signal the poll loop to stop.
