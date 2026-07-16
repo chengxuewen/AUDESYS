@@ -1,0 +1,12 @@
+[package]
+name = "audesys-modbus-sys"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Raw FFI bindings to libmodbus for AUDESYS"
+
+[build-dependencies]
+pkg-config = "0.3"
+
+[lints.rust]
+unsafe_code = "allow"
