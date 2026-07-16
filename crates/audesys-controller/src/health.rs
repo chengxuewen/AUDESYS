@@ -5,10 +5,10 @@
 //!
 //! 来源: docs/modules/runtime/observability-design.md
 
-use audesys_runtime_common::types::HealthStatus;
+use audesys_runtime_common::types::{HealthCheckRegistry, HealthStatus};
 use std::net::TcpListener;
 use std::sync::{
-    Arc,
+    Arc, RwLock,
     atomic::{AtomicBool, Ordering},
 };
 use std::thread::{self, JoinHandle};
@@ -26,14 +26,17 @@ fn health_status_str(status: &HealthStatus) -> String {
 
 pub struct HealthServer {
     running: Arc<AtomicBool>,
+    health_registry: Arc<RwLock<HealthCheckRegistry>>,
 }
 
 impl HealthServer {
-    pub fn new() -> Self {
-        Self { running: Arc::new(AtomicBool::new(false)) }
+    /// Create a new HealthServer that reads status dynamically from the shared registry.
+    pub fn new(health_registry: Arc<RwLock<HealthCheckRegistry>>) -> Self {
+        Self { running: Arc::new(AtomicBool::new(false)), health_registry }
     }
 
-    pub fn start(&self, port: u16, status: HealthStatus) -> Result<JoinHandle<()>, String> {
+    /// Start the health HTTP endpoint. Status is read from the shared registry on every request.
+    pub fn start(&self, port: u16) -> Result<JoinHandle<()>, String> {
         let addr = format!("0.0.0.0:{}", port);
         let listener = TcpListener::bind(&addr)
             .map_err(|e| format!("Failed to bind health endpoint {}: {}", addr, e))?;
@@ -42,7 +45,7 @@ impl HealthServer {
 
         self.running.store(true, Ordering::SeqCst);
         let running = Arc::clone(&self.running);
-        let status_str = health_status_str(&status);
+        let registry = Arc::clone(&self.health_registry);
 
         let handle = thread::spawn(move || {
             let poll = Duration::from_millis(100);
@@ -50,6 +53,8 @@ impl HealthServer {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
                         use std::io::Write;
+                        let status = registry.read().expect("health RwLock poisoned").aggregate();
+                        let status_str = health_status_str(&status);
                         let response = format!(
                             "HTTP/1.1 200 OK\r\n\
                              Content-Type: application/json\r\n\
@@ -80,20 +85,87 @@ impl HealthServer {
     }
 }
 
-impl Default for HealthServer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audesys_runtime_common::types::HealthCheck;
+    use std::io::Read;
+    use std::net::TcpStream;
+
+    // ——— test helpers ———
+
+    /// A health check that always returns Healthy.
+    struct StubHealthCheck;
+
+    impl HealthCheck for StubHealthCheck {
+        fn name(&self) -> &str {
+            "stub"
+        }
+        fn check(&self) -> HealthStatus {
+            HealthStatus::Healthy
+        }
+        fn interval_ms(&self) -> u64 {
+            1000
+        }
+    }
+
+    /// A health check that always returns Degraded.
+    struct DegradedStubHealthCheck;
+
+    impl HealthCheck for DegradedStubHealthCheck {
+        fn name(&self) -> &str {
+            "degraded_stub"
+        }
+        fn check(&self) -> HealthStatus {
+            HealthStatus::Degraded("low memory".into())
+        }
+        fn interval_ms(&self) -> u64 {
+            1000
+        }
+    }
+
+    /// A health check whose status can be toggled at runtime.
+    struct ToggleHealthCheck {
+        healthy: Arc<AtomicBool>,
+    }
+
+    impl HealthCheck for ToggleHealthCheck {
+        fn name(&self) -> &str {
+            "toggle"
+        }
+        fn check(&self) -> HealthStatus {
+            if self.healthy.load(Ordering::SeqCst) {
+                HealthStatus::Healthy
+            } else {
+                HealthStatus::Unhealthy("test failure".into())
+            }
+        }
+        fn interval_ms(&self) -> u64 {
+            100
+        }
+    }
+
+    fn new_registry_with(check: Box<dyn HealthCheck>) -> Arc<RwLock<HealthCheckRegistry>> {
+        let mut registry = HealthCheckRegistry::new();
+        registry.register(check);
+        Arc::new(RwLock::new(registry))
+    }
+
+    fn find_open_port() -> u16 {
+        TcpListener::bind("127.0.0.1:0")
+            .expect("find open port")
+            .local_addr()
+            .expect("local addr")
+            .port()
+    }
+
+    // ——— tests ———
 
     #[test]
     fn test_health_endpoint_responds() {
-        let server = HealthServer::new();
-        let handle = server.start(0, HealthStatus::Healthy).expect("server should start");
+        let registry = new_registry_with(Box::new(StubHealthCheck));
+        let server = HealthServer::new(registry);
+        let handle = server.start(0).expect("server should start");
         std::thread::sleep(Duration::from_millis(50));
 
         // ponytail: skip connect test for port 0 — can't know OS-assigned port
@@ -104,10 +176,9 @@ mod tests {
 
     #[test]
     fn test_health_endpoint_degraded() {
-        let server = HealthServer::new();
-        let handle = server
-            .start(0, HealthStatus::Degraded("low memory".into()))
-            .expect("server should start");
+        let registry = new_registry_with(Box::new(DegradedStubHealthCheck));
+        let server = HealthServer::new(registry);
+        let handle = server.start(0).expect("server should start");
         std::thread::sleep(Duration::from_millis(20));
         server.stop();
         handle.join().expect("server thread should join");
@@ -115,8 +186,9 @@ mod tests {
 
     #[test]
     fn test_server_stops_cleanly() {
-        let server = HealthServer::new();
-        let handle = server.start(0, HealthStatus::Healthy).expect("server should start");
+        let registry = new_registry_with(Box::new(StubHealthCheck));
+        let server = HealthServer::new(registry);
+        let handle = server.start(0).expect("server should start");
         std::thread::sleep(Duration::from_millis(20));
         server.stop();
         handle.join().expect("server thread should join after stop");
@@ -124,7 +196,54 @@ mod tests {
 
     #[test]
     fn test_new_server_not_running() {
-        let server = HealthServer::new();
+        let registry = new_registry_with(Box::new(StubHealthCheck));
+        let server = HealthServer::new(registry);
         assert!(!server.running.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_dynamic_health_reflects_registry_changes() {
+        let toggle = Arc::new(AtomicBool::new(true));
+        let mut registry = HealthCheckRegistry::new();
+        registry.register(Box::new(ToggleHealthCheck { healthy: Arc::clone(&toggle) }));
+        let registry = Arc::new(RwLock::new(registry));
+
+        let server = HealthServer::new(registry);
+        let port = find_open_port();
+        let handle = server.start(port).expect("server should start");
+        std::thread::sleep(Duration::from_millis(50));
+
+        // Verify healthy
+        {
+            let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("connect");
+            let mut buf = [0u8; 512];
+            let n = stream.read(&mut buf).expect("read");
+            let response = String::from_utf8_lossy(&buf[..n]);
+            assert!(
+                response.contains("\"status\":\"healthy\""),
+                "Expected healthy, got: {}",
+                response
+            );
+        }
+
+        // Toggle to unhealthy
+        toggle.store(false, Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(20));
+
+        // Verify unhealthy
+        {
+            let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port)).expect("connect");
+            let mut buf = [0u8; 512];
+            let n = stream.read(&mut buf).expect("read");
+            let response = String::from_utf8_lossy(&buf[..n]);
+            assert!(
+                response.contains("\"status\":\"unhealthy\""),
+                "Expected unhealthy, got: {}",
+                response
+            );
+        }
+
+        server.stop();
+        handle.join().expect("server thread should join");
     }
 }
