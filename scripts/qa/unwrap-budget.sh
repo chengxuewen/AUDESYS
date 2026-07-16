@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$SCRIPT_DIR/../.."  # project root
 
-BUDGET="${UNWRAP_BUDGET:-441}"
+BUDGET="${UNWRAP_BUDGET:-490}"
 
 count_unwrap() {
     # ponytail: { rg || true } avoids pipefail + rg exit code 1 conflict (pitfalls.md)

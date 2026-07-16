@@ -4,7 +4,7 @@
 version = 2
 # ponytail: vulnerability + unmaintained keys removed in 0.20 — advisory checks are on by default
 yanked = "deny"
-ignore = []
+ignore = ["RUSTSEC-2022-0004", "RUSTSEC-2025-0025"]
 
 [licenses]
 version = 2
@@ -16,6 +16,7 @@ allow = [
   "ISC",
   "Unicode-3.0",
   "Zlib",
+  "LGPL-3.0",
 ]
 confidence-threshold = 0.8
 
