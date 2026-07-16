@@ -43,6 +43,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-hal-binding-gen"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-core",
+ "audesys-hal-ir",
+ "thiserror",
+]
+
+[[package]]
 name = "audesys-hal-core"
 version = "0.1.0"
 dependencies = [

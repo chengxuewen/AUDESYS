@@ -11,6 +11,7 @@ members = [
   "crates/audesys-hart",
   "crates/audesys-controller",
   "crates/audesys-supervisor",
+  "crates/audesys-hal-binding-gen",
 ]
 exclude = ["apps/studio/src-tauri"]
 [workspace.package]
