@@ -6,6 +6,7 @@ members = [
   "crates/audesys-hal-flatbuffers",
   "crates/audesys-modbus-sys",
   "crates/audesys-modbus",
+  "crates/audesys-hart",
 ]
 
 [workspace.package]
