@@ -226,7 +226,7 @@ fn test_s_cfg_021_fifo_ordering() {
     // S-CFG-021: FIFO 顺序保证 — commands drain in enqueue order
     // Arrange
     let qos = InprocQoS::new();
-    let methods = vec!["first", "second", "third", "fourth"];
+    let methods = ["first", "second", "third", "fourth"];
     for (i, method) in methods.iter().enumerate() {
         qos.queue_config(make_cmd(i as u64, method)).unwrap();
     }

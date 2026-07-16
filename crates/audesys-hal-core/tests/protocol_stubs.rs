@@ -363,7 +363,6 @@ fn test_s_ch_003() {
     // With depth=1 and DropOldest, writes succeed (oldest dropped)
     w2.write(HalValue::S32(100), ts).unwrap();
     w2.write(HalValue::S32(200), ts).unwrap(); // drops 100
-    assert!(true); // no panic
 }
 
 #[test]
@@ -532,12 +531,12 @@ fn test_s_ch_010() {
     let ts = now_ts();
 
     // trait method: write + flush
-    writer.write(HalValue::F64(3.14), ts).unwrap();
+    writer.write(HalValue::F64(std::f64::consts::PI), ts).unwrap();
     writer.flush().unwrap();
 
     // trait method: read
     let (val, _) = reader.read().unwrap().unwrap();
-    assert_eq!(val, HalValue::F64(3.14));
+    assert_eq!(val, HalValue::F64(std::f64::consts::PI));
 
     // trait method: subscribe (push)
     let pushed = Arc::new(Mutex::new(Vec::new()));

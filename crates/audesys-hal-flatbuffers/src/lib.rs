@@ -285,7 +285,7 @@ mod tests {
             HalValue::U32(4_000_000_000),
             HalValue::S64(-1_000_000_000_000),
             HalValue::U64(18_000_000_000_000),
-            HalValue::F32(3.14),
+            HalValue::F32(std::f32::consts::PI),
             HalValue::F64(std::f64::consts::PI),
         ];
         for v in &cases {
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn roundtrip_signal_name() {
-        let v = HalValue::F64(2.718);
+        let v = HalValue::F64(std::f64::consts::E);
         let buf = serialize_hal_value("sensor.temp", &v);
         let (name, v2) = deserialize_signal(&buf).unwrap();
         assert_eq!(name, "sensor.temp");
