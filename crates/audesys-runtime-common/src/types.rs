@@ -147,14 +147,14 @@ pub trait HealthCheck {
 }
 
 /// Registry that holds multiple health checks and can aggregate results.
+#[derive(Default)]
 pub struct HealthCheckRegistry {
     checks: Vec<Box<dyn HealthCheck>>,
 }
 
 impl HealthCheckRegistry {
-    /// Create an empty registry.
     pub fn new() -> Self {
-        HealthCheckRegistry { checks: Vec::new() }
+        Self::default()
     }
 
     /// Register a new health check.
@@ -380,7 +380,7 @@ mod tests {
         let token = mgr.issue_token(
             Role::Engineer,
             test_source("controller", 100),
-            3600_000, // 1 hour from now
+            3_600_000, // 1 hour from now
         );
         assert_eq!(mgr.validate_token(&token), AuthResult::Valid);
     }
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn test_session_token_expired() {
         let mgr = TestTokenManager;
-        let mut token = mgr.issue_token(Role::Engineer, test_source("controller", 100), 3600_000);
+        let mut token = mgr.issue_token(Role::Engineer, test_source("controller", 100), 3_600_000);
         // Force expiry
         token.expires_at = TimestampMs(0);
         assert_eq!(mgr.validate_token(&token), AuthResult::Expired);

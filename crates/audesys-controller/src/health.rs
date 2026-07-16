@@ -89,8 +89,6 @@ impl Default for HealthServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Read, Write};
-    use std::net::TcpStream;
 
     #[test]
     fn test_health_endpoint_responds() {
@@ -98,12 +96,7 @@ mod tests {
         let handle = server.start(0, HealthStatus::Healthy).expect("server should start");
         std::thread::sleep(Duration::from_millis(50));
 
-        // Connect to localhost on a random port and verify response
-        // ponytail: test port 0 binding by connecting, skip if listener not ready
-        let mut stream =
-            TcpStream::connect_timeout(&"127.0.0.1:0".parse().unwrap(), Duration::from_millis(100));
-        // Port 0 means "let OS pick" — we can't know the port. Just verify server starts/ends cleanly.
-        drop(stream);
+        // ponytail: skip connect test for port 0 — can't know OS-assigned port
 
         server.stop();
         handle.join().expect("server thread should join");
