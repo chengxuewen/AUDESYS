@@ -50,19 +50,12 @@ impl ModbusAdapter {
     ) -> Result<Self, ModbusError> {
         let client = match &config.connection {
             ConnectionConfig::Tcp { host, port } => {
-                let c = ModbusClient::new_tcp(&host, *port)?;
+                let c = ModbusClient::new_tcp(host, *port)?;
                 c.connect()?;
                 c
             }
-            ConnectionConfig::Rtu {
-                device,
-                baud,
-                parity,
-                data_bits,
-                stop_bits,
-                slave_id,
-            } => {
-                let c = ModbusClient::new_rtu(&device, *baud, *parity, *data_bits, *stop_bits)?;
+            ConnectionConfig::Rtu { device, baud, parity, data_bits, stop_bits, slave_id } => {
+                let c = ModbusClient::new_rtu(device, *baud, *parity, *data_bits, *stop_bits)?;
                 c.set_slave(*slave_id)?;
                 c.connect()?;
                 c
