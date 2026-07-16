@@ -36,6 +36,11 @@ impl Executor {
         &self.vm
     }
 
+    /// Access the underlying VM (mutable).
+    pub fn vm_mut(&mut self) -> &mut Vm {
+        &mut self.vm
+    }
+
     /// Access the underlying program.
     pub fn program(&self) -> &HalProgram {
         &self.program
@@ -97,6 +102,13 @@ impl Executor {
                     a / b
                 }
             }),
+            Opcode::Mod => self.exec_arith_binop(&inst.operands, |a, b| {
+                if b == HalValue::S32(0) || b == HalValue::F32(0.0) || b == HalValue::F64(0.0) {
+                    HalValue::S32(0) // ponytail: mod-by-zero saturates to 0
+                } else {
+                    a % b
+                }
+            }),
             Opcode::Neg => self.exec_unary(&inst.operands, |a| -a),
 
             Opcode::Eq => self.exec_compare(&inst.operands, |a, b| a == b),
@@ -108,6 +120,7 @@ impl Executor {
 
             Opcode::And => self.exec_arith_binop(&inst.operands, |a, b| a & b),
             Opcode::Or => self.exec_arith_binop(&inst.operands, |a, b| a | b),
+            Opcode::Xor => self.exec_arith_binop(&inst.operands, |a, b| a ^ b),
             Opcode::Not => self.exec_bitwise_not(&inst.operands),
 
             Opcode::Jump => self.exec_jump(&inst.operands),

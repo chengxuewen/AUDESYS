@@ -1,4 +1,4 @@
-//! HAL IR instruction set — 20 opcodes for Phase 1 ST programs.
+//! HAL IR instruction set — 22 opcodes for Phase 1 ST programs.
 //! 来源: docs/modules/compiler/hal-ir-design.md §2.4, §2.5
 
 use crate::types::Operand;
@@ -15,9 +15,12 @@ use serde::{Deserialize, Serialize};
 /// | Sub    | reg_a, reg_b, reg_out | r[out] ← r[a] - r[b] |
 /// | Mul    | reg_a, reg_b, reg_out | r[out] ← r[a] * r[b] |
 /// | Div    | reg_a, reg_b, reg_out | r[out] ← r[a] / r[b] |
+/// | Mod    | reg_a, reg_b, reg_out | r[out] ← r[a] MOD r[b] |
 /// | Neg    | reg_a, reg_out | r[out] ← -r[a] |
 /// | Eq     | reg_a, reg_b | flags_zero ← (r[a] == r[b]) |
-/// | Nop    | 0 | No operation |
+/// | And    | reg_a, reg_b, reg_out | r[out] ← r[a] & r[b] |
+/// | Or     | reg_a, reg_b, reg_out | r[out] ← r[a] \| r[b] |
+/// | Xor    | reg_a, reg_b, reg_out | r[out] ← r[a] ^ r[b] |
 /// | Halt   | 0 | End of scan cycle |
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Opcode {
@@ -31,6 +34,7 @@ pub enum Opcode {
     Sub,
     Mul,
     Div,
+    Mod,
     Neg,
 
     // Comparison (sets flags_zero)
@@ -44,6 +48,7 @@ pub enum Opcode {
     // Bitwise logic
     And,
     Or,
+    Xor,
     Not,
 
     // Control flow
@@ -179,6 +184,8 @@ mod tests {
             Opcode::Sub,
             Opcode::Mul,
             Opcode::Div,
+            Opcode::Mod,
+            Opcode::Div,
             Opcode::Neg,
             Opcode::Eq,
             Opcode::Neq,
@@ -188,6 +195,7 @@ mod tests {
             Opcode::Lte,
             Opcode::And,
             Opcode::Or,
+            Opcode::Xor,
             Opcode::Not,
             Opcode::Jump,
             Opcode::JumpIf,
