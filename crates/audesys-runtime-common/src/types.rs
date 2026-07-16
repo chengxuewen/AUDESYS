@@ -10,7 +10,7 @@ use std::time::SystemTime;
 // ─────────────────────────────────────────────
 
 /// Runtime process roles for authorization.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Role {
     /// Human operator — can monitor, start/stop, acknowledge alarms
     Operator,
@@ -116,6 +116,27 @@ impl Authorizer {
 }
 
 // ─────────────────────────────────────────────
+// § IPC Message Types
+// ─────────────────────────────────────────────
+
+/// Message types for Controller UDS IPC.
+#[derive(Debug, Clone)]
+#[allow(missing_docs)]
+pub enum IpcMessage {
+    /// Authentication request — carries pid for SO_PEERCRED verification
+    AuthRequest { pid: u32 },
+    /// Configuration command — raw command data
+    ConfigCommand { cmd_data: Vec<u8> },
+    /// Read a signal by name
+    ReadSignal { signal_name: String },
+    /// Write a signal value
+    WriteSignal { signal_name: String, value_data: Vec<u8> },
+    /// Health status query
+    HealthQuery,
+    /// Batch-read signals matching a wildcard pattern
+    SignalSnapshot { pattern: String },
+}
+// ─────────────────────────────────────────────
 // § Health Check Types
 // ─────────────────────────────────────────────
 
@@ -135,7 +156,7 @@ pub enum HealthStatus {
 }
 
 /// A single health check that a module can run.
-pub trait HealthCheck {
+pub trait HealthCheck: Send + Sync {
     /// Human-readable name of this check (e.g. "rt_thread", "hal_ready").
     fn name(&self) -> &str;
 
