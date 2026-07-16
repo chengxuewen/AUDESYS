@@ -18,11 +18,16 @@
 pub mod config;
 pub mod engine;
 pub mod health;
+pub mod ipc;
 pub mod lifecycle;
 pub mod metrics;
 
+pub mod signals;
+pub use config::ConfigWatcher;
 pub use config::RuntimeConfig;
 pub use engine::Engine;
 pub use health::HealthServer;
+pub use ipc::IpcServer;
 pub use lifecycle::LifecycleManager;
 pub use metrics::RuntimeMetrics;
+pub use signals::{SignalDef, SignalRegistry, SignalSnapshot, StrategyFilter, WriteStrategy};
