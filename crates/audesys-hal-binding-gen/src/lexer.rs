@@ -28,23 +28,23 @@ pub enum Token {
     DWord,
 
     // Operators
-    Assign,     // :=
-    Plus,       // +
-    Minus,      // -
-    Star,       // *
-    Slash,      // /
-    Equal,      // = (comparison)
-    NotEqual,   // <>
-    Greater,    // >
-    Less,       // <
-    GreaterEq,  // >=
-    LessEq,     // <=
+    Assign,    // :=
+    Plus,      // +
+    Minus,     // -
+    Star,      // *
+    Slash,     // /
+    Equal,     // = (comparison)
+    NotEqual,  // <>
+    Greater,   // >
+    Less,      // <
+    GreaterEq, // >=
+    LessEq,    // <=
 
     // Delimiters
-    Semicolon,  // ;
-    Colon,      // :
-    LParen,     // (
-    RParen,     // )
+    Semicolon, // ;
+    Colon,     // :
+    LParen,    // (
+    RParen,    // )
 
     // Literals and identifiers
     Identifier(String),
@@ -327,9 +327,17 @@ mod tests {
         let src = "PROGRAM IF THEN ELSE END_IF END_PROGRAM VAR END_VAR AND OR NOT";
         let tokens = tokenize(src).unwrap();
         let expected = vec![
-            Token::Program, Token::If, Token::Then, Token::Else,
-            Token::EndIf, Token::EndProgram, Token::Var, Token::EndVar,
-            Token::And, Token::Or, Token::Not,
+            Token::Program,
+            Token::If,
+            Token::Then,
+            Token::Else,
+            Token::EndIf,
+            Token::EndProgram,
+            Token::Var,
+            Token::EndVar,
+            Token::And,
+            Token::Or,
+            Token::Not,
         ];
         for (i, expected) in expected.iter().enumerate() {
             assert_eq!(tokens[i].token, *expected, "mismatch at index {i}");

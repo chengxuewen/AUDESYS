@@ -6,14 +6,14 @@ use crate::lexer::{Token, TokenInfo};
 /// Types supported in variable declarations.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VarType {
-    Int,    // → S32
-    Real,   // → F32
+    Int,  // → S32
+    Real, // → F32
     Bool,
-    DInt,   // → S64
-    LReal,  // → F64
-    Byte,   // → U8
-    Word,   // → U16
-    DWord,  // → U32
+    DInt,  // → S64
+    LReal, // → F64
+    Byte,  // → U8
+    Word,  // → U16
+    DWord, // → U32
 }
 
 /// Binary operator.
@@ -73,11 +73,7 @@ pub enum Statement {
     /// Assignment: variable := expression
     Assign { name: String, value: Expr },
     /// If-then-else: condition and two blocks
-    If {
-        condition: Expr,
-        then_body: Vec<Statement>,
-        else_body: Vec<Statement>,
-    },
+    If { condition: Expr, then_body: Vec<Statement>, else_body: Vec<Statement> },
 }
 
 /// A variable declaration.
@@ -136,11 +132,9 @@ impl Parser {
     fn expect(&mut self, expected: Token) -> Result<&TokenInfo, ParseError> {
         match self.advance() {
             Some(ti) if ti.token == expected => Ok(ti),
-            Some(ti) => Err(ParseError::UnexpectedToken(
-                ti.token.clone(),
-                ti.span.line,
-                ti.span.col,
-            )),
+            Some(ti) => {
+                Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col))
+            }
             None => Err(ParseError::UnexpectedEof),
         }
     }
@@ -149,11 +143,7 @@ impl Parser {
         match self.advance() {
             Some(ti) => match &ti.token {
                 Token::Identifier(name) => Ok((name.clone(), ti.span.line, ti.span.col)),
-                _ => Err(ParseError::UnexpectedToken(
-                    ti.token.clone(),
-                    ti.span.line,
-                    ti.span.col,
-                )),
+                _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
             },
             None => Err(ParseError::UnexpectedEof),
         }
@@ -171,11 +161,8 @@ fn parse_program_inner(p: &mut Parser) -> Result<Program, ParseError> {
     let (name, _, _) = p.expect_ident()?;
 
     // Variable declarations (optional)
-    let variables = if p.peek_token() == Some(&Token::Var) {
-        parse_var_block(p)?
-    } else {
-        Vec::new()
-    };
+    let variables =
+        if p.peek_token() == Some(&Token::Var) { parse_var_block(p)? } else { Vec::new() };
 
     // Check for redeclared variables
     let mut seen = std::collections::HashMap::new();
@@ -374,11 +361,7 @@ fn parse_primary(p: &mut Parser) -> Result<Expr, ParseError> {
                 p.expect(Token::RParen)?;
                 Ok(expr)
             }
-            _ => Err(ParseError::UnexpectedToken(
-                ti.token.clone(),
-                ti.span.line,
-                ti.span.col,
-            )),
+            _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
         },
         None => Err(ParseError::UnexpectedEof),
     }
@@ -387,7 +370,7 @@ fn parse_primary(p: &mut Parser) -> Result<Expr, ParseError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer::{tokenize, LexError};
+    use crate::lexer::{LexError, tokenize};
 
     fn parse(src: &str) -> Result<Program, ParseError> {
         let tokens = tokenize(src).map_err(|e| match e {
@@ -432,7 +415,8 @@ mod tests {
 
     #[test]
     fn test_arithmetic_precedence() {
-        let src = "PROGRAM test VAR a : INT; b : INT; c : INT; END_VAR; a := b + c * 2; END_PROGRAM";
+        let src =
+            "PROGRAM test VAR a : INT; b : INT; c : INT; END_VAR; a := b + c * 2; END_PROGRAM";
         let p = parse(src).unwrap();
         match &p.body[0] {
             Statement::Assign { value, .. } => {

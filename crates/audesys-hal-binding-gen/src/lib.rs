@@ -2,9 +2,9 @@
 //!
 //! Provides `compile(source: &str) -> Result<HalProgram, CompileError>`.
 
+mod codegen;
 mod lexer;
 mod parser;
-mod codegen;
 
 use audesys_hal_ir::program::HalProgram;
 use thiserror::Error;
@@ -81,9 +81,16 @@ mod tests {
         let src = "PROGRAM test VAR a : INT; b : INT; c : INT; d : INT; END_VAR; d := a + b * c; END_PROGRAM";
         let p = check_program(src);
         // b*c should be computed first (Mul), then a+result (Add)
-        let ops: Vec<_> = p.instructions.iter().filter(|i| matches!(i.opcode, Opcode::Mul | Opcode::Add)).map(|i| i.opcode).collect();
-        assert!(ops.windows(2).any(|w| w[0] == Opcode::Mul && w[1] == Opcode::Add),
-            "Mul should appear before Add for a + b * c");
+        let ops: Vec<_> = p
+            .instructions
+            .iter()
+            .filter(|i| matches!(i.opcode, Opcode::Mul | Opcode::Add))
+            .map(|i| i.opcode)
+            .collect();
+        assert!(
+            ops.windows(2).any(|w| w[0] == Opcode::Mul && w[1] == Opcode::Add),
+            "Mul should appear before Add for a + b * c"
+        );
     }
 
     #[test]
@@ -117,7 +124,8 @@ mod tests {
 
     #[test]
     fn test_boolean_not_condition() {
-        let src = "PROGRAM test VAR a : INT; b : INT; r : BOOL; END_VAR; r := NOT a = b; END_PROGRAM";
+        let src =
+            "PROGRAM test VAR a : INT; b : INT; r : BOOL; END_VAR; r := NOT a = b; END_PROGRAM";
         let p = check_program(src);
         assert!(p.is_well_formed());
     }

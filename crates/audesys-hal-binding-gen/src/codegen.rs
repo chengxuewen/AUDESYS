@@ -49,8 +49,12 @@ impl Codegen {
     }
 
     fn free_scratch(&mut self, reg: u8) {
-        if reg == SCRATCH0 { self.scratch_avail[0] = true; }
-        if reg == SCRATCH1 { self.scratch_avail[1] = true; }
+        if reg == SCRATCH0 {
+            self.scratch_avail[0] = true;
+        }
+        if reg == SCRATCH1 {
+            self.scratch_avail[1] = true;
+        }
     }
 
     fn var_reg(&self, name: &str) -> Result<u8, CodegenError> {
@@ -107,7 +111,11 @@ impl Codegen {
                     let s = self.alloc_scratch();
                     self.compile_expr(left, dest_reg)?;
                     self.compile_expr(right, s)?;
-                    let bit_op = match op { BinOp::And => Opcode::And, BinOp::Or => Opcode::Or, _ => unreachable!() };
+                    let bit_op = match op {
+                        BinOp::And => Opcode::And,
+                        BinOp::Or => Opcode::Or,
+                        _ => unreachable!(),
+                    };
                     self.emit(Instruction::arith(bit_op, dest_reg, s, dest_reg));
                     self.free_scratch(s);
                 }
@@ -128,7 +136,11 @@ impl Codegen {
     }
 
     fn compile_cmp_expr(
-        &mut self, left: &Expr, op: BinOp, right: &Expr, dest_reg: u8,
+        &mut self,
+        left: &Expr,
+        op: BinOp,
+        right: &Expr,
+        dest_reg: u8,
     ) -> Result<(), CodegenError> {
         let rs = self.alloc_scratch();
         self.compile_expr(right, rs)?;
@@ -153,14 +165,22 @@ impl Codegen {
             }
             Statement::If { condition, then_body, else_body } => {
                 let (else_jumps, end_jumps) = self.compile_condition(condition)?;
-                for stmt in then_body { self.compile_stmt(stmt)?; }
+                for stmt in then_body {
+                    self.compile_stmt(stmt)?;
+                }
                 let to_end = self.emit(Instruction::jump(0));
                 let else_label = self.current_idx();
-                for &j in &else_jumps { self.patch_jump(j, else_label); }
-                for stmt in else_body { self.compile_stmt(stmt)?; }
+                for &j in &else_jumps {
+                    self.patch_jump(j, else_label);
+                }
+                for stmt in else_body {
+                    self.compile_stmt(stmt)?;
+                }
                 let end_label = self.current_idx();
                 self.patch_jump(to_end, end_label);
-                for &j in &end_jumps { self.patch_jump(j, end_label); }
+                for &j in &end_jumps {
+                    self.patch_jump(j, end_label);
+                }
             }
         }
         Ok(())
@@ -174,7 +194,10 @@ impl Codegen {
     }
 
     fn compile_bool_cond(
-        &mut self, expr: &Expr, else_jumps: &mut Vec<u32>, end_jumps: &mut Vec<u32>,
+        &mut self,
+        expr: &Expr,
+        else_jumps: &mut Vec<u32>,
+        end_jumps: &mut Vec<u32>,
     ) -> Result<(), CodegenError> {
         match expr {
             Expr::Binary(left, op, right) if is_cmp_op(*op) => {
@@ -197,7 +220,9 @@ impl Codegen {
                 let or_then = self.emit(Instruction::jump(0));
                 end_jumps.push(or_then);
                 let right_start = self.current_idx();
-                for &j in &right_else { self.patch_jump(j, right_start); }
+                for &j in &right_else {
+                    self.patch_jump(j, right_start);
+                }
                 self.compile_bool_cond(right, else_jumps, end_jumps)?;
             }
             Expr::Unary(UnaryOp::Not, inner) => {
@@ -233,17 +258,22 @@ fn is_cmp_op(op: BinOp) -> bool {
 
 fn cmp_opcode(op: BinOp) -> Opcode {
     match op {
-        BinOp::Eq => Opcode::Eq, BinOp::Neq => Opcode::Neq,
-        BinOp::Gt => Opcode::Gt, BinOp::Lt => Opcode::Lt,
-        BinOp::Gte => Opcode::Gte, BinOp::Lte => Opcode::Lte,
+        BinOp::Eq => Opcode::Eq,
+        BinOp::Neq => Opcode::Neq,
+        BinOp::Gt => Opcode::Gt,
+        BinOp::Lt => Opcode::Lt,
+        BinOp::Gte => Opcode::Gte,
+        BinOp::Lte => Opcode::Lte,
         _ => panic!("not a comparison operator"),
     }
 }
 
 fn op_to_arith_opcode(op: BinOp) -> Option<Opcode> {
     match op {
-        BinOp::Add => Some(Opcode::Add), BinOp::Sub => Some(Opcode::Sub),
-        BinOp::Mul => Some(Opcode::Mul), BinOp::Div => Some(Opcode::Div),
+        BinOp::Add => Some(Opcode::Add),
+        BinOp::Sub => Some(Opcode::Sub),
+        BinOp::Mul => Some(Opcode::Mul),
+        BinOp::Div => Some(Opcode::Div),
         _ => None,
     }
 }
@@ -281,7 +311,8 @@ mod tests {
         };
         let result = compile_ast(&prog).unwrap();
         assert!(result.is_well_formed());
-        let loads: Vec<_> = result.instructions.iter().filter(|i| i.opcode == Opcode::Load).collect();
+        let loads: Vec<_> =
+            result.instructions.iter().filter(|i| i.opcode == Opcode::Load).collect();
         assert!(!loads.is_empty());
     }
 
@@ -296,7 +327,11 @@ mod tests {
             ],
             body: vec![Statement::Assign {
                 name: "c".into(),
-                value: Expr::binary(Expr::Variable("a".into()), BinOp::Add, Expr::Variable("b".into())),
+                value: Expr::binary(
+                    Expr::Variable("a".into()),
+                    BinOp::Add,
+                    Expr::Variable("b".into()),
+                ),
             }],
         };
         let result = compile_ast(&prog).unwrap();
@@ -316,7 +351,8 @@ mod tests {
 
     #[test]
     fn test_too_many_variables() {
-        let vars: Vec<_> = (0..15).map(|i| Variable { name: format!("v{i}"), var_type: VarType::Int }).collect();
+        let vars: Vec<_> =
+            (0..15).map(|i| Variable { name: format!("v{i}"), var_type: VarType::Int }).collect();
         let prog = Program { name: "big".into(), variables: vars, body: vec![] };
         assert!(compile_ast(&prog).is_err());
     }
