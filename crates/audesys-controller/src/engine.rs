@@ -7,6 +7,7 @@
 //! 来源: docs/modules/hal/thread-scheduling-design.md (D13)
 //!       docs/modules/hal/config-barrier-design.md (D17)
 
+use crate::lifecycle::LifecycleManager;
 use crate::metrics::RuntimeMetrics;
 use crate::signals::{SignalDef, SignalRegistry, StrategyFilter};
 use audesys_hal_core::middleware::AmwMiddleware;
@@ -47,12 +48,14 @@ pub struct Engine {
     signals: Arc<RwLock<SignalRegistry>>,
     /// Runtime metrics (lock-free atomic counters)
     metrics: Arc<RuntimeMetrics>,
+    /// Lifecycle manager for child process supervision
+    lifecycle: Arc<LifecycleManager>,
 }
 
 impl Engine {
     /// Create a new engine with the given middleware.
     /// The engine starts in LockLevel::None (fully configurable).
-    pub fn new(middleware: Box<dyn AmwMiddleware>) -> Self {
+    pub fn new(middleware: Box<dyn AmwMiddleware>, lifecycle: Arc<LifecycleManager>) -> Self {
         Self {
             middleware: Arc::new(Mutex::new(middleware)),
             running: Arc::new(AtomicBool::new(false)),
@@ -67,6 +70,7 @@ impl Engine {
             cycle_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             signals: Arc::new(RwLock::new(SignalRegistry::new())),
             metrics: Arc::new(RuntimeMetrics::new()),
+            lifecycle,
         }
     }
 
@@ -110,6 +114,7 @@ impl Engine {
         let cycle_count = Arc::clone(&self.cycle_count);
         let signals = Arc::clone(&self.signals);
         let metrics = Arc::clone(&self.metrics);
+        let lifecycle = Arc::clone(&self.lifecycle);
 
         thread::spawn(move || {
             let interval = Duration::from_millis(cycle_interval_ms);
@@ -168,6 +173,15 @@ impl Engine {
 
                 cycle_count.fetch_add(1, Ordering::Relaxed);
                 metrics.record_cycle();
+
+                // Lifecycle health check — detect and restart dead children
+                let dead = lifecycle.health_check();
+                for _name in &dead {
+                    metrics.record_child_restart();
+                }
+                if !dead.is_empty() {
+                    metrics.record_health_failure();
+                }
 
                 // 5. Sleep until next cycle
                 let now = Instant::now();
@@ -449,7 +463,8 @@ mod tests {
 
     #[test]
     fn test_engine_start_stop() {
-        let engine = Engine::new(Box::new(MockMiddleware::new()));
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
         assert!(!engine.is_running());
 
         let handle = engine.start(10);
@@ -462,7 +477,8 @@ mod tests {
 
     #[test]
     fn test_lock_level_cannot_decrease() {
-        let engine = Engine::new(Box::new(MockMiddleware::new()));
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
         assert_eq!(engine.lock_level(), LockLevel::None);
 
         assert!(engine.set_lock_level(LockLevel::Load).is_ok());
@@ -477,7 +493,8 @@ mod tests {
 
     #[test]
     fn test_config_blocked_at_run_level() {
-        let engine = Engine::new(Box::new(MockMiddleware::new()));
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
         assert!(engine.set_lock_level(LockLevel::Run).is_ok());
 
         let cmd = ConfigCommand {
@@ -491,7 +508,8 @@ mod tests {
 
     #[test]
     fn test_config_queued_below_run_level() {
-        let engine = Engine::new(Box::new(MockMiddleware::new()));
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
         assert!(engine.set_lock_level(LockLevel::Load).is_ok());
 
         let cmd = ConfigCommand {
@@ -505,7 +523,8 @@ mod tests {
 
     #[test]
     fn test_uptime_increases() {
-        let engine = Engine::new(Box::new(MockMiddleware::new()));
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
         let t0 = engine.uptime_ms();
         thread::sleep(Duration::from_millis(10));
         let t1 = engine.uptime_ms();
@@ -514,7 +533,8 @@ mod tests {
 
     #[test]
     fn test_start_with_cycle() {
-        let engine = Engine::new(Box::new(MockMiddleware::new()));
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
         let handle = engine.start_with_cycle(1);
         thread::sleep(Duration::from_millis(50));
         engine.stop();
@@ -524,7 +544,8 @@ mod tests {
 
     #[test]
     fn test_signal_register_and_snapshot() {
-        let engine = Engine::new(Box::new(MockMiddleware::new()));
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
 
         let def1 = SignalDef::new(
             "motor.speed",
@@ -555,7 +576,7 @@ mod tests {
     #[test]
     fn test_cycle_publishes_signals() {
         let mw = MockMiddleware::new();
-        let engine = Engine::new(Box::new(mw));
+        let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
 
         // Register Own signals — these should be published each cycle
         engine
@@ -604,7 +625,7 @@ mod tests {
         // Pre-populate the mock store with a value the read barrier should pick up
         mw.signal_store.lock().unwrap().insert("sensor.input".to_string(), HalValue::U32(99));
 
-        let engine = Engine::new(Box::new(mw));
+        let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
 
         engine
             .register_signal(SignalDef::new(
@@ -622,5 +643,25 @@ mod tests {
 
         // Verify the read happened — check for cycle completion
         assert!(engine.cycle_count() > 0);
+    }
+
+    #[test]
+    fn test_engine_with_lifecycle_cycles_without_panicking() {
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
+
+        let handle = engine.start_with_cycle(1);
+        thread::sleep(Duration::from_millis(50));
+        engine.stop();
+        handle.join().expect("engine thread should join cleanly");
+
+        // Verify engine completed cycles without panicking
+        assert!(engine.cycle_count() > 0);
+
+        // Verify lifecycle integration: child_restarts may be 0 (no children)
+        // but the health check should have run without errors
+        let metrics = engine.metrics();
+        let _restarts = metrics.child_restarts.load(Ordering::Relaxed);
+        // No assertion on restarts — there are no spawned children in this test
     }
 }

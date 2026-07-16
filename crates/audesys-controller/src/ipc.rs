@@ -1224,6 +1224,7 @@ mod tests {
     // ── Test helpers ──
 
     fn test_engine() -> Engine {
+        use crate::lifecycle::LifecycleManager;
         use audesys_hal_core::discovery::{
             DiscoveryEntry, HalDiscovery, WatchCallback, WatchHandle,
         };
@@ -1311,6 +1312,6 @@ mod tests {
             }
         }
 
-        Engine::new(Box::new(DummyMw))
+        Engine::new(Box::new(DummyMw), Arc::new(LifecycleManager::new()))
     }
 }

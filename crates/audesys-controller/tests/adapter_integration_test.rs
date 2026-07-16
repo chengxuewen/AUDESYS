@@ -11,7 +11,7 @@ use audesys_amw_inproc::{
     InprocAuditLog, InprocMiddleware, InprocQoS, InprocTransport, StaticDiscovery,
 };
 use audesys_controller::adapter_manager::AdapterManager;
-use audesys_controller::{Engine, SignalDef, WriteStrategy};
+use audesys_controller::{Engine, LifecycleManager, SignalDef, WriteStrategy};
 use audesys_hal_core::{HalPinType, HalTransport, HalValue, Timestamp};
 
 // ── helpers ──
@@ -46,7 +46,7 @@ fn test_adapter_manager_default() {
 #[test]
 fn test_signal_flow_through_engine() {
     let (transport, mw) = build_inproc_stack();
-    let engine = Engine::new(Box::new(mw));
+    let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
 
     // Register a Monitored signal — the engine's read barrier will poll it
     engine
@@ -81,7 +81,7 @@ fn test_signal_flow_through_engine() {
 #[test]
 fn test_signal_flow_vector() {
     let (transport, mw) = build_inproc_stack();
-    let engine = Engine::new(Box::new(mw));
+    let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
 
     // Register multiple Monitored signals
     for (name, val) in [
@@ -118,7 +118,7 @@ fn test_signal_flow_vector() {
 #[test]
 fn test_clean_shutdown() {
     let (_transport, mw) = build_inproc_stack();
-    let engine = Engine::new(Box::new(mw));
+    let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
     let mut mgr = AdapterManager::new();
 
     // Start both engine and adapter manager (empty, no real adapters)
@@ -140,7 +140,7 @@ fn test_clean_shutdown() {
 #[test]
 fn test_engine_metrics_after_signals() {
     let (transport, mw) = build_inproc_stack();
-    let engine = Engine::new(Box::new(mw));
+    let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
 
     engine
         .register_signal(SignalDef::new(
