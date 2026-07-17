@@ -264,3 +264,60 @@ fn test_for_with_by_step() {
     // 6 iterations (i = 0, 2, 4, 6, 8, 10)
     assert_eq!(executor.vm().read_register(0), HalValue::S32(6));
 }
+
+// ── Test 16: case_simple ──
+
+#[test]
+fn test_case_simple() {
+    // CASE x OF 1: y:=10; 2: y:=20; ELSE y:=0; END_CASE;
+    let src = "PROGRAM test VAR x : INT; y : INT; END_VAR; x := 2; CASE x OF 1: y := 10; 2: y := 20; ELSE y := 0; END_CASE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // x = 2 matches case 2 → y = 20
+    assert_eq!(executor.vm().read_register(1), HalValue::S32(20));
+}
+
+// ── Test 17: case_else_fallback ──
+
+#[test]
+fn test_case_else_fallback() {
+    // CASE x OF 1: y:=10; 2: y:=20; ELSE y:=99; END_CASE — x=5 falls to ELSE
+    let src = "PROGRAM test VAR x : INT; y : INT; END_VAR; x := 5; CASE x OF 1: y := 10; 2: y := 20; ELSE y := 99; END_CASE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(1), HalValue::S32(99));
+}
+
+// ── Test 18: case_multiple_values ──
+
+#[test]
+fn test_case_multiple_values() {
+    // CASE x OF 1, 3, 5: y:=10; ELSE y:=0; END_CASE — comma-separated values
+    let src = "PROGRAM test VAR x : INT; y : INT; END_VAR; x := 3; CASE x OF 1, 3, 5: y := 10; ELSE y := 0; END_CASE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(1), HalValue::S32(10));
+}
+
+// ── Test 19: case_no_match_no_else ──
+
+#[test]
+fn test_case_no_match_no_else() {
+    // CASE x OF 1: y:=10; END_CASE — no ELSE, x=99 doesn't match
+    let src = "PROGRAM test VAR x : INT; y : INT; END_VAR; y := 0; x := 99; CASE x OF 1: y := 10; 2: y := 20; END_CASE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(1), HalValue::S32(0));
+}

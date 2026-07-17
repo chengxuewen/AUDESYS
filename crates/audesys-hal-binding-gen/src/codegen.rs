@@ -239,6 +239,48 @@ impl Codegen {
                 let exit_label = self.current_idx();
                 self.patch_jump(exit_jump, exit_label);
             }
+            Statement::Case { variable, cases, else_body } => {
+                let var_reg = self.var_reg(variable)?;
+                let mut exit_jumps: Vec<u32> = Vec::new();
+
+                for (values, body) in cases {
+                    // emit compare chain: CMP(Eq) + JumpIf for each value
+                    let mut jump_to_body: Vec<u32> = Vec::new();
+                    for val in values {
+                        let val_scratch = self.alloc_scratch();
+                        self.emit(Instruction::load_imm(val_scratch, HalValue::S32(*val as i32)));
+                        self.emit(Instruction::cmp(Opcode::Eq, var_reg, val_scratch));
+                        self.free_scratch(val_scratch);
+                        jump_to_body.push(self.emit(Instruction::jump_if(0)));
+                    }
+                    // no match → skip this body
+                    let skip_body = self.emit(Instruction::jump(0));
+
+                    // compile body inline (patch JumpIf targets here)
+                    let body_label = self.current_idx();
+                    for j in &jump_to_body {
+                        self.patch_jump(*j, body_label);
+                    }
+                    for stmt in body {
+                        self.compile_stmt(stmt)?;
+                    }
+                    exit_jumps.push(self.emit(Instruction::jump(0)));
+
+                    // next case comparison starts here
+                    let next_case_label = self.current_idx();
+                    self.patch_jump(skip_body, next_case_label);
+                }
+
+                // Else body
+                for stmt in else_body {
+                    self.compile_stmt(stmt)?;
+                }
+
+                let exit_label = self.current_idx();
+                for j in &exit_jumps {
+                    self.patch_jump(*j, exit_label);
+                }
+            }
         }
         Ok(())
     }
