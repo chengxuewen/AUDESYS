@@ -13,7 +13,8 @@ use audesys_amw_inproc::{
 use audesys_controller::{Engine, LifecycleManager, SignalDef, WriteStrategy};
 use audesys_hal_core::HalPinType;
 use audesys_hal_core::HalValue;
-use audesys_hal_ir::instruction::Instruction;
+use audesys_hal_ir::instruction::{Instruction, Opcode};
+use audesys_hal_ir::types::Operand;
 use audesys_hal_ir::program::HalProgram;
 
 // ── helpers ──
@@ -39,7 +40,7 @@ fn test_load_and_execute_hal_program_in_cycle() {
     // Create a simple program: load 42 into register 0, then halt
     let program = HalProgram::new(
         "test_prog".to_string(),
-        vec![Instruction::load_imm(0, HalValue::S32(42)), Instruction::halt()],
+        vec![Instruction::load_imm(0, HalValue::S32(42)), Instruction::new(Opcode::Store, vec![Operand::SignalName("hal_output".into()), Operand::Register(0)]), Instruction::halt()],
     );
     let bytes = bincode::serialize(&program).unwrap();
     engine.load_hal_program(&bytes).unwrap();
