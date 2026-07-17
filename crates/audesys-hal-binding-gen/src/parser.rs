@@ -81,6 +81,9 @@ pub enum Statement {
     /// For loop: variable, start, end, optional step, body
     For { variable: String, start: Expr, end: Expr, step: Option<Expr>, body: Vec<Statement> },
     Case { variable: String, cases: Vec<(Vec<i64>, Vec<Statement>)>, else_body: Vec<Statement> },
+    Repeat { body: Vec<Statement>, condition: Expr },
+    Return,
+    Exit,
 }
 
 /// A variable declaration.
@@ -240,6 +243,9 @@ fn parse_statement(p: &mut Parser) -> Result<Statement, ParseError> {
         Some(Token::While) => parse_while(p),
         Some(Token::For) => parse_for(p),
         Some(Token::Case) => parse_case(p),
+        Some(Token::Repeat) => parse_repeat(p),
+        Some(Token::Return) => parse_return(p),
+        Some(Token::Exit) => parse_exit(p),
         _ => parse_assignment(p),
     }
 }
@@ -396,6 +402,35 @@ fn parse_case_values(p: &mut Parser) -> Result<Vec<i64>, ParseError> {
             }
         }
     }
+}
+
+fn parse_repeat(p: &mut Parser) -> Result<Statement, ParseError> {
+    // REPEAT body; UNTIL condition END_REPEAT;
+    p.expect(Token::Repeat)?;
+
+    let mut body = Vec::new();
+    while p.peek_token() != Some(&Token::Until) {
+        body.push(parse_statement(p)?);
+    }
+
+    p.expect(Token::Until)?;
+    let condition = parse_expression(p)?;
+    p.expect(Token::EndRepeat)?;
+    p.expect(Token::Semicolon)?;
+
+    Ok(Statement::Repeat { body, condition })
+}
+
+fn parse_return(p: &mut Parser) -> Result<Statement, ParseError> {
+    p.expect(Token::Return)?;
+    p.expect(Token::Semicolon)?;
+    Ok(Statement::Return)
+}
+
+fn parse_exit(p: &mut Parser) -> Result<Statement, ParseError> {
+    p.expect(Token::Exit)?;
+    p.expect(Token::Semicolon)?;
+    Ok(Statement::Exit)
 }
 
 // ── Expression parsing with precedence climbing ──
