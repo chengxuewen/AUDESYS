@@ -175,11 +175,14 @@ impl Engine {
                     if let Some(ref mut executor) = *hal_executor.write().unwrap() {
                         executor.reset();
                         executor.run_to_halt();
-                        // Copy VM register 0 to "hal_output" signal as demo
-                        // ponytail: full signal binding resolution in Phase 2
-                        if let Some(ref _program) = *hal_program.read().unwrap() {
-                            let result = executor.vm().read_register(0);
-                            signals.write().unwrap().update_value("hal_output", result).ok();
+                        // Publish VM signal table entries to signal registry
+                        let vm = executor.vm();
+                        let signal_names: Vec<String> =
+                            vm.signal_names().into_iter().cloned().collect();
+                        for name in signal_names {
+                            if let Some(value) = vm.read_signal(&name) {
+                                signals.write().unwrap().update_value(&name, value.clone()).ok();
+                            }
                         }
                         executor.reset(); // reset for next cycle
                     }

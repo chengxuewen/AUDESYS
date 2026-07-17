@@ -46,15 +46,10 @@ fn test_st_compile_to_controller_execution() {
     // 4. Load program into engine
     engine.load_hal_program(&bytes).expect("failed to load HAL program into engine");
 
-    // 5. Register "hal_output" signal — engine writes VM register 0 here each cycle
+    // 5. Register signals matching VM variable names (output of ST program)
     engine
-        .register_signal(SignalDef::new(
-            "hal_output",
-            HalPinType::S32,
-            HalValue::S32(0),
-            WriteStrategy::Own,
-        ))
-        .expect("failed to register hal_output signal");
+        .register_signal(SignalDef::new("x", HalPinType::S32, HalValue::S32(0), WriteStrategy::Own))
+        .expect("failed to register x signal");
 
     // 6. Run engine cycles
     let handle = engine.start_with_cycle(50);
@@ -62,15 +57,13 @@ fn test_st_compile_to_controller_execution() {
     engine.stop();
     handle.join().expect("engine thread should join cleanly");
 
-    // 7. Verify output — VM register 0 (loaded with 42) should appear as "hal_output"
+    // 7. Verify output — VM signal 'x' should contain the compiled value
     let snapshot = engine.signal_snapshot();
-    let output = snapshot
-        .iter()
-        .find(|(name, _)| name == "hal_output")
-        .expect("hal_output signal not found in snapshot");
+    let output =
+        snapshot.iter().find(|(name, _)| name == "x").expect("x signal not found in snapshot");
     assert_eq!(
         *output,
-        (String::from("hal_output"), HalValue::S32(42)),
-        "expected VM register 0 value S32(42) in hal_output"
+        (String::from("x"), HalValue::S32(42)),
+        "expected compiled value S32(42) in signal x"
     );
 }
