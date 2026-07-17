@@ -132,12 +132,25 @@ pub struct Variable {
     pub var_type: VarType,
 }
 
+/// A function definition (FUNCTION ... END_FUNCTION).
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionDef {
+    pub name: String,
+    pub return_type: VarType,
+    pub variables: Vec<Variable>,
+    pub input_params: Vec<Variable>,
+    pub output_params: Vec<Variable>,
+    pub inout_params: Vec<Variable>,
+    pub body: Vec<Statement>,
+}
+
 /// Complete parsed program AST.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub name: String,
     pub variables: Vec<Variable>,
     pub body: Vec<Statement>,
+    pub functions: Vec<FunctionDef>,
 }
 
 /// Parser error.
@@ -222,12 +235,25 @@ fn parse_program_inner(p: &mut Parser) -> Result<Program, ParseError> {
         seen.insert(var.name.clone(), (0, 0)); // actual line info not critical here
     }
 
-    // Statement body
-    let body = parse_statements_until(p, &Token::EndProgram)?;
+    // Statement body and function definitions
+    let mut body = Vec::new();
+    let mut functions = Vec::new();
+    loop {
+        match p.peek_token() {
+            Some(Token::Function) => {
+                functions.push(parse_function_def(p)?);
+            }
+            Some(Token::EndProgram) => break,
+            Some(_) => {
+                body.push(parse_statement(p)?);
+            }
+            None => return Err(ParseError::UnexpectedEof),
+        }
+    }
 
     p.expect(Token::EndProgram)?;
 
-    Ok(Program { name, variables, body })
+    Ok(Program { name, variables, body, functions })
 }
 
 fn parse_var_block(p: &mut Parser) -> Result<Vec<Variable>, ParseError> {
@@ -248,6 +274,66 @@ fn parse_var_block(p: &mut Parser) -> Result<Vec<Variable>, ParseError> {
     p.expect(Token::EndVar)?;
     p.expect(Token::Semicolon)?;
     Ok(vars)
+}
+
+/// Parse a param block: VAR_INPUT ... END_VAR; or VAR_OUTPUT ... END_VAR; or VAR_IN_OUT ... END_VAR;
+fn parse_param_block(p: &mut Parser, start: Token, end: Token) -> Result<Vec<Variable>, ParseError> {
+    p.expect(start)?;
+    let mut vars = Vec::new();
+    while p.peek_token() != Some(&end) {
+        let (name, line, _col) = p.expect_ident()?;
+        p.expect(Token::Colon)?;
+        let var_type = parse_var_type(p)?;
+        p.expect(Token::Semicolon)?;
+
+        if vars.iter().any(|v: &Variable| v.name == name) {
+            return Err(ParseError::RedefinedVariable(name, line));
+        }
+        vars.push(Variable { name, var_type });
+    }
+    p.expect(end)?;
+    p.expect(Token::Semicolon)?;
+    Ok(vars)
+}
+
+/// Parse a function definition: FUNCTION name : return_type ... END_FUNCTION
+fn parse_function_def(p: &mut Parser) -> Result<FunctionDef, ParseError> {
+    p.expect(Token::Function)?;
+    let (name, _line, _col) = p.expect_ident()?;
+    p.expect(Token::Colon)?;
+    let return_type = parse_var_type(p)?;
+    p.expect(Token::Semicolon)?;
+
+    let mut input_params = Vec::new();
+    let mut output_params = Vec::new();
+    let mut inout_params = Vec::new();
+    let mut variables = Vec::new();
+
+    // Parse optional VAR_INPUT / VAR_OUTPUT / VAR_IN_OUT / VAR blocks
+    loop {
+        match p.peek_token() {
+            Some(Token::VarInput) => {
+                input_params = parse_param_block(p, Token::VarInput, Token::EndVar)?;
+            }
+            Some(Token::VarOutput) => {
+                output_params = parse_param_block(p, Token::VarOutput, Token::EndVar)?;
+            }
+            Some(Token::VarInOut) => {
+                inout_params = parse_param_block(p, Token::VarInOut, Token::EndVar)?;
+            }
+            Some(Token::Var) => {
+                variables = parse_var_block(p)?;
+            }
+            _ => break,
+        }
+    }
+
+    // Body: statements until END_FUNCTION
+    let body = parse_statements_until(p, &Token::EndFunction)?;
+    p.expect(Token::EndFunction)?;
+    p.expect(Token::Semicolon)?;
+
+    Ok(FunctionDef { name, return_type, variables, input_params, output_params, inout_params, body })
 }
 
 fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
@@ -713,5 +799,26 @@ mod tests {
             }
             _ => panic!("expected assignment"),
         }
+    }
+
+    #[test]
+    fn test_function_def_parsing() {
+        let src = "PROGRAM test FUNCTION add : INT; VAR_INPUT a : INT; b : INT; END_VAR; VAR x : INT; END_VAR; x := a + b; add := x; END_FUNCTION; add(1, 2); END_PROGRAM";
+        let p = parse(src).unwrap();
+        assert_eq!(p.functions.len(), 1);
+        assert_eq!(p.functions[0].name, "add");
+        assert_eq!(p.functions[0].return_type, VarType::Int);
+        assert_eq!(p.functions[0].input_params.len(), 2);
+        assert_eq!(p.functions[0].input_params[0].name, "a");
+        assert_eq!(p.functions[0].input_params[1].name, "b");
+        assert_eq!(p.functions[0].variables.len(), 1);
+        assert_eq!(p.functions[0].variables[0].name, "x");
+        assert_eq!(p.functions[0].body.len(), 2);
+        // Body: x := a + b; add := x;
+        assert!(matches!(&p.functions[0].body[0], Statement::Assign { name, .. } if name == "x"));
+        assert!(matches!(&p.functions[0].body[1], Statement::Assign { name, .. } if name == "add"));
+        // Main body: add(1, 2);
+        assert_eq!(p.body.len(), 1);
+        assert!(matches!(&p.body[0], Statement::FunCall { name, args } if name == "add" && args.len() == 2));
     }
 }

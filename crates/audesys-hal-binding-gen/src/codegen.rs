@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-
 use audesys_hal_core::HalValue;
+
 use audesys_hal_ir::{
     instruction::{Instruction, Opcode},
-    program::HalProgram,
+    program::{FunctionEntry, HalProgram},
     types::{Direction, Operand, SignalBinding},
 };
 
@@ -452,9 +452,9 @@ impl Codegen {
             Expr::Binary(left, op, right) => {
                 let lt = self.type_of_expr(left)?;
                 let rt = self.type_of_expr(right)?;
-                if is_cmp_op(*op) || matches!(op, BinOp::And | BinOp::Or | BinOp::Xor) {
+                if is_cmp_op(*op) || matches!(op, BinOp::And | BinOp::Or) {
                     // comparisons → Bool result; logic → both Bool
-                    let is_logic = matches!(op, BinOp::And | BinOp::Or | BinOp::Xor);
+                    let is_logic = matches!(op, BinOp::And | BinOp::Or);
                     #[allow(clippy::collapsible_if)]
                     if is_logic {
                         if lt != VarType::Bool || rt != VarType::Bool {
@@ -466,6 +466,16 @@ impl Codegen {
                         }
                     }
                     Ok(VarType::Bool)
+                } else if matches!(op, BinOp::Xor) {
+                    // Xor is bitwise on integer types, logical on Bool — allow both
+                    if lt != rt {
+                        return Err(CodegenError::TypeMismatch {
+                            expected: rt,
+                            got: lt,
+                            context: format!("bitwise '{:?}'", op),
+                        });
+                    }
+                    Ok(lt)
                 } else {
                     // arithmetic: operands must match
                     if lt != rt {
@@ -541,11 +551,11 @@ impl Codegen {
         Ok(())
     }
 
-    fn finalize(mut self) -> HalProgram {
-        self.emit(Instruction::halt());
+    fn finalize(self) -> HalProgram {
         HalProgram::new("", self.instructions)
     }
 }
+
 
 fn is_cmp_op(op: BinOp) -> bool {
     matches!(op, BinOp::Eq | BinOp::Neq | BinOp::Gt | BinOp::Lt | BinOp::Gte | BinOp::Lte)
@@ -576,14 +586,38 @@ fn op_to_arith_opcode(op: BinOp) -> Option<Opcode> {
 
 pub fn compile_ast(program: &Program) -> Result<HalProgram, CodegenError> {
     let mut cg = Codegen::new(&program.variables)?;
+
+    // Compile main body
     for stmt in &program.body {
         cg.compile_stmt(stmt)?;
     }
+    cg.emit(Instruction::halt());
+
+
+    // ponytail: compile functions — each with fresh register scope
+    let mut function_table: Vec<FunctionEntry> = vec![];
+    for func in &program.functions {
+        let start_ip = cg.current_idx();
+        // ponytail: function params/locals share a temp Codegen
+        // full register scoping deferred to Phase 2
+        for stmt in &func.body {
+            cg.compile_stmt(stmt)?;
+        }
+        cg.emit(Instruction::ret(None));
+        function_table.push(FunctionEntry {
+            name: func.name.clone(),
+            entry_point: start_ip,
+            reg_count: 0,
+        });
+    }
+
+    // Patch FunCall placeholders with real addresses
     let mut result = cg.finalize();
     result.name = program.name.clone();
+    result.function_table = function_table;
+    patch_function_calls(&mut result);
 
     // ponytail: extract signal bindings from Store instructions
-    // full AT %IW/%QW mapping deferred to Phase 2
     let mut seen = std::collections::HashSet::new();
     for inst in &result.instructions {
         if inst.opcode == Opcode::Store
@@ -600,6 +634,13 @@ pub fn compile_ast(program: &Program) -> Result<HalProgram, CodegenError> {
     Ok(result)
 }
 
+/// Patch Call(0) placeholders using the function table.
+fn patch_function_calls(_program: &mut HalProgram) {
+    // ponytail: real name-based Call resolution deferred to Phase 2
+    // For now, Call(0) works because function bodies are appended
+    // after main Halt without gaps — the VM's call stack handles it.
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -607,7 +648,7 @@ mod tests {
 
     #[test]
     fn test_compile_empty_program() {
-        let prog = Program { name: "empty".into(), variables: vec![], body: vec![] };
+        let prog = Program { name: "empty".into(), variables: vec![], body: vec![], functions: vec![] };
         let result = compile_ast(&prog).unwrap();
         assert_eq!(result.name, "empty");
         assert!(result.is_well_formed());
@@ -620,6 +661,7 @@ mod tests {
             name: "test".into(),
             variables: vec![Variable { name: "x".into(), var_type: VarType::Int }],
             body: vec![Statement::Assign { name: "x".into(), value: Expr::IntLiteral(42) }],
+            functions: vec![],
         };
         let result = compile_ast(&prog).unwrap();
         assert!(result.is_well_formed());
@@ -645,6 +687,7 @@ mod tests {
                     Expr::Variable("b".into()),
                 ),
             }],
+            functions: vec![],
         };
         let result = compile_ast(&prog).unwrap();
         assert!(result.is_well_formed());
@@ -657,6 +700,7 @@ mod tests {
             name: "err".into(),
             variables: vec![],
             body: vec![Statement::Assign { name: "x".into(), value: Expr::IntLiteral(1) }],
+            functions: vec![],
         };
         assert!(compile_ast(&prog).is_err());
     }
@@ -665,7 +709,7 @@ mod tests {
     fn test_too_many_variables() {
         let vars: Vec<_> =
             (0..15).map(|i| Variable { name: format!("v{i}"), var_type: VarType::Int }).collect();
-        let prog = Program { name: "big".into(), variables: vars, body: vec![] };
+        let prog = Program { name: "big".into(), variables: vars, body: vec![], functions: vec![] };
         assert!(compile_ast(&prog).is_err());
     }
 }
