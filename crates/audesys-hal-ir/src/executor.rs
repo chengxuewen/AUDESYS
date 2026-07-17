@@ -3,6 +3,8 @@
 
 use audesys_hal_core::HalValue;
 
+use std::collections::HashSet;
+
 use crate::instruction::{Instruction, Opcode};
 use crate::program::HalProgram;
 use crate::types::Operand;
@@ -13,6 +15,43 @@ use crate::vm::Vm;
 pub enum ExecutorResult {
     Continue,
     Halted,
+    /// Hit a breakpoint — execution paused, can resume via step() or run_to_halt().
+    Breaked,
+}
+
+/// Single trace entry — records which instruction executed and VM state snapshot.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraceEntry {
+    /// Instruction pointer at time of execution.
+    pub ip: usize,
+    /// The executed instruction opcode.
+    pub opcode: Opcode,
+    /// Snapshot of register 0 at time of execution (ponytail: r0 only, full snapshot in Phase 2).
+    pub r0: HalValue,
+}
+
+/// Debug state — breakpoints, trace, and debug mode control.
+/// Stored on Executor (not Vm) so it survives vm.reset() across engine cycles.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DebugState {
+    /// When true, step() checks breakpoints and records trace entries.
+    pub debug_mode: bool,
+    /// Set of instruction addresses (IP indices) where execution pauses.
+    /// ponytail: HashSet for O(1) lookup, max 256 breakpoints in Phase 1
+    pub breakpoints: HashSet<usize>,
+    /// Trace buffer — stores one entry per executed instruction while debug_mode is on.
+    /// ponytail: simple Vec, ring buffer if capacity matters
+    pub trace_buffer: Vec<TraceEntry>,
+}
+
+impl DebugState {
+    pub fn new() -> Self {
+        DebugState {
+            debug_mode: false,
+            breakpoints: HashSet::new(),
+            trace_buffer: Vec::new(),
+        }
+    }
 }
 
 /// Execution engine for HAL IR programs.
@@ -23,12 +62,13 @@ pub enum ExecutorResult {
 pub struct Executor {
     vm: Vm,
     program: HalProgram,
+    debug_state: DebugState,
 }
 
 impl Executor {
     /// Create a new executor from a compiled HalProgram.
     pub fn new(program: HalProgram) -> Self {
-        Executor { vm: Vm::new(), program }
+        Executor { vm: Vm::new(), program, debug_state: DebugState::new() }
     }
 
     /// Access the underlying VM (read-only).
@@ -48,7 +88,8 @@ impl Executor {
 
     /// Execute one instruction at the current IP, then advance IP.
     ///
-    /// Returns `Halted` when a Halt instruction is reached.
+    /// Returns `Halted` when a Halt instruction is reached, `Breaked` when
+    /// debug_mode is on and the next IP is a breakpoint.
     ///
     /// # Panics
     /// Panics if IP is out of bounds.
@@ -56,11 +97,23 @@ impl Executor {
         let ip = self.vm.ip();
         assert!(ip < self.program.instructions.len(), "IP out of bounds: {ip}");
 
+        // Check breakpoint BEFORE executing (so we pause at the marked line)
+        if self.debug_state.debug_mode && self.debug_state.breakpoints.contains(&ip) {
+            return ExecutorResult::Breaked;
+        }
+
         let inst = self.program.instructions[ip].clone();
         let is_jump = inst.opcode == Opcode::Jump
             || inst.opcode == Opcode::JumpIf
             || inst.opcode == Opcode::Call;
+        let opcode = inst.opcode;
         let result = self.execute_instruction(&inst);
+
+        // Record trace entry after execution (before IP advances for non-jumps)
+        if self.debug_state.debug_mode {
+            let r0 = self.vm.read_register(0);
+            self.debug_state.trace_buffer.push(TraceEntry { ip, opcode, r0 });
+        }
 
         if !is_jump {
             self.vm.advance_ip();
@@ -69,20 +122,82 @@ impl Executor {
         result
     }
 
-    /// Reset the VM to initial state.
+    /// Reset the VM to initial state. Debug state is preserved.
     pub fn reset(&mut self) {
         self.vm.reset();
     }
 
-    /// Execute until Halt, return total steps.
+    /// Execute until Halt or Breaked, return total steps.
     pub fn run_to_halt(&mut self) -> usize {
         let mut steps = 0;
         loop {
             match self.step() {
                 ExecutorResult::Halted => return steps + 1,
                 ExecutorResult::Continue => steps += 1,
+                ExecutorResult::Breaked => return steps + 1,
             }
         }
+    }
+
+    // ── Debug Methods ──
+
+    /// Enable debug mode — breakpoints checked, trace recorded.
+    pub fn enable_debug(&mut self) {
+        self.debug_state.debug_mode = true;
+    }
+
+    /// Disable debug mode — breakpoints ignored, trace recording stops.
+    pub fn disable_debug(&mut self) {
+        self.debug_state.debug_mode = false;
+    }
+
+    /// Check if debug mode is enabled.
+    pub fn is_debug_enabled(&self) -> bool {
+        self.debug_state.debug_mode
+    }
+
+    /// Add a breakpoint at the given instruction address.
+    /// Returns true if the breakpoint was newly added.
+    pub fn add_breakpoint(&mut self, ip: usize) -> bool {
+        self.debug_state.breakpoints.insert(ip)
+    }
+
+    /// Remove a breakpoint at the given instruction address.
+    /// Returns true if the breakpoint was present and removed.
+    pub fn remove_breakpoint(&mut self, ip: usize) -> bool {
+        self.debug_state.breakpoints.remove(&ip)
+    }
+
+    /// List all currently set breakpoints (sorted).
+    pub fn list_breakpoints(&self) -> Vec<usize> {
+        let mut bps: Vec<usize> = self.debug_state.breakpoints.iter().copied().collect();
+        bps.sort_unstable();
+        bps
+    }
+
+    /// Clear all breakpoints.
+    pub fn clear_breakpoints(&mut self) {
+        self.debug_state.breakpoints.clear();
+    }
+
+    /// Access the trace buffer (read-only).
+    pub fn trace_buffer(&self) -> &[TraceEntry] {
+        &self.debug_state.trace_buffer
+    }
+
+    /// Clear the trace buffer.
+    pub fn clear_trace(&mut self) {
+        self.debug_state.trace_buffer.clear();
+    }
+
+    /// Resume execution from a breakpoint. Toggles debug off for one step to
+    /// execute past the breakpoint, then re-enables debug.
+    pub fn resume(&mut self) -> ExecutorResult {
+        // ponytail: toggle debug off for one step to execute past the breakpoint
+        self.debug_state.debug_mode = false;
+        let result = self.step();
+        self.debug_state.debug_mode = true;
+        result
     }
 
     // ── Instruction dispatch ──
@@ -401,7 +516,6 @@ impl Executor {
         let timer = self.vm.timer_mut(idx);
         timer.preset_ms = pt;
         timer.kind = timer_kind;
-        let prev_in = timer.in_val;
         let prev_in = timer.in_val;
 
         match timer.kind {
@@ -726,6 +840,7 @@ mod tests {
             match executor.step() {
                 ExecutorResult::Halted => break,
                 ExecutorResult::Continue => steps += 1,
+                ExecutorResult::Breaked => steps += 1,
             }
         }
         assert_eq!(steps, 4); // Load, Load, Eq, JumpIf
@@ -952,6 +1067,214 @@ mod tests {
         let mut executor = Executor::new(program);
         executor.run_to_halt();
         assert_eq!(executor.vm().read_register(1), HalValue::S32(77));
+    }
+
+    // ── Debug Tests ──
+
+    #[test]
+    fn test_debug_breakpoint_hit() {
+        let program = HalProgram::new(
+            "test_bp",
+            vec![
+                Instruction::load_imm(0, HalValue::S32(1)),
+                Instruction::load_imm(1, HalValue::S32(2)),
+                Instruction::arith(Opcode::Add, 0, 1, 2),
+                Instruction::halt(),
+            ],
+        );
+        let mut executor = Executor::new(program);
+        executor.enable_debug();
+        executor.add_breakpoint(2);
+
+        assert_eq!(executor.step(), ExecutorResult::Continue); // load_imm r0
+        assert_eq!(executor.step(), ExecutorResult::Continue); // load_imm r1
+        assert_eq!(executor.step(), ExecutorResult::Breaked);  // breakpoint!
+    }
+
+    #[test]
+    fn test_debug_no_breakpoint_without_debug_mode() {
+        let program = HalProgram::new(
+            "test_no_bp",
+            vec![
+                Instruction::load_imm(0, HalValue::S32(1)),
+                Instruction::halt(),
+            ],
+        );
+        let mut executor = Executor::new(program);
+        executor.add_breakpoint(0);
+
+        assert_eq!(executor.step(), ExecutorResult::Continue);
+        assert_eq!(executor.step(), ExecutorResult::Halted);
+        assert!(!executor.is_debug_enabled());
+    }
+
+    #[test]
+    fn test_debug_add_remove_breakpoint() {
+        let mut executor = Executor::new(HalProgram::new(
+            "test_bp_ops",
+            vec![Instruction::halt()],
+        ));
+
+        assert!(executor.add_breakpoint(0));
+        assert!(!executor.add_breakpoint(0)); // duplicate
+        assert_eq!(executor.list_breakpoints(), vec![0]);
+
+        assert!(executor.remove_breakpoint(0));
+        assert!(!executor.remove_breakpoint(0));
+        assert!(executor.list_breakpoints().is_empty());
+    }
+
+    #[test]
+    fn test_debug_clear_breakpoints() {
+        let mut executor = Executor::new(HalProgram::new(
+            "test_bp_clear",
+            vec![Instruction::halt()],
+        ));
+
+        executor.add_breakpoint(0);
+        executor.add_breakpoint(3);
+        executor.add_breakpoint(7);
+        assert_eq!(executor.list_breakpoints().len(), 3);
+
+        executor.clear_breakpoints();
+        assert!(executor.list_breakpoints().is_empty());
+    }
+
+    #[test]
+    fn test_debug_trace_recording() {
+        let program = HalProgram::new(
+            "test_trace",
+            vec![
+                Instruction::load_imm(0, HalValue::S32(10)),
+                Instruction::load_imm(1, HalValue::S32(20)),
+                Instruction::arith(Opcode::Add, 0, 1, 2),
+                Instruction::halt(),
+            ],
+        );
+        let mut executor = Executor::new(program);
+        executor.enable_debug();
+        executor.run_to_halt();
+
+        let trace = executor.trace_buffer();
+        assert_eq!(trace.len(), 4);
+        assert_eq!(trace[0].opcode, Opcode::Load);
+        assert_eq!(trace[1].opcode, Opcode::Load);
+        assert_eq!(trace[2].opcode, Opcode::Add);
+        assert_eq!(trace[3].opcode, Opcode::Halt);
+    }
+
+    #[test]
+    fn test_debug_trace_not_recorded_when_disabled() {
+        let program = HalProgram::new(
+            "test_trace_off",
+            vec![
+                Instruction::load_imm(0, HalValue::S32(1)),
+                Instruction::halt(),
+            ],
+        );
+        let mut executor = Executor::new(program);
+        executor.run_to_halt();
+
+        assert!(executor.trace_buffer().is_empty());
+    }
+
+    #[test]
+    fn test_debug_clear_trace() {
+        let program = HalProgram::new(
+            "test_trace_clear",
+            vec![
+                Instruction::load_imm(0, HalValue::S32(1)),
+                Instruction::halt(),
+            ],
+        );
+        let mut executor = Executor::new(program);
+        executor.enable_debug();
+        executor.run_to_halt();
+        assert_eq!(executor.trace_buffer().len(), 2);
+
+        executor.clear_trace();
+        assert!(executor.trace_buffer().is_empty());
+    }
+
+    #[test]
+    fn test_debug_disable_reenable() {
+        let mut executor = Executor::new(HalProgram::new(
+            "test_enable",
+            vec![Instruction::halt()],
+        ));
+
+        assert!(!executor.is_debug_enabled());
+        executor.enable_debug();
+        assert!(executor.is_debug_enabled());
+        executor.disable_debug();
+        assert!(!executor.is_debug_enabled());
+    }
+
+    #[test]
+    fn test_debug_resume_past_breakpoint() {
+        let program = HalProgram::new(
+            "test_resume",
+            vec![
+                Instruction::load_imm(0, HalValue::S32(1)),
+                Instruction::load_imm(1, HalValue::S32(2)),
+                Instruction::arith(Opcode::Add, 0, 1, 2),
+                Instruction::halt(),
+            ],
+        );
+        let mut executor = Executor::new(program);
+        executor.enable_debug();
+        executor.add_breakpoint(1);
+
+        assert_eq!(executor.step(), ExecutorResult::Continue); // load_imm r0
+        assert_eq!(executor.step(), ExecutorResult::Breaked);  // break at IP=1
+        assert_eq!(executor.resume(), ExecutorResult::Continue); // execute load_imm r1
+        executor.run_to_halt();
+
+        assert_eq!(executor.vm().read_register(2), HalValue::S32(3));
+    }
+
+    #[test]
+    fn test_debug_trace_content() {
+        let program = HalProgram::new(
+            "test_trace_content",
+            vec![
+                Instruction::load_imm(0, HalValue::S32(42)),
+                Instruction::halt(),
+            ],
+        );
+        let mut executor = Executor::new(program);
+        executor.enable_debug();
+        executor.run_to_halt();
+
+        let trace = executor.trace_buffer();
+        assert_eq!(trace.len(), 2);
+        assert_eq!(trace[0].ip, 0);
+        assert_eq!(trace[0].opcode, Opcode::Load);
+        assert_eq!(trace[0].r0, HalValue::S32(42));
+        assert_eq!(trace[1].ip, 1);
+        assert_eq!(trace[1].opcode, Opcode::Halt);
+    }
+
+    #[test]
+    fn test_debug_state_survives_reset() {
+        let program = HalProgram::new(
+            "test_reset_debug",
+            vec![
+                Instruction::load_imm(0, HalValue::S32(1)),
+                Instruction::halt(),
+            ],
+        );
+        let mut executor = Executor::new(program);
+        executor.enable_debug();
+        executor.add_breakpoint(1);
+        executor.run_to_halt();
+
+        assert_eq!(executor.trace_buffer().len(), 1); // only load_imm recorded
+
+        executor.reset();
+        assert!(executor.is_debug_enabled());
+        assert!(executor.list_breakpoints().contains(&1));
+        assert_eq!(executor.trace_buffer().len(), 1); // trace survives reset
     }
 }
 
