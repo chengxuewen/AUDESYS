@@ -6,7 +6,46 @@
 //!
 //! 来源: docs/modules/runtime/observability-design.md
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+
+/// Lock-free ring buffer for fixed-size time-series data.
+/// ponytail: simple [AtomicU64; N] with atomic write cursor.
+pub struct RingBuffer<const N: usize> {
+    buf: [AtomicU64; N],
+    cursor: AtomicUsize,
+}
+
+impl<const N: usize> RingBuffer<N> {
+    pub fn new() -> Self {
+        Self {
+            buf: std::array::from_fn(|_| AtomicU64::new(0)),
+            cursor: AtomicUsize::new(0),
+        }
+    }
+
+    /// Push a value — overwrites oldest entry when full.
+    pub fn push(&self, value: u64) {
+        let idx = self.cursor.fetch_add(1, Ordering::Relaxed) % N;
+        self.buf[idx].store(value, Ordering::Relaxed);
+    }
+
+    /// Read all values in insertion order (oldest first).
+    pub fn read(&self) -> Vec<u64> {
+        let cursor = self.cursor.load(Ordering::Relaxed);
+        let start = if cursor < N { 0 } else { cursor % N };
+        (0..N)
+            .map(|i| self.buf[(start + i) % N].load(Ordering::Relaxed))
+            .collect()
+    }
+
+    /// Reset all entries to zero.
+    pub fn reset(&self) {
+        for entry in &self.buf {
+            entry.store(0, Ordering::Relaxed);
+        }
+        self.cursor.store(0, Ordering::Relaxed);
+    }
+}
 
 /// Runtime-internal metrics collected via lock-free atomics.
 ///
@@ -23,6 +62,8 @@ pub struct RuntimeMetrics {
     pub child_restarts: AtomicU64,
     /// Number of health check failures
     pub health_check_failures: AtomicU64,
+    /// Cycle jitter ring buffer (last 1024 cycle durations in microseconds)
+    pub cycle_jitter_us: RingBuffer<1024>,
 }
 
 impl RuntimeMetrics {
@@ -33,6 +74,7 @@ impl RuntimeMetrics {
             config_changes_applied: AtomicU64::new(0),
             child_restarts: AtomicU64::new(0),
             health_check_failures: AtomicU64::new(0),
+            cycle_jitter_us: RingBuffer::new(),
         }
     }
 
@@ -44,6 +86,11 @@ impl RuntimeMetrics {
     /// Record a completed engine cycle.
     pub fn record_cycle(&self) {
         Self::inc(&self.cycles_completed);
+    }
+
+    /// Record a cycle's actual duration in microseconds (for jitter analysis).
+    pub fn record_cycle_jitter(&self, elapsed_us: u64) {
+        self.cycle_jitter_us.push(elapsed_us);
     }
 
     /// Record a published signal.
@@ -90,6 +137,7 @@ impl RuntimeMetrics {
         self.config_changes_applied.store(0, Ordering::Relaxed);
         self.child_restarts.store(0, Ordering::Relaxed);
         self.health_check_failures.store(0, Ordering::Relaxed);
+        self.cycle_jitter_us.reset();
     }
 }
 
@@ -173,9 +221,49 @@ mod tests {
     fn test_new_metrics_all_zero() {
         let metrics = RuntimeMetrics::new();
         let output = metrics.export_prometheus();
-        // All counters should be 0
         for line in output.lines() {
             assert!(line.ends_with("0"), "counter should be zero: {}", line);
         }
+    }
+
+    // ── RingBuffer Tests ──
+
+    #[test]
+    fn test_ring_buffer_push_read() {
+        let rb: RingBuffer<4> = RingBuffer::new();
+        rb.push(10);
+        rb.push(20);
+        rb.push(30);
+        let vals = rb.read();
+        assert_eq!(vals, vec![10, 20, 30, 0]);
+    }
+
+    #[test]
+    fn test_ring_buffer_wraparound() {
+        let rb: RingBuffer<4> = RingBuffer::new();
+        for i in 0..6u64 {
+            rb.push(i);
+        }
+        let vals = rb.read();
+        assert_eq!(vals, vec![2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn test_ring_buffer_reset() {
+        let rb: RingBuffer<4> = RingBuffer::new();
+        rb.push(42);
+        assert_eq!(rb.read()[0], 42);
+        rb.reset();
+        assert_eq!(rb.read(), vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn test_record_cycle_jitter() {
+        let metrics = RuntimeMetrics::new();
+        metrics.record_cycle_jitter(10500);
+        metrics.record_cycle_jitter(9800);
+        let jitter = metrics.cycle_jitter_us.read();
+        assert_eq!(jitter[0], 10500);
+        assert_eq!(jitter[1], 9800);
     }
 }

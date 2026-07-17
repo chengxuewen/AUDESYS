@@ -132,6 +132,9 @@ impl Engine {
             let mut next_cycle = Instant::now();
 
             while running.load(Ordering::SeqCst) {
+                let cycle_start = Instant::now();
+
+                // 1. Apply pending configuration (Config Barrier)
                 // 1. Apply pending configuration (Config Barrier)
                 {
                     let mut queue = config_queue.lock().unwrap();
@@ -202,6 +205,11 @@ impl Engine {
 
                 cycle_count.fetch_add(1, Ordering::Relaxed);
                 metrics.record_cycle();
+
+                // Record cycle jitter for Studio jitter panel
+                let cycle_elapsed = cycle_start.elapsed().as_micros() as u64;
+                metrics.record_cycle_jitter(cycle_elapsed);
+
 
                 // Lifecycle health check — detect and restart dead children
                 let dead = lifecycle.health_check();
