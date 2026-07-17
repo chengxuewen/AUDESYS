@@ -495,3 +495,150 @@ fn test_nested_repeat_with_if() {
     // x=0,2,4 → even=3
     assert_eq!(executor.vm().read_register(1), HalValue::S32(3));
 }
+
+// ── Tests 33-49: type pipeline coverage ──
+
+#[test]
+fn test_type_pipeline_real() {
+    let src = "PROGRAM test VAR x : REAL; END_VAR; x := 3.14; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    let steps = executor.run_to_halt();
+    assert!(steps > 0);
+    // ponytail: codegen emits F32 for real literals
+    assert_eq!(executor.vm().read_register(0), HalValue::F32(3.14f32));
+}
+
+#[test]
+fn test_type_pipeline_dint() {
+    let src = "PROGRAM test VAR x : DINT; END_VAR; x := -99999; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // ponytail: all integer literals emit as S32
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(-99999));
+}
+
+#[test]
+fn test_type_pipeline_lreal() {
+    let src = "PROGRAM test VAR x : LREAL; END_VAR; x := 2.72; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::F32(2.72f32));
+}
+
+#[test]
+fn test_type_pipeline_sint() {
+    let src = "PROGRAM test VAR x : SINT; END_VAR; x := -10; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(-10));
+}
+
+#[test]
+fn test_type_pipeline_usint() {
+    let src = "PROGRAM test VAR x : USINT; END_VAR; x := 200; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(200));
+}
+
+#[test]
+fn test_type_pipeline_uint() {
+    let src = "PROGRAM test VAR x : UINT; END_VAR; x := 50000; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(50000));
+}
+
+#[test]
+fn test_type_pipeline_ulint() {
+    let src = "PROGRAM test VAR x : ULINT; END_VAR; x := 999; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(999));
+}
+
+#[test]
+fn test_type_pipeline_lint() {
+    let src = "PROGRAM test VAR x : LINT; END_VAR; x := -888; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(-888));
+}
+
+#[test]
+fn test_type_pipeline_byte() {
+    let src = "PROGRAM test VAR x : BYTE; END_VAR; x := 255; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(255));
+}
+
+#[test]
+fn test_type_pipeline_word() {
+    let src = "PROGRAM test VAR x : WORD; END_VAR; x := 65535; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(65535));
+}
+
+#[test]
+fn test_type_pipeline_dword() {
+    let src = "PROGRAM test VAR x : DWORD; END_VAR; x := 99; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(99));
+}
+
+#[test]
+fn test_type_pipeline_real_expr() {
+    let src = "PROGRAM test VAR x : REAL; y : REAL; END_VAR; x := 1.5; y := x + 2.5; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::F32(1.5));
+    assert_eq!(executor.vm().read_register(1), HalValue::F32(4.0));
+}
+
+#[test]
+fn test_type_pipeline_dint_expr() {
+    let src = "PROGRAM test VAR x : DINT; y : DINT; END_VAR; x := 100; y := x * 10; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(100));
+    assert_eq!(executor.vm().read_register(1), HalValue::S32(1000));
+}
+
+#[test]
+fn test_type_pipeline_xor_word() {
+    let src = "PROGRAM test VAR x : WORD; END_VAR; x := 61680 XOR 255; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(61680i32 ^ 255i32));
+}

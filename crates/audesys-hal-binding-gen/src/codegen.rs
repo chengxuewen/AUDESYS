@@ -104,6 +104,15 @@ impl Codegen {
             .ok_or_else(|| CodegenError::UndefinedVariable(name.to_string()))
     }
 
+    // ponytail: zero for the variable's type — identity element for Add
+    fn zero_for_var(&self, name: &str) -> HalValue {
+        let vt = self.var_types.get(name).copied().unwrap_or(VarType::Int);
+        match vt {
+            VarType::Real | VarType::LReal => HalValue::F32(0.0),
+            _ => HalValue::S32(0),
+        }
+    }
+
     fn emit(&mut self, inst: Instruction) -> u32 {
         let idx = self.instructions.len() as u32;
         self.instructions.push(inst);
@@ -133,9 +142,10 @@ impl Codegen {
             }
             Expr::Variable(name) => {
                 let src_reg = self.var_reg(name)?;
-                // ponytail: load_imm(dest,0)+Add(src,dest,dest) avoids scratch
+                // ponytail: load_imm(dest, zero_of_type) + Add copies value
                 if src_reg != dest_reg {
-                    self.emit(Instruction::load_imm(dest_reg, HalValue::S32(0)));
+                    let zero = self.zero_for_var(name);
+                    self.emit(Instruction::load_imm(dest_reg, zero));
                     self.emit(Instruction::arith(Opcode::Add, src_reg, dest_reg, dest_reg));
                 }
             }
@@ -455,7 +465,6 @@ impl Codegen {
                 if is_cmp_op(*op) || matches!(op, BinOp::And | BinOp::Or) {
                     // comparisons → Bool result; logic → both Bool
                     let is_logic = matches!(op, BinOp::And | BinOp::Or);
-                    #[allow(clippy::collapsible_if)]
                     if is_logic {
                         if lt != VarType::Bool || rt != VarType::Bool {
                             return Err(CodegenError::TypeMismatch {
@@ -468,7 +477,7 @@ impl Codegen {
                     Ok(VarType::Bool)
                 } else if matches!(op, BinOp::Xor) {
                     // Xor is bitwise on integer types, logical on Bool — allow both
-                    if lt != rt {
+                    if !types_compatible(lt, rt) {
                         return Err(CodegenError::TypeMismatch {
                             expected: rt,
                             got: lt,
@@ -477,8 +486,8 @@ impl Codegen {
                     }
                     Ok(lt)
                 } else {
-                    // arithmetic: operands must match
-                    if lt != rt {
+                    // arithmetic: operands must be compatible
+                    if !types_compatible(lt, rt) {
                         return Err(CodegenError::TypeMismatch {
                             expected: lt,
                             got: rt,
@@ -490,6 +499,7 @@ impl Codegen {
             }
             Expr::Unary(UnaryOp::Neg, inner) => {
                 let t = self.type_of_expr(inner)?;
+                // ponytail: Neg valid on all integer types + Real/LReal
                 if !matches!(t, VarType::Int | VarType::Real | VarType::DInt | VarType::LReal) {
                     return Err(CodegenError::TypeMismatch {
                         expected: VarType::Int,
@@ -501,16 +511,8 @@ impl Codegen {
             }
             Expr::Unary(UnaryOp::Not, inner) => {
                 let t = self.type_of_expr(inner)?;
-                // ponytail: NOT is bitwise in IEC 61131-3, valid on integers and bool
-                if !matches!(
-                    t,
-                    VarType::Bool
-                        | VarType::Int
-                        | VarType::DInt
-                        | VarType::Byte
-                        | VarType::Word
-                        | VarType::DWord
-                ) {
+                // ponytail: NOT is bitwise in IEC 61131-3, valid on all integer types and bool
+                if !is_integer_type(t) && t != VarType::Bool {
                     return Err(CodegenError::TypeMismatch {
                         expected: VarType::Int,
                         got: t,
@@ -528,13 +530,39 @@ impl Codegen {
             .get(name)
             .copied()
             .ok_or_else(|| CodegenError::UndefinedVariable(name.to_string()))?;
-        let got = self.type_of_expr(value)?;
-        if expected != got {
-            return Err(CodegenError::TypeMismatch {
-                expected,
-                got,
-                context: format!("assign to '{name}'"),
-            });
+
+        // ponytail: IntLiteral accepted for all integer types, RealLiteral for Real/LReal
+        // Full type-aware literal emission deferred to Phase 2
+        match value {
+            Expr::IntLiteral(_) => {
+                if !is_integer_type(expected) {
+                    return Err(CodegenError::TypeMismatch {
+                        expected,
+                        got: VarType::Int,
+                        context: format!("assign to '{name}'"),
+                    });
+                }
+            }
+            Expr::RealLiteral(_) => {
+                if expected != VarType::Real && expected != VarType::LReal {
+                    return Err(CodegenError::TypeMismatch {
+                        expected,
+                        got: VarType::Real,
+                        context: format!("assign to '{name}'"),
+                    });
+                }
+            }
+            _ => {
+                let got = self.type_of_expr(value)?;
+                // ponytail: Int/Real can be compatible with wider types
+                if !types_compatible(got, expected) {
+                    return Err(CodegenError::TypeMismatch {
+                        expected,
+                        got,
+                        context: format!("assign to '{name}'"),
+                    });
+                }
+            }
         }
         Ok(())
     }
@@ -561,6 +589,38 @@ fn is_cmp_op(op: BinOp) -> bool {
     matches!(op, BinOp::Eq | BinOp::Neq | BinOp::Gt | BinOp::Lt | BinOp::Gte | BinOp::Lte)
 }
 
+fn is_integer_type(vt: VarType) -> bool {
+    matches!(
+        vt,
+        VarType::Int
+            | VarType::DInt
+            | VarType::SInt
+            | VarType::USInt
+            | VarType::UInt
+            | VarType::ULInt
+            | VarType::LInt
+            | VarType::Byte
+            | VarType::Word
+            | VarType::DWord
+            | VarType::Time
+            | VarType::Date
+            | VarType::TOD
+            | VarType::DT
+    )
+}
+
+fn types_compatible(a: VarType, b: VarType) -> bool {
+    if a == b {
+        return true;
+    }
+    // ponytail: IntLiteral can match any integer type, RealLiteral any real type
+    // This is needed because type_of_expr returns Int for all integer literals
+    match (a, b) {
+        (VarType::Int, other) | (other, VarType::Int) if is_integer_type(other) => true,
+        (VarType::Real, VarType::LReal) | (VarType::LReal, VarType::Real) => true,
+        _ => false,
+    }
+}
 fn cmp_opcode(op: BinOp) -> Opcode {
     match op {
         BinOp::Eq => Opcode::Eq,
