@@ -3,6 +3,7 @@
 
 /// Token produced by the lexer.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Token {
     // Keywords
     Program,
@@ -42,7 +43,17 @@ pub enum Token {
     Byte,
     Word,
     DWord,
-
+    SInt,
+    USInt,
+    UInt,
+    ULInt,
+    LInt,
+    Time,
+    Date,
+    TOD,
+    DT,
+    String,
+    Array,
     // Operators
     Assign,    // :=
     Plus,      // +
@@ -321,6 +332,17 @@ fn match_keyword(s: &str) -> Token {
         "BYTE" => Token::Byte,
         "WORD" => Token::Word,
         "DWORD" => Token::DWord,
+        "SINT" => Token::SInt,
+        "USINT" => Token::USInt,
+        "UINT" => Token::UInt,
+        "ULINT" => Token::ULInt,
+        "LINT" => Token::LInt,
+        "TIME" => Token::Time,
+        "DATE" => Token::Date,
+        "TOD" => Token::TOD,
+        "DT" => Token::DT,
+        "STRING" => Token::String,
+        "ARRAY" => Token::Array,
         _ => Token::Identifier(s.to_string()),
     }
 }

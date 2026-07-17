@@ -5,15 +5,27 @@ use crate::lexer::{Token, TokenInfo};
 
 /// Types supported in variable declarations.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum VarType {
     Int,  // → S32
     Real, // → F32
     Bool,
-    DInt,  // → S64
-    LReal, // → F64
-    Byte,  // → U8
-    Word,  // → U16
-    DWord, // → U32
+    DInt,   // → S64
+    LReal,  // → F64
+    Byte,   // → U8
+    Word,   // → U16
+    DWord,  // → U32
+    SInt,   // → S8 (IEC 61131-3 SHORT INTEGER)
+    USInt,  // → U8 (unsigned short)
+    UInt,   // → U16 (unsigned int)
+    ULInt,  // → U64 (unsigned long)
+    LInt,   // → S64 (long int)
+    Time,   // → TIME / TIME_OF_DAY (ms duration)
+    Date,   // → DATE (days since 1970)
+    TOD,    // → TIME_OF_DAY (ms since midnight)
+    DT,     // → DATE_AND_TIME (datetime)
+    String, // → STRING (fixed length, UTF-8)
+    Array,  // → ARRAY [lo..hi] OF <type>
 }
 
 /// Binary operator.
@@ -249,6 +261,17 @@ fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
             Token::Byte => Ok(VarType::Byte),
             Token::Word => Ok(VarType::Word),
             Token::DWord => Ok(VarType::DWord),
+            Token::SInt => Ok(VarType::SInt),
+            Token::USInt => Ok(VarType::USInt),
+            Token::UInt => Ok(VarType::UInt),
+            Token::ULInt => Ok(VarType::ULInt),
+            Token::LInt => Ok(VarType::LInt),
+            Token::Time => Ok(VarType::Time),
+            Token::Date => Ok(VarType::Date),
+            Token::TOD => Ok(VarType::TOD),
+            Token::DT => Ok(VarType::DT),
+            Token::String => Ok(VarType::String),
+            Token::Array => Ok(VarType::Array),
             _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
         },
         None => Err(ParseError::UnexpectedEof),
