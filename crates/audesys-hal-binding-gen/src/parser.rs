@@ -76,6 +76,8 @@ pub enum Statement {
     Assign { name: String, value: Expr },
     /// If-then-else: condition and two blocks
     If { condition: Expr, then_body: Vec<Statement>, else_body: Vec<Statement> },
+    /// While loop: condition and body
+    While { condition: Expr, body: Vec<Statement> },
 }
 
 /// A variable declaration.
@@ -232,6 +234,7 @@ fn parse_statements_until(p: &mut Parser, stop: &Token) -> Result<Vec<Statement>
 fn parse_statement(p: &mut Parser) -> Result<Statement, ParseError> {
     match p.peek_token() {
         Some(Token::If) => parse_if(p),
+        Some(Token::While) => parse_while(p),
         _ => parse_assignment(p),
     }
 }
@@ -270,6 +273,22 @@ fn parse_if(p: &mut Parser) -> Result<Statement, ParseError> {
     p.expect(Token::Semicolon)?;
 
     Ok(Statement::If { condition, then_body, else_body })
+}
+
+fn parse_while(p: &mut Parser) -> Result<Statement, ParseError> {
+    p.expect(Token::While)?;
+    let condition = parse_expression(p)?;
+    p.expect(Token::Do)?;
+
+    let mut body = Vec::new();
+    while p.peek_token() != Some(&Token::EndWhile) {
+        body.push(parse_statement(p)?);
+    }
+
+    p.expect(Token::EndWhile)?;
+    p.expect(Token::Semicolon)?;
+
+    Ok(Statement::While { condition, body })
 }
 
 // ── Expression parsing with precedence climbing ──

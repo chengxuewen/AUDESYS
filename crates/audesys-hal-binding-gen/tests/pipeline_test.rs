@@ -189,3 +189,33 @@ fn test_mod_by_zero_saturates() {
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(2), HalValue::S32(0));
 }
+
+// ── Test 10: while_loop ──
+
+#[test]
+fn test_while_loop() {
+    // WHILE x < 5 DO x := x + 1; END_WHILE;
+    let src = "PROGRAM test VAR x : INT; END_VAR; x := 0; WHILE x < 5 DO x := x + 1; END_WHILE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // After 5 iterations: x = 5, loop exits when x >= 5
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(5));
+}
+
+// ── Test 11: while_never_true ──
+
+#[test]
+fn test_while_never_true() {
+    // WHILE FALSE DO ... END_WHILE — should never execute body
+    let src = "PROGRAM test VAR x : INT; END_VAR; x := 42; WHILE x > 50 DO x := x + 1; END_WHILE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // x was never incremented because condition was false
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(42));
+}

@@ -188,6 +188,27 @@ impl Codegen {
                     self.patch_jump(j, end_label);
                 }
             }
+            Statement::While { condition, body } => {
+                let loop_start = self.current_idx();
+                // compile_condition emits JumpIf to else_jumps when condition is TRUE
+                let (else_jumps, _end_jumps) = self.compile_condition(condition)?;
+                // Condition FALSE → fall through to exit jump
+                let exit_jump = self.emit(Instruction::jump(0));
+                // Patch else_jumps: when condition TRUE, jump here (into body)
+                let body_label = self.current_idx();
+                for &j in &else_jumps {
+                    self.patch_jump(j, body_label);
+                }
+                // Body
+                for stmt in body {
+                    self.compile_stmt(stmt)?;
+                }
+                // Jump back to condition check
+                self.emit(Instruction::jump(loop_start));
+                // Exit label (condition was false)
+                let exit_label = self.current_idx();
+                self.patch_jump(exit_jump, exit_label);
+            }
         }
         Ok(())
     }
