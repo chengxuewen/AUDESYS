@@ -175,6 +175,7 @@ impl Engine {
                 {
                     if let Some(ref mut executor) = *hal_executor.write().unwrap() {
                         executor.reset();
+                        executor.vm_mut().set_cycle_time(cycle_interval_ms);
                         executor.run_to_halt();
                         // Publish VM signal table entries to signal registry
                         let vm = executor.vm();

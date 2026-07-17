@@ -367,8 +367,9 @@ impl Executor {
             Operand::Immediate(HalValue::U32(i)) => *i as usize,
             _ => return ExecutorResult::Continue,
         };
-        if idx >= self.vm.timer_count() {
-            return ExecutorResult::Continue;
+        // ponytail: auto-grow timers vec if index is larger
+        while self.vm.timer_count() <= idx {
+            self.vm.add_timer(0);
         }
         let in_reg = match &operands[1] {
             Operand::Register(r) => *r,
@@ -411,8 +412,8 @@ impl Executor {
             Operand::Immediate(HalValue::U32(i)) => *i as usize,
             _ => return ExecutorResult::Continue,
         };
-        if idx >= self.vm.timer_count() {
-            return ExecutorResult::Continue;
+        while self.vm.timer_count() <= idx {
+            self.vm.add_timer(0);
         }
         let q_dest = match &operands[1] {
             Operand::Register(r) => *r,

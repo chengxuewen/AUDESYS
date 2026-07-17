@@ -642,3 +642,38 @@ fn test_type_pipeline_xor_word() {
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(0), HalValue::S32(61680i32 ^ 255i32));
 }
+
+#[test]
+fn test_ton_timer_advances_with_cycle_time() {
+    // TON timer: IN=trigger(r1), PT=500ms, Q→done(r2)
+    let src = concat!(
+        "PROGRAM test 
+        VAR ton1 : TON; trigger : BOOL; done : BOOL; END_VAR ",
+        "ton1(trigger, 500); done := ton1.Q; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+
+    // Set trigger IN = true (r1 holds trigger)
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(100);
+    executor.run_to_halt();
+    // ET=100, Q=false (100 < 500)
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false));
+
+    // Cycle 2: +200ms → ET=300
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(200);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false));
+
+    // Cycle 3: +300ms → ET=600ms >= 500ms → Q=true
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(300);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true));
+}
+

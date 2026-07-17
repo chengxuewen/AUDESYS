@@ -800,7 +800,7 @@ mod tests {
     fn test_simple_assignment() {
         let prog = Program {
             name: "test".into(),
-            variables: vec![Variable { name: "x".into(), var_type: VarType::Int }],
+            variables: vec![Variable { name: "x".into(), var_type: VarType::Int, array_bounds: None, string_len: None }],
             body: vec![Statement::Assign { name: "x".into(), value: Expr::IntLiteral(42) }],
             functions: vec![],
         };
@@ -816,9 +816,9 @@ mod tests {
         let prog = Program {
             name: "arith".into(),
             variables: vec![
-                Variable { name: "a".into(), var_type: VarType::Int },
-                Variable { name: "b".into(), var_type: VarType::Int },
-                Variable { name: "c".into(), var_type: VarType::Int },
+                Variable { name: "a".into(), var_type: VarType::Int, array_bounds: None, string_len: None },
+                Variable { name: "b".into(), var_type: VarType::Int, array_bounds: None, string_len: None },
+                Variable { name: "c".into(), var_type: VarType::Int, array_bounds: None, string_len: None },
             ],
             body: vec![Statement::Assign {
                 name: "c".into(),
@@ -849,7 +849,7 @@ mod tests {
     #[test]
     fn test_too_many_variables() {
         let vars: Vec<_> =
-            (0..15).map(|i| Variable { name: format!("v{i}"), var_type: VarType::Int }).collect();
+            (0..15).map(|i| Variable { name: format!("v{i}"), var_type: VarType::Int, array_bounds: None, string_len: None }).collect();
         let prog = Program { name: "big".into(), variables: vars, body: vec![], functions: vec![] };
         assert!(compile_ast(&prog).is_err());
     }
