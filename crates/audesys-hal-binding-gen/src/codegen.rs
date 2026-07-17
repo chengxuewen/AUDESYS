@@ -122,6 +122,7 @@ impl Codegen {
             VarType::String => HalValue::String(String::new()),
             VarType::Array => HalValue::Array { element_type: HalPinType::S32, data: vec![] }, // ponytail: default S32
             VarType::Ton | VarType::Tof | VarType::Tp => HalValue::U32(0), // ponytail: timer stores index
+            VarType::Ctu | VarType::Ctd | VarType::Ctud => HalValue::U32(0), // ponytail: counter stores index
         }
     }
 
@@ -140,6 +141,7 @@ impl Codegen {
             VarType::String => HalPinType::String,
             VarType::Array => HalPinType::Blob,
             VarType::Ton | VarType::Tof | VarType::Tp => HalPinType::U32,
+            VarType::Ctu | VarType::Ctd | VarType::Ctud => HalPinType::U32,
         }
     }
 
@@ -434,6 +436,7 @@ impl Codegen {
                 // Detect timer calls (TON/TOF/TP)
                 let vt = self.var_types.get(name.as_str()).copied();
                 let is_timer = matches!(vt, Some(VarType::Ton | VarType::Tof | VarType::Tp));
+                let is_counter = matches!(vt, Some(VarType::Ctu | VarType::Ctd | VarType::Ctud));
                 if is_timer && args.len() >= 2 {
                     let timer_reg = self.var_reg(name)?;
                     // Compile IN arg: use Load for simple vars, compile_expr for expressions
@@ -461,6 +464,47 @@ impl Codegen {
                     };
                     self.emit(Instruction::timer_run(timer_reg, in_scratch, pt_ms, kind));
                     self.free_scratch(in_scratch);
+                } else if is_counter && args.len() >= 2 {
+                    let ctr_reg = self.var_reg(name)?;
+                    let cu_scratch = self.alloc_scratch();
+                    // CU input — use Load for simple vars
+                    match &args[0] {
+                        Expr::Variable(in_name) => {
+                            let in_reg = self.var_reg(in_name)?;
+                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(cu_scratch), Operand::Register(in_reg)]));
+                        }
+                        _ => {
+                            self.compile_expr(&args[0], cu_scratch)?;
+                        }
+                    }
+                    // CD input — same logic for second arg (or zero if no CD)
+                    let cd_scratch = self.alloc_scratch();
+                    if args.len() >= 3 {
+                        match &args[2] {
+                            Expr::Variable(cd_name) => {
+                                let cd_reg = self.var_reg(cd_name)?;
+                                self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(cd_scratch), Operand::Register(cd_reg)]));
+                            }
+                            _ => {
+                                self.compile_expr(&args[2], cd_scratch)?;
+                            }
+                        }
+                    } else {
+                        self.emit(Instruction::load_imm(cd_scratch, HalValue::Bool(false)));
+                    }
+                    let pv = match &args[1] {
+                        Expr::IntLiteral(n) => *n as u32,
+                        _ => 0,
+                    };
+                    let kind: u8 = match vt.unwrap() {
+                        VarType::Ctu => 0,
+                        VarType::Ctd => 1,
+                        VarType::Ctud => 2,
+                        _ => unreachable!(),
+                    };
+                    self.emit(Instruction::counter_run(ctr_reg, cu_scratch, cd_scratch, pv, kind));
+                    self.free_scratch(cd_scratch);
+                    self.free_scratch(cu_scratch);
                 } else {
                     // Generic FunCall
                     for (i, arg) in args.iter().enumerate() {
@@ -560,6 +604,7 @@ impl Codegen {
                 .copied()
                 .map(|vt| match vt {
                     VarType::Ton | VarType::Tof | VarType::Tp => VarType::Bool, // ponytail: .Q returns Bool
+                    VarType::Ctu | VarType::Ctd | VarType::Ctud => VarType::Bool, // ponytail: .Q returns Bool
                     _ => vt,
                 })
                 .ok_or_else(|| CodegenError::UndefinedVariable(name.clone())),

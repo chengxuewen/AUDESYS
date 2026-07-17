@@ -87,6 +87,9 @@ pub enum Token {
     Ton,        // IEC 61131-3 TON timer
     Tof,        // IEC 61131-3 TOF timer
     Tp,         // IEC 61131-3 TP timer
+    Ctu,        // IEC 61131-3 CTU counter (up)
+    Ctd,        // IEC 61131-3 CTD counter (down)
+    Ctud,       // IEC 61131-3 CTUD counter (up-down)
 
     // Literals and identifiers
     Identifier(String),
@@ -386,6 +389,9 @@ fn match_keyword(s: &str) -> Token {
         "TON" => Token::Ton,
         "TOF" => Token::Tof,
         "TP" => Token::Tp,
+        "CTU" => Token::Ctu,
+        "CTD" => Token::Ctd,
+        "CTUD" => Token::Ctud,
         _ => Token::Identifier(s.to_string()),
     }
 }

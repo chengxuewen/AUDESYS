@@ -32,6 +32,30 @@ pub struct TimerState {
     /// Preset time PT in milliseconds
     pub preset_ms: u64,
 }
+
+/// Counter kind: CTU (up), CTD (down), CTUD (up-down).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CounterKind {
+    /// CTU: CU rising edge increments CV, Q when CV>=PV, R resets CV=0
+    Ctu,
+    /// CTD: CD rising edge decrements CV, Q when CV<=0, LD loads CV=PV
+    Ctd,
+    /// CTUD: CU up / CD down, QU when CV>=PV, QD when CV<=0
+    Ctud,
+}
+
+/// Per-counter state for CTU/CTD/CTUD counters.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CounterState {
+    pub kind: CounterKind,
+    pub cu_val: bool,
+    pub cd_val: bool,
+    pub cv: u32,
+    pub pv: u32,
+    pub q: bool,
+    pub qu: bool,
+    pub qd: bool,
+}
 pub const REGISTER_COUNT: usize = 16;
 
 /// Virtual machine state — 16 registers + comparison flags + instruction pointer.
@@ -60,8 +84,10 @@ pub struct Vm {
     /// Timer states indexed by timer index (position in Vec)
     /// ponytail: simple Vec, max 16 timers (matching register count)
     timers: Vec<TimerState>,
+    /// Counter states indexed by counter index
+    /// ponytail: simple Vec, max 16 counters (matching register count)
+    counters: Vec<CounterState>,
     /// Cycle time in milliseconds — set by engine before each cycle
-    /// Used by TimerRun to advance elapsed time
     cycle_time_ms: u64,
 }
 
@@ -75,6 +101,7 @@ impl Vm {
             signals: HashMap::new(),
             call_stack: Vec::new(),
             timers: Vec::new(),
+            counters: Vec::new(),
             cycle_time_ms: 0,
         }
     }
@@ -205,6 +232,37 @@ impl Vm {
     /// Number of timers allocated.
     pub fn timer_count(&self) -> usize {
         self.timers.len()
+    }
+
+    /// Add a new counter with given kind and preset value.
+    pub fn add_counter(&mut self, kind: CounterKind, pv: u32) -> usize {
+        let idx = self.counters.len();
+        self.counters.push(CounterState {
+            kind,
+            cu_val: false,
+            cd_val: false,
+            cv: 0,
+            pv,
+            q: false,
+            qu: false,
+            qd: false,
+        });
+        idx
+    }
+
+    /// Get a reference to a counter state.
+    pub fn counter(&self, idx: usize) -> &CounterState {
+        &self.counters[idx]
+    }
+
+    /// Get a mutable reference to a counter state.
+    pub fn counter_mut(&mut self, idx: usize) -> &mut CounterState {
+        &mut self.counters[idx]
+    }
+
+    /// Number of counters allocated.
+    pub fn counter_count(&self) -> usize {
+        self.counters.len()
     }
 }
 

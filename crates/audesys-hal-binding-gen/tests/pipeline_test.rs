@@ -792,3 +792,38 @@ fn test_demo_timer_with_counter_and_if() {
     assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "Cycle 4: done=false");
 }
 
+// ── CTU counter tests ──
+
+#[test]
+fn test_ctu_counts_up() {
+    // CTU counter: cu input (r1), CV increments on rising edge
+    let src = concat!(
+        "PROGRAM test VAR ctr1 : CTU; pulse : BOOL; done : BOOL; END_VAR ",
+        "ctr1(pulse, 3); ",
+        "IF ctr1.Q THEN done := TRUE; END_IF; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    let mut executor = Executor::new(program);
+
+    // Rise edge 1: CV=1, Q=false
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(false));
+
+    // Reset pulse, rise edge 2: CV=2, Q=false
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.run_to_halt();
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(false));
+
+    // Rise edge 3: CV=3, Q=true (CV>=PV)
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.run_to_halt();
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(true));
+}
+
+

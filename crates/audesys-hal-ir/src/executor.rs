@@ -138,6 +138,8 @@ impl Executor {
 
             Opcode::TimerRun => self.exec_timer_run(&inst.operands),
             Opcode::ReadTimer => self.exec_read_timer(&inst.operands),
+            Opcode::CounterRun => self.exec_counter_run(&inst.operands),
+            Opcode::ReadCounter => self.exec_read_counter(&inst.operands),
 
             Opcode::Halt => ExecutorResult::Halted,
         }
@@ -487,8 +489,120 @@ impl Executor {
         ExecutorResult::Continue
     }
 
-}
+    fn exec_counter_run(&mut self, operands: &[Operand]) -> ExecutorResult {
+        // operands: [Imm(counter_idx), Reg(CU), Reg(CD), Imm(PV), Imm(kind)]
+        if operands.len() < 5 {
+            return ExecutorResult::Continue;
+        }
+        let idx = match &operands[0] {
+            Operand::Immediate(HalValue::U32(i)) => *i as usize,
+            _ => return ExecutorResult::Continue,
+        };
+        // ponytail: auto-grow counters
+        while self.vm.counter_count() <= idx {
+            self.vm.add_counter(crate::vm::CounterKind::Ctu, 0);
+        }
+        let cu_reg = match &operands[1] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let cd_reg = match &operands[2] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let pv = match &operands[3] {
+            Operand::Immediate(HalValue::U32(v)) => *v,
+            _ => return ExecutorResult::Continue,
+        };
+        let kind_raw = match &operands[4] {
+            Operand::Immediate(HalValue::U32(v)) => *v,
+            _ => 0,
+        };
+        let cu_bool = match self.vm.read_register(cu_reg) {
+            HalValue::Bool(b) => b,
+            _ => false,
+        };
+        let cd_bool = match self.vm.read_register(cd_reg) {
+            HalValue::Bool(b) => b,
+            _ => false,
+        };
+        let counter = self.vm.counter_mut(idx);
+        counter.pv = pv;
+        // Set kind based on codegen encoding
+        let kind = match kind_raw {
+            0 => crate::vm::CounterKind::Ctu,
+            1 => crate::vm::CounterKind::Ctd,
+            _ => crate::vm::CounterKind::Ctud,
+        };
+        counter.kind = kind;
 
+        let prev_cu = counter.cu_val;
+        let prev_cd = counter.cd_val;
+        counter.cu_val = cu_bool;
+        counter.cd_val = cd_bool;
+
+        match kind {
+            crate::vm::CounterKind::Ctu => {
+                // CU: rising edge increments CV, capped at PV
+                if cu_bool && !prev_cu {
+                    counter.cv = (counter.cv + 1).min(counter.pv);
+                }
+                counter.q = counter.cv >= counter.pv;
+            }
+            crate::vm::CounterKind::Ctd => {
+                // CD: rising edge decrements CV, capped at 0
+                if cd_bool && !prev_cd {
+                    counter.cv = counter.cv.saturating_sub(1);
+                }
+                counter.q = counter.cv <= 0;
+            }
+            crate::vm::CounterKind::Ctud => {
+                // CU rising edge: increment
+                if cu_bool && !prev_cu {
+                    counter.cv = (counter.cv + 1).min(counter.pv);
+                }
+                // CD rising edge: decrement
+                if cd_bool && !prev_cd {
+                    counter.cv = counter.cv.saturating_sub(1);
+                }
+                counter.qu = counter.cv >= counter.pv;
+                counter.qd = counter.cv <= 0;
+                counter.q = counter.qu;
+            }
+        }
+        ExecutorResult::Continue
+    }
+
+    fn exec_read_counter(&mut self, operands: &[Operand]) -> ExecutorResult {
+        // operands: [Imm(counter_idx), Reg(Q_dest), Reg(CV_dest)]
+        if operands.len() < 3 {
+            return ExecutorResult::Continue;
+        }
+        let idx = match &operands[0] {
+            Operand::Immediate(HalValue::U32(i)) => *i as usize,
+            _ => return ExecutorResult::Continue,
+        };
+        while self.vm.counter_count() <= idx {
+            self.vm.add_counter(crate::vm::CounterKind::Ctu, 0);
+        }
+        let q_dest = match &operands[1] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let cv_dest = match &operands[2] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let counter = self.vm.counter(idx);
+        let q = counter.q;
+        let cv = counter.cv;
+        // drop counter reference before mutable write_register
+        self.vm.write_register(q_dest, HalValue::Bool(q));
+        self.vm.write_register(cv_dest, HalValue::U32(cv));
+        ExecutorResult::Continue
+    }
+
+}
 // ── Tests ──
 
 #[cfg(test)]

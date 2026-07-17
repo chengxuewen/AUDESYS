@@ -65,10 +65,12 @@ pub enum Opcode {
     // Timer
     TimerRun,
     ReadTimer,
+    // Counter
+    CounterRun,
+    ReadCounter,
 
     Halt,
 }
-
 /// One VM instruction — opcode plus 0–3 operands.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Instruction {
@@ -185,6 +187,33 @@ impl Instruction {
             ],
         }
     }
+    /// Convenience: counter run — tick state machine.
+    /// operands: [Imm(counter_idx), Reg(CU), Reg(CD), Imm(PV), Imm(kind: 0=CTU,1=CTD,2=CTUD)]
+    pub fn counter_run(counter_idx: u8, cu_reg: u8, cd_reg: u8, pv: u32, kind: u8) -> Self {
+        Instruction {
+            opcode: Opcode::CounterRun,
+            operands: vec![
+                Operand::Immediate(audesys_hal_core::HalValue::U32(counter_idx as u32)),
+                Operand::Register(cu_reg),
+                Operand::Register(cd_reg),
+                Operand::Immediate(audesys_hal_core::HalValue::U32(pv)),
+                Operand::Immediate(audesys_hal_core::HalValue::U32(kind as u32)),
+            ],
+        }
+    }
+
+    /// Convenience: Read counter Q and CV into registers.
+    /// operands: [Imm(counter_idx), Reg(Q_dest), Reg(CV_dest)]
+    pub fn read_counter(counter_idx: u8, q_dest: u8, cv_dest: u8) -> Self {
+        Instruction {
+            opcode: Opcode::ReadCounter,
+            operands: vec![
+                Operand::Immediate(audesys_hal_core::HalValue::U32(counter_idx as u32)),
+                Operand::Register(q_dest),
+                Operand::Register(cv_dest),
+            ],
+        }
+    }
 
 
 }
@@ -254,7 +283,6 @@ mod tests {
             Opcode::Mul,
             Opcode::Div,
             Opcode::Mod,
-            Opcode::Div,
             Opcode::Neg,
             Opcode::Eq,
             Opcode::Neq,
@@ -270,6 +298,12 @@ mod tests {
             Opcode::JumpIf,
             Opcode::Call,
             Opcode::Ret,
+            Opcode::LoadIndex,
+            Opcode::StoreIndex,
+            Opcode::TimerRun,
+            Opcode::ReadTimer,
+            Opcode::CounterRun,
+            Opcode::ReadCounter,
             Opcode::Halt,
         ];
         // Each opcode can be wrapped in an instruction

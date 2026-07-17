@@ -29,6 +29,9 @@ pub enum VarType {
     Ton,    // IEC 61131-3 TON timer
     Tof,    // IEC 61131-3 TOF timer
     Tp,     // IEC 61131-3 TP timer
+    Ctu,    // IEC 61131-3 CTU counter (up)
+    Ctd,    // IEC 61131-3 CTD counter (down)
+    Ctud,   // IEC 61131-3 CTUD counter (up-down)
 
 }
 
@@ -402,8 +405,10 @@ fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
                 Ok(VarType::Array)
             }
             token if matches!(token, Token::Ton) => Ok(VarType::Ton),
-            token if matches!(token, Token::Tof) => Ok(VarType::Tof),
             token if matches!(token, Token::Tp) => Ok(VarType::Tp),
+            token if matches!(token, Token::Ctu) => Ok(VarType::Ctu),
+            token if matches!(token, Token::Ctd) => Ok(VarType::Ctd),
+            token if matches!(token, Token::Ctud) => Ok(VarType::Ctud),
 
             _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
         },
