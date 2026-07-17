@@ -744,3 +744,51 @@ fn test_tp_timer() {
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "TP Q should be false when IN falls");
 }
+
+// ── Test 52: Demo — TON + IF + counter (full pipeline) ──
+
+#[test]
+fn test_demo_timer_with_counter_and_if() {
+    // Demonstrates: TON timer, IF condition, arithmetic (count := count + 1)
+    // Variables: timer1:TON=r0, trigger:BOOL=r1, count:INT=r2, done:BOOL=r3
+    let src = concat!(
+        "PROGRAM demo VAR timer1 : TON; trigger : BOOL; count : INT; done : BOOL; END_VAR ",
+        "timer1(trigger, 500); ",
+        "IF timer1.Q THEN count := count + 1; END_IF; ",
+        "done := timer1.Q; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+
+    // Cycle 1: IN=true, 100ms → ET=100 < 500 → Q=false, count unchanged
+    executor.vm_mut().write_register(1, HalValue::Bool(true));  // trigger = true
+    executor.vm_mut().set_cycle_time(100);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(0), "Cycle 1: Q=false, count=0");
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "Cycle 1: done=false");
+
+    // Cycle 2: IN=true, 400ms → ET=500 >= 500 → Q=true → count=1
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(400);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(1), "Cycle 2: Q=true, count=1");
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "Cycle 2: done=true");
+
+    // Cycle 3: IN=true, 200ms → Q stays true → count=2
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(200);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(2), "Cycle 3: Q=true, count=2");
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "Cycle 3: done=true");
+
+    // Cycle 4: IN=false → timer resets → Q=false, count stays 2
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.vm_mut().set_cycle_time(100);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(2), "Cycle 4: Q=false, count unchanged");
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "Cycle 4: done=false");
+}
+
