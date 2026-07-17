@@ -107,6 +107,10 @@ pub enum Statement {
     },
     Return,
     Exit,
+    FunCall {
+        name: String,
+        args: Vec<Expr>,
+    },
 }
 
 /// A variable declaration.
@@ -269,16 +273,35 @@ fn parse_statement(p: &mut Parser) -> Result<Statement, ParseError> {
         Some(Token::Repeat) => parse_repeat(p),
         Some(Token::Return) => parse_return(p),
         Some(Token::Exit) => parse_exit(p),
-        _ => parse_assignment(p),
+        _ => parse_ident_stmt(p),
     }
 }
 
-fn parse_assignment(p: &mut Parser) -> Result<Statement, ParseError> {
+fn parse_ident_stmt(p: &mut Parser) -> Result<Statement, ParseError> {
     let (name, _line, _col) = p.expect_ident()?;
-    p.expect(Token::Assign)?;
-    let value = parse_expression(p)?;
-    p.expect(Token::Semicolon)?;
-    Ok(Statement::Assign { name, value })
+    match p.peek_token() {
+        Some(Token::Assign) => {
+            p.expect(Token::Assign)?;
+            let value = parse_expression(p)?;
+            p.expect(Token::Semicolon)?;
+            Ok(Statement::Assign { name, value })
+        }
+        Some(Token::LParen) => {
+            p.expect(Token::LParen)?;
+            let mut args = Vec::new();
+            if p.peek_token() != Some(&Token::RParen) {
+                args.push(parse_expression(p)?);
+                while p.peek_token() == Some(&Token::Comma) {
+                    p.expect(Token::Comma)?;
+                    args.push(parse_expression(p)?);
+                }
+            }
+            p.expect(Token::RParen)?;
+            p.expect(Token::Semicolon)?;
+            Ok(Statement::FunCall { name, args })
+        }
+        _ => Err(ParseError::UnexpectedToken(Token::Identifier(String::new()), 0, 0)),
+    }
 }
 
 fn parse_if(p: &mut Parser) -> Result<Statement, ParseError> {

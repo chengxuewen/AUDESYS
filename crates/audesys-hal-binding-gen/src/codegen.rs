@@ -344,6 +344,18 @@ impl Codegen {
                     self.patch_jump(*j, exit_label);
                 }
             }
+            Statement::FunCall { name: _name, args } => {
+                // ponytail: place args in r0..rN, Call to function address
+                // function table resolution deferred to Phase 2
+                for (i, arg) in args.iter().enumerate() {
+                    if i < 4 {
+                        self.compile_expr(arg, i as u8)?;
+                    }
+                    // ponytail: extra args (>4) deferred to Phase 2 stack ABI
+                }
+                // ponytail: placeholder Call(0), patched in finalize when function table known
+                self.emit(Instruction::call(0));
+            }
         }
         Ok(())
     }
