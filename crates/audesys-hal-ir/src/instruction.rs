@@ -59,7 +59,10 @@ pub enum Opcode {
     /// Return from function: pop return address, jump back
     Ret,
 
-    // Special
+    // Array access
+    LoadIndex,
+    StoreIndex,
+
     Halt,
 }
 
@@ -136,6 +139,24 @@ impl Instruction {
         let operands = result_reg.map(|r| vec![Operand::Register(r)]).unwrap_or_default();
         Instruction { opcode: Opcode::Ret, operands }
     }
+    /// Convenience: Load array element at index into dest_reg.
+    /// Operands: dest_reg, array_reg, index_reg
+    pub fn load_index(dest: u8, array: u8, index: u8) -> Self {
+        Instruction {
+            opcode: Opcode::LoadIndex,
+            operands: vec![Operand::Register(dest), Operand::Register(array), Operand::Register(index)],
+        }
+    }
+
+    /// Convenience: Store value_reg into array_reg at index_reg.
+    /// Operands: array_reg, index_reg, value_reg
+    pub fn store_index(array: u8, index: u8, value: u8) -> Self {
+        Instruction {
+            opcode: Opcode::StoreIndex,
+            operands: vec![Operand::Register(array), Operand::Register(index), Operand::Register(value)],
+        }
+    }
+
 }
 
 // ── Tests ──

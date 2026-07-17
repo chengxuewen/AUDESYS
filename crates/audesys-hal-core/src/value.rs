@@ -72,6 +72,117 @@ impl HalValue {
             HalValue::Array { element_type, .. } => *element_type,
         }
     }
+    /// Serialize this value to bytes (for array storage).
+    fn to_bytes(&self) -> Vec<u8> {
+        use HalPinType::*;
+        let et = self.pin_type();
+        match self {
+            HalValue::Bool(b) => vec![*b as u8],
+            HalValue::S8(n) => n.to_le_bytes().to_vec(),
+            HalValue::U8(n) => n.to_le_bytes().to_vec(),
+            HalValue::S16(n) => n.to_le_bytes().to_vec(),
+            HalValue::U16(n) => n.to_le_bytes().to_vec(),
+            HalValue::S32(n) => n.to_le_bytes().to_vec(),
+            HalValue::U32(n) => n.to_le_bytes().to_vec(),
+            HalValue::S64(n) => n.to_le_bytes().to_vec(),
+            HalValue::U64(n) => n.to_le_bytes().to_vec(),
+            HalValue::F32(n) => n.to_le_bytes().to_vec(),
+            HalValue::F64(n) => n.to_le_bytes().to_vec(),
+            HalValue::Blob(b) => {
+                let mut v = (b.len() as u32).to_le_bytes().to_vec();
+                v.extend_from_slice(b);
+                v
+            }
+            HalValue::String(s) => s.as_bytes().to_vec(),
+            HalValue::Array { element_type: _, data } => data.clone(),
+        }
+    }
+
+    /// Extract element at index from Array. Returns S32(0) for non-Array/out-of-bounds.
+    // ponytail: panic-free, no bounds error in Phase 1
+    pub fn index(&self, idx: usize) -> HalValue {
+        match self {
+            HalValue::Array { element_type, data } => {
+                let elem_size = HalValue::byte_size(element_type);
+                let offset = idx * elem_size as usize;
+                if offset + elem_size as usize > data.len() {
+                    return Self::zero(element_type);
+                }
+                Self::from_bytes(element_type, &data[offset..offset + elem_size as usize])
+            }
+            _ => HalValue::zero(&self.pin_type()),
+        }
+    }
+
+    /// Return a new Array with element at index replaced. Returns self for non-Array/out-of-bounds.
+    pub fn set_index(mut self, idx: usize, value: HalValue) -> HalValue {
+        match &self {
+            HalValue::Array { element_type, data } => {
+                let elem_size = HalValue::byte_size(element_type);
+                let offset = idx * elem_size as usize;
+                if offset + elem_size as usize > data.len() {
+                    return self;
+                }
+                // ponytail: own the Array and mutate the data in-place
+                if let HalValue::Array { data, .. } = &mut self {
+                    let bytes = value.to_bytes();
+                    data[offset..offset + elem_size as usize].copy_from_slice(&bytes[..elem_size as usize]);
+                }
+                self
+            }
+            _ => self,
+        }
+    }
+
+    /// Size of this type in bytes (for array offset calculation).
+    fn byte_size(element_type: &HalPinType) -> u32 {
+        use HalPinType::*;
+        match element_type {
+            Bool | S8 | U8 => 1,
+            S16 | U16 => 2,
+            S32 | U32 | F32 => 4,
+            S64 | U64 | F64 => 8,
+            Blob | String => 8, // pointer width (ponytail: flat buffer ref not stored in array)
+        }
+    }
+
+    fn zero(element_type: &HalPinType) -> HalValue {
+        use HalPinType::*;
+        match element_type {
+            Bool => HalValue::Bool(false),
+            S8 => HalValue::S8(0),
+            U8 => HalValue::U8(0),
+            S16 => HalValue::S16(0),
+            U16 => HalValue::U16(0),
+            S32 => HalValue::S32(0),
+            U32 => HalValue::U32(0),
+            S64 => HalValue::S64(0),
+            U64 => HalValue::U64(0),
+            F32 => HalValue::F32(0.0),
+            F64 => HalValue::F64(0.0),
+            Blob => HalValue::Blob(vec![]),
+            String => HalValue::String(std::string::String::new()),
+        }
+    }
+
+    fn from_bytes(element_type: &HalPinType, bytes: &[u8]) -> HalValue {
+        use HalPinType::*;
+        match element_type {
+            Bool => HalValue::Bool(bytes[0] != 0),
+            S8 => HalValue::S8(bytes[0] as i8),
+            U8 => HalValue::U8(bytes[0]),
+            S16 => HalValue::S16(i16::from_le_bytes([bytes[0], bytes[1]])),
+            U16 => HalValue::U16(u16::from_le_bytes([bytes[0], bytes[1]])),
+            S32 => HalValue::S32(i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])),
+            U32 => HalValue::U32(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])),
+            S64 => HalValue::S64(i64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]])),
+            U64 => HalValue::U64(u64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]])),
+            F32 => HalValue::F32(f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])),
+            F64 => HalValue::F64(f64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]])),
+            Blob | String => HalValue::S32(0), // ponytail: not stored in arrays
+        }
+    }
+
 }
 
 // ── Arithmetic trait implementations for IR VM ──

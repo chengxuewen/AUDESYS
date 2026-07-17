@@ -80,6 +80,9 @@ pub enum Token {
     LParen,    // (
     RParen,    // )
     Comma,     // ,
+    LBracket,   // [
+    RBracket,   // ]
+    DotDot,     // ..
 
     // Literals and identifiers
     Identifier(String),
@@ -251,6 +254,21 @@ pub fn tokenize(source: &str) -> Result<Vec<TokenInfo>, LexError> {
                 tokens.push(TokenInfo::new(Token::Comma, start_line, start_col));
                 pos += 1;
                 col += 1;
+            }
+            '[' => {
+                tokens.push(TokenInfo::new(Token::LBracket, start_line, start_col));
+                pos += 1;
+                col += 1;
+            }
+            ']' => {
+                tokens.push(TokenInfo::new(Token::RBracket, start_line, start_col));
+                pos += 1;
+                col += 1;
+            }
+            '.' if pos + 1 < len && chars[pos + 1] == '.' => {
+                tokens.push(TokenInfo::new(Token::DotDot, start_line, start_col));
+                col += 2;
+                pos += 2;
             }
             // Identifiers and keywords
             c if c.is_alphabetic() || c == '_' => {

@@ -69,6 +69,8 @@ pub enum Expr {
     Binary(Box<Expr>, BinOp, Box<Expr>),
     /// Unary operation: op expr
     Unary(UnaryOp, Box<Expr>),
+    /// Array element access: name[index]
+    ArrayAccess { name: String, index: Box<Expr> },
 }
 
 impl Expr {
@@ -123,6 +125,13 @@ pub enum Statement {
         name: String,
         args: Vec<Expr>,
     },
+    /// Array element assignment: name[index] := value
+    ArrayAssign {
+        name: String,
+        index: Expr,
+        value: Expr,
+    },
+
 }
 
 /// A variable declaration.
@@ -130,6 +139,9 @@ pub enum Statement {
 pub struct Variable {
     pub name: String,
     pub var_type: VarType,
+    pub array_bounds: Option<(Expr, Expr)>,
+    /// String length: None for unbounded, Some(n) for STRING(n)
+    pub string_len: Option<usize>,
 }
 
 /// A function definition (FUNCTION ... END_FUNCTION).
@@ -269,7 +281,7 @@ fn parse_var_block(p: &mut Parser) -> Result<Vec<Variable>, ParseError> {
         if vars.iter().any(|v: &Variable| v.name == name) {
             return Err(ParseError::RedefinedVariable(name, line));
         }
-        vars.push(Variable { name, var_type });
+        vars.push(Variable { name, var_type, array_bounds: None, string_len: None });
     }
     p.expect(Token::EndVar)?;
     p.expect(Token::Semicolon)?;
@@ -289,7 +301,7 @@ fn parse_param_block(p: &mut Parser, start: Token, end: Token) -> Result<Vec<Var
         if vars.iter().any(|v: &Variable| v.name == name) {
             return Err(ParseError::RedefinedVariable(name, line));
         }
-        vars.push(Variable { name, var_type });
+        vars.push(Variable { name, var_type, array_bounds: None, string_len: None });
     }
     p.expect(end)?;
     p.expect(Token::Semicolon)?;
@@ -356,8 +368,33 @@ fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
             Token::Date => Ok(VarType::Date),
             Token::TOD => Ok(VarType::TOD),
             Token::DT => Ok(VarType::DT),
-            Token::String => Ok(VarType::String),
-            Token::Array => Ok(VarType::Array),
+            Token::String => {
+                let len = if p.peek_token() == Some(&Token::LParen) {
+                    p.expect(Token::LParen)?;
+                    match p.advance() {
+                        Some(ti) if matches!(&ti.token, Token::IntegerLiteral(_)) => {
+                            if let Token::IntegerLiteral(n) = ti.token {
+                                p.expect(Token::RParen)?;
+                                Some(n as usize)
+                            } else { unreachable!() }
+                        }
+                        _ => return Err(ParseError::UnexpectedEof),
+                    }
+                } else {
+                    None
+                };
+                Ok(VarType::String)
+            }
+            token if matches!(token, Token::Array) => {
+                p.expect(Token::LBracket)?;
+                let _lo = parse_expression(p)?;
+                p.expect(Token::DotDot)?;
+                let _hi = parse_expression(p)?;
+                p.expect(Token::RBracket)?;
+                p.expect(Token::Of)?;
+                let _elem_type = parse_var_type(p)?;
+                Ok(VarType::Array)
+            }
             _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
         },
         None => Err(ParseError::UnexpectedEof),
@@ -388,6 +425,16 @@ fn parse_statement(p: &mut Parser) -> Result<Statement, ParseError> {
 
 fn parse_ident_stmt(p: &mut Parser) -> Result<Statement, ParseError> {
     let (name, _line, _col) = p.expect_ident()?;
+    // ponytail: array element assignment name[expr] := value
+    if p.peek_token() == Some(&Token::LBracket) {
+        p.expect(Token::LBracket)?;
+        let index = parse_expression(p)?;
+        p.expect(Token::RBracket)?;
+        p.expect(Token::Assign)?;
+        let value = parse_expression(p)?;
+        p.expect(Token::Semicolon)?;
+        return Ok(Statement::ArrayAssign { name, index, value });
+    }
     match p.peek_token() {
         Some(Token::Assign) => {
             p.expect(Token::Assign)?;
@@ -664,26 +711,34 @@ fn parse_unary(p: &mut Parser) -> Result<Expr, ParseError> {
 }
 
 fn parse_primary(p: &mut Parser) -> Result<Expr, ParseError> {
-    match p.advance() {
-        Some(ti) => match &ti.token {
-            Token::IntegerLiteral(n) => Ok(Expr::IntLiteral(*n)),
-            Token::RealLiteral(n) => Ok(Expr::RealLiteral(*n)),
-            Token::Identifier(name) => {
-                // Check for boolean literals
-                match name.as_str() {
-                    "TRUE" => Ok(Expr::BoolLiteral(true)),
-                    "FALSE" => Ok(Expr::BoolLiteral(false)),
-                    _ => Ok(Expr::Variable(name.clone())),
+    let ti = p.advance().ok_or(ParseError::UnexpectedEof)?.clone();
+    match &ti.token {
+        Token::IntegerLiteral(n) => Ok(Expr::IntLiteral(*n)),
+        Token::RealLiteral(n) => Ok(Expr::RealLiteral(*n)),
+        Token::Identifier(name) => {
+            // Check for boolean literals
+            match name.as_str() {
+                "TRUE" => Ok(Expr::BoolLiteral(true)),
+                "FALSE" => Ok(Expr::BoolLiteral(false)),
+                _ => {
+                    // ponytail: array access id[x]
+                    if p.peek_token() == Some(&Token::LBracket) {
+                        p.expect(Token::LBracket)?;
+                        let index = parse_expression(p)?;
+                        p.expect(Token::RBracket)?;
+                        Ok(Expr::ArrayAccess { name: name.clone(), index: Box::new(index) })
+                    } else {
+                        Ok(Expr::Variable(name.clone()))
+                    }
                 }
             }
-            Token::LParen => {
-                let expr = parse_expression(p)?;
-                p.expect(Token::RParen)?;
-                Ok(expr)
-            }
-            _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
-        },
-        None => Err(ParseError::UnexpectedEof),
+        }
+        Token::LParen => {
+            let expr = parse_expression(p)?;
+            p.expect(Token::RParen)?;
+            Ok(expr)
+        }
+        _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
     }
 }
 

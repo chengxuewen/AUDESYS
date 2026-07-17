@@ -92,6 +92,9 @@ impl Executor {
             Opcode::Nop => ExecutorResult::Continue,
 
             Opcode::Store => self.exec_store(&inst.operands),
+            Opcode::LoadIndex => self.exec_load_index(&inst.operands),
+
+            Opcode::StoreIndex => self.exec_store_index(&inst.operands),
 
             Opcode::Load => self.exec_load(&inst.operands),
 
@@ -155,6 +158,69 @@ impl Executor {
         self.vm.write_register(dest, value);
         ExecutorResult::Continue
     }
+    fn exec_load_index(&mut self, operands: &[Operand]) -> ExecutorResult {
+        if operands.len() < 3 {
+            return ExecutorResult::Continue;
+        }
+        let dest = match &operands[0] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let array_reg = match &operands[1] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let idx_reg = match &operands[2] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let array = self.vm.read_register(array_reg);
+        let idx = self.vm.read_register(idx_reg);
+        let idx_usize = Self::value_as_usize(&idx);
+        let elem = array.index(idx_usize);
+        self.vm.write_register(dest, elem);
+        ExecutorResult::Continue
+    }
+
+    fn exec_store_index(&mut self, operands: &[Operand]) -> ExecutorResult {
+        if operands.len() < 3 {
+            return ExecutorResult::Continue;
+        }
+        let array_reg = match &operands[0] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let idx_reg = match &operands[1] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let value_reg = match &operands[2] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let array = self.vm.read_register(array_reg);
+        let idx = self.vm.read_register(idx_reg);
+        let value = self.vm.read_register(value_reg);
+        let idx_usize = Self::value_as_usize(&idx);
+        let updated = array.set_index(idx_usize, value);
+        self.vm.write_register(array_reg, updated);
+        ExecutorResult::Continue
+    }
+
+    fn value_as_usize(val: &HalValue) -> usize {
+        match val {
+            HalValue::S32(n) => *n as usize,
+            HalValue::S16(n) => *n as usize,
+            HalValue::S8(n) => *n as usize,
+            HalValue::U32(n) => *n as usize,
+            HalValue::U16(n) => *n as usize,
+            HalValue::U8(n) => *n as usize,
+            HalValue::S64(n) => *n as usize,
+            HalValue::U64(n) => *n as usize,
+            _ => 0,
+        }
+    }
+
 
     fn exec_arith_binop<F>(&mut self, operands: &[Operand], f: F) -> ExecutorResult
     where

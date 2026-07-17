@@ -120,7 +120,7 @@ impl Codegen {
             VarType::Real => HalValue::F32(0.0),
             VarType::LReal => HalValue::F64(0.0),
             VarType::String => HalValue::String(String::new()),
-            VarType::Array => HalValue::Blob(vec![]),
+            VarType::Array => HalValue::Array { element_type: HalPinType::S32, data: vec![] }, // ponytail: default S32
         }
     }
 
@@ -211,6 +211,13 @@ impl Codegen {
                 self.compile_expr(inner, dest_reg)?;
                 self.emit(Instruction::arith(Opcode::Not, dest_reg, dest_reg, dest_reg));
             }
+            Expr::ArrayAccess { name, index } => {
+                let array_reg = self.var_reg(name)?;
+                let idx_reg = self.alloc_scratch();
+                self.compile_expr(index, idx_reg)?;
+                self.emit(Instruction::load_index(dest_reg, array_reg, idx_reg));
+                self.free_scratch(idx_reg);
+            }
         }
         Ok(dest_reg)
     }
@@ -246,6 +253,20 @@ impl Codegen {
                 self.emit(Instruction::new(
                     Opcode::Store,
                     vec![Operand::SignalName(name.clone()), Operand::Register(dest_reg)],
+                ));
+            }
+            Statement::ArrayAssign { name, index, value } => {
+                let array_reg = self.var_reg(name)?;
+                let idx_reg = self.alloc_scratch();
+                self.compile_expr(index, idx_reg)?;
+                let val_reg = self.alloc_scratch();
+                self.compile_expr(value, val_reg)?;
+                self.emit(Instruction::store_index(array_reg, idx_reg, val_reg));
+                self.free_scratch(idx_reg);
+                self.free_scratch(val_reg);
+                self.emit(Instruction::new(
+                    Opcode::Store,
+                    vec![Operand::SignalName(name.clone()), Operand::Register(array_reg)],
                 ));
             }
             Statement::If { condition, then_body, else_body } => {
@@ -486,6 +507,15 @@ impl Codegen {
                 .var_types
                 .get(name)
                 .copied()
+                .ok_or_else(|| CodegenError::UndefinedVariable(name.clone())),
+            Expr::ArrayAccess { name, .. } => self
+                .var_types
+                .get(name)
+                .copied()
+                .map(|vt| match vt {
+                    VarType::Array => VarType::Int, // ponytail: default element type
+                    _ => vt,
+                })
                 .ok_or_else(|| CodegenError::UndefinedVariable(name.clone())),
             Expr::Binary(left, op, right) => {
                 let lt = self.type_of_expr(left)?;
