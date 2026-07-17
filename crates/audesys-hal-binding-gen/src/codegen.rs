@@ -25,6 +25,8 @@ struct Codegen {
     registers: HashMap<String, u8>,
     instructions: Vec<Instruction>,
     scratch_avail: [bool; 2],
+    // ponytail: stack of loop exit labels for EXIT; full label stack if needed for nested loops
+    loop_exits: Vec<Vec<u32>>,
 }
 
 impl Codegen {
@@ -36,7 +38,25 @@ impl Codegen {
         for (i, var) in variables.iter().enumerate() {
             registers.insert(var.name.clone(), i as u8);
         }
-        Ok(Codegen { registers, instructions: Vec::new(), scratch_avail: [true, true] })
+        Ok(Codegen { registers, instructions: Vec::new(), scratch_avail: [true, true], loop_exits: Vec::new() })
+    }
+
+    fn push_loop(&mut self) {
+        self.loop_exits.push(Vec::new());
+    }
+
+    fn record_exit(&mut self) {
+        let jmp = self.emit(Instruction::jump(0));
+        self.loop_exits.last_mut().unwrap().push(jmp);
+    }
+
+    fn pop_loop(&mut self) {
+        if let Some(exits) = self.loop_exits.pop() {
+            let exit_label = self.current_idx();
+            for j in &exits {
+                self.patch_jump(*j, exit_label);
+            }
+        }
     }
 
     fn alloc_scratch(&mut self) -> u8 {
@@ -171,73 +191,99 @@ impl Codegen {
             }
             Statement::If { condition, then_body, else_body } => {
                 let (else_jumps, end_jumps) = self.compile_condition(condition)?;
+                // else_jumps: JumpIf when condition is TRUE
+                // TRUE → jump to then_body; FALSE → fall through to else
+                let to_else = self.emit(Instruction::jump(0));
+
+                // Then body (TRUE path)
+                let then_label = self.current_idx();
+                for &j in &else_jumps {
+                    self.patch_jump(j, then_label);
+                }
+                for &j in &end_jumps {
+                    self.patch_jump(j, then_label);
+                }
                 for stmt in then_body {
                     self.compile_stmt(stmt)?;
                 }
                 let to_end = self.emit(Instruction::jump(0));
+
+                // Else body (FALSE path)
                 let else_label = self.current_idx();
-                for &j in &else_jumps {
-                    self.patch_jump(j, else_label);
-                }
+                self.patch_jump(to_else, else_label);
                 for stmt in else_body {
                     self.compile_stmt(stmt)?;
                 }
+
                 let end_label = self.current_idx();
                 self.patch_jump(to_end, end_label);
-                for &j in &end_jumps {
-                    self.patch_jump(j, end_label);
-                }
             }
             Statement::While { condition, body } => {
+                self.push_loop();
                 let loop_start = self.current_idx();
-                // compile_condition emits JumpIf to else_jumps when condition is TRUE
                 let (else_jumps, _end_jumps) = self.compile_condition(condition)?;
-                // Condition FALSE → fall through to exit jump
                 let exit_jump = self.emit(Instruction::jump(0));
-                // Patch else_jumps: when condition TRUE, jump here (into body)
                 let body_label = self.current_idx();
                 for &j in &else_jumps {
                     self.patch_jump(j, body_label);
                 }
-                // Body
                 for stmt in body {
                     self.compile_stmt(stmt)?;
                 }
-                // Jump back to condition check
                 self.emit(Instruction::jump(loop_start));
-                // Exit label (condition was false)
                 let exit_label = self.current_idx();
                 self.patch_jump(exit_jump, exit_label);
+                self.pop_loop();
             }
             Statement::For { variable, start, end, step, body } => {
                 let var_reg = self.var_reg(variable)?;
-                // 1. Init: variable := start
                 self.compile_expr(start, var_reg)?;
+                self.push_loop();
                 let loop_start = self.current_idx();
-                // 2. Check: if variable > end → exit
                 let end_scratch = self.alloc_scratch();
                 self.compile_expr(end, end_scratch)?;
                 self.emit(Instruction::cmp(Opcode::Gt, var_reg, end_scratch));
                 self.free_scratch(end_scratch);
                 let exit_jump = self.emit(Instruction::jump_if(0));
-                // 3. Body
                 for stmt in body {
                     self.compile_stmt(stmt)?;
                 }
-                // 4. Increment: variable := variable + step
                 let step_scratch = self.alloc_scratch();
                 if let Some(step_expr) = step {
                     self.compile_expr(step_expr, step_scratch)?;
                 } else {
-                    // ponytail: default step = 1, negative step deferred to Phase 2
                     self.emit(Instruction::load_imm(step_scratch, HalValue::S32(1)));
                 }
                 self.emit(Instruction::arith(Opcode::Add, var_reg, step_scratch, var_reg));
                 self.free_scratch(step_scratch);
                 self.emit(Instruction::jump(loop_start));
-                // 5. Exit
                 let exit_label = self.current_idx();
                 self.patch_jump(exit_jump, exit_label);
+                self.pop_loop();
+            }
+            Statement::Repeat { body, condition } => {
+                self.push_loop();
+                let loop_start = self.current_idx();
+                for stmt in body {
+                    self.compile_stmt(stmt)?;
+                }
+                // UNTIL condition: TRUE → exit, FALSE → loop back
+                // compile_condition: else_jumps jump when condition is TRUE
+                // TRUE → patch else_jumps to exit; FALSE → fall through to jump(loop_start)
+                let (else_jumps, _end_jumps) = self.compile_condition(condition)?;
+                let to_loop = self.emit(Instruction::jump(0));
+                let exit_label = self.current_idx();
+                for &j in &else_jumps {
+                    self.patch_jump(j, exit_label);
+                }
+                self.patch_jump(to_loop, loop_start);
+                self.pop_loop();
+            }
+            Statement::Return => {
+                self.emit(Instruction::halt());
+            }
+            Statement::Exit => {
+                self.record_exit();
             }
             Statement::Case { variable, cases, else_body } => {
                 let var_reg = self.var_reg(variable)?;

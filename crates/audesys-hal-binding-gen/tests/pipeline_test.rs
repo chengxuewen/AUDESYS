@@ -74,13 +74,11 @@ fn test_if_else_branch() {
     assert!(steps > 0, "VM should execute to completion");
 
     // x(r0) starts at S32(0), so 0 > 5 is false.
-    // ponytail: with current codegen, JumpIf jumps to ELSE when condition TRUE,
-    // so FALSE condition falls through to THEN body → y = 1.
-    // Update assertion if codegen semantics change.
+    // FALSE condition → ELSE body → y = 0.
     assert_eq!(
         executor.vm().read_register(1),
-        HalValue::S32(1),
-        "y (r1) should be assigned via conditional branch"
+        HalValue::S32(0),
+        "y (r1) should be 0 via ELSE branch"
     );
 }
 
@@ -320,4 +318,74 @@ fn test_case_no_match_no_else() {
     let mut executor = Executor::new(program);
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(1), HalValue::S32(0));
+}
+
+// ── Test 20: repeat_until ──
+
+#[test]
+fn test_repeat_until() {
+    // REPEAT x:=x+1; UNTIL x>=5 END_REPEAT; (always runs at least once)
+    let src = "PROGRAM test VAR x : INT; END_VAR; x := 0; REPEAT x := x + 1; UNTIL x >= 5 END_REPEAT; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(5));
+}
+
+// ── Test 21: repeat_once ──
+
+#[test]
+fn test_repeat_once() {
+    // REPEAT runs at least once even if condition is initially true
+    let src = "PROGRAM test VAR x : INT; END_VAR; x := 0; REPEAT x := x + 1; UNTIL x >= 1 END_REPEAT; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(1));
+}
+
+// ── Test 22: return_early ──
+
+#[test]
+fn test_return_early() {
+    // RETURN stops execution; statements after RETURN should not execute
+    let src = "PROGRAM test VAR x : INT; END_VAR; x := 1; RETURN; x := 2; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(1));
+}
+
+// ── Test 23: exit_while ──
+
+#[test]
+fn test_exit_while() {
+    // EXIT exits the loop immediately
+    let src = "PROGRAM test VAR x : INT; END_VAR; x := 0; WHILE x < 10 DO x := x + 1; IF x >= 3 THEN EXIT; END_IF; END_WHILE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(3));
+}
+
+// ── Test 24: exit_for ──
+
+#[test]
+fn test_exit_for() {
+    // EXIT inside FOR loop breaks out early
+    let src = "PROGRAM test VAR x : INT; i : INT; END_VAR; x := 0; FOR i := 0 TO 9 DO x := x + 1; IF x >= 3 THEN EXIT; END_IF; END_FOR; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(3));
 }
