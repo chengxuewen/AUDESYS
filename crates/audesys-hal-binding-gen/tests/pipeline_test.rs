@@ -643,37 +643,104 @@ fn test_type_pipeline_xor_word() {
     assert_eq!(executor.vm().read_register(0), HalValue::S32(61680i32 ^ 255i32));
 }
 
+// ── Test 15: TON timer (on-delay) ──
+
 #[test]
 fn test_ton_timer_advances_with_cycle_time() {
     // TON timer: IN=trigger(r1), PT=500ms, Q→done(r2)
-    let src = concat!(
-        "PROGRAM test 
-        VAR ton1 : TON; trigger : BOOL; done : BOOL; END_VAR ",
-        "ton1(trigger, 500); done := ton1.Q; ",
-        "END_PROGRAM",
-    );
+    let src = "PROGRAM test VAR ton1 : TON; trigger : BOOL; done : BOOL; END_VAR; ton1(trigger, 500); done := ton1.Q; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    // Verify TimerRun instruction exists
+    let has_timer_run = program.instructions.iter().any(|i| matches!(i.opcode, audesys_hal_ir::instruction::Opcode::TimerRun));
+    assert!(has_timer_run, "Program must contain TimerRun instruction");
+
+    let mut executor = Executor::new(program);
+
+    // Cycle 1: trigger=true, cycle=100ms
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(100);
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    // ET=100, Q=false (100 < 500)
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "Cycle 1: ET=100ms < 500ms");
+
+    // Cycle 2: trigger=true, +200ms → ET=300
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(200);
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "Cycle 2: ET=300ms < 500ms");
+
+    // Cycle 3: trigger=true, +300ms → ET=600ms >= 500ms → Q=true
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(300);
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "Cycle 3: ET=600ms >= 500ms");
+}
+
+// ── Test 50: TOF timer (off-delay) ──
+
+#[test]
+fn test_tof_timer() {
+    let src = "PROGRAM test VAR tof1 : TOF; trigger : BOOL; done : BOOL; END_VAR; tof1(trigger, 500); done := tof1.Q; END_PROGRAM";
     let program = compile(src).expect("compilation failed");
     assert!(program.is_well_formed());
 
     let mut executor = Executor::new(program);
 
-    // Set trigger IN = true (r1 holds trigger)
+    // Cycle 1: IN=true → Q=true immediately
     executor.vm_mut().write_register(1, HalValue::Bool(true));
     executor.vm_mut().set_cycle_time(100);
+    executor.vm_mut().reset_ip();
     executor.run_to_halt();
-    // ET=100, Q=false (100 < 500)
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false));
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "TOF Q should be true immediately on IN=true");
 
-    // Cycle 2: +200ms → ET=300
-    executor.vm_mut().write_register(1, HalValue::Bool(true));
-    executor.vm_mut().set_cycle_time(200);
+    // Cycle 2: IN=false → start timing, Q still true
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.vm_mut().set_cycle_time(100);
+    executor.vm_mut().reset_ip();
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false));
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "TOF Q should stay true while ET<PT");
 
-    // Cycle 3: +300ms → ET=600ms >= 500ms → Q=true
-    executor.vm_mut().write_register(1, HalValue::Bool(true));
-    executor.vm_mut().set_cycle_time(300);
+    // Cycle 3: IN=false, +450ms → ET=550 >= 500 → Q=false
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.vm_mut().set_cycle_time(450);
+    executor.vm_mut().reset_ip();
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true));
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "TOF Q should be false after ET>=PT");
 }
 
+// ── Test 51: TP timer (pulse) ──
+
+#[test]
+fn test_tp_timer() {
+    let src = "PROGRAM test VAR tp1 : TP; trigger : BOOL; done : BOOL; END_VAR; tp1(trigger, 500); done := tp1.Q; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+
+    // Cycle 1: IN rising edge → Q=true, start timing
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(100);
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "TP Q should be true on rising edge");
+
+    // Cycle 2: IN stays true → Q stays true, ET=300
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.vm_mut().set_cycle_time(200);
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "TP Q stays true while ET<PT");
+
+    // Cycle 3: IN falls → Q terminates early
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.vm_mut().set_cycle_time(50);
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "TP Q should be false when IN falls");
+}

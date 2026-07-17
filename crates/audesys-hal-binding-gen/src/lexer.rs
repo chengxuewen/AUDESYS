@@ -85,6 +85,8 @@ pub enum Token {
     DotDot,     // ..
     Dot,        // .
     Ton,        // IEC 61131-3 TON timer
+    Tof,        // IEC 61131-3 TOF timer
+    Tp,         // IEC 61131-3 TP timer
 
     // Literals and identifiers
     Identifier(String),
@@ -382,6 +384,8 @@ fn match_keyword(s: &str) -> Token {
         "STRING" => Token::String,
         "ARRAY" => Token::Array,
         "TON" => Token::Ton,
+        "TOF" => Token::Tof,
+        "TP" => Token::Tp,
         _ => Token::Identifier(s.to_string()),
     }
 }

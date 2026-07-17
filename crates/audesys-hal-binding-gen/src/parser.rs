@@ -27,6 +27,8 @@ pub enum VarType {
     String, // → STRING (fixed length, UTF-8)
     Array,  // → ARRAY [lo..hi] OF <type>
     Ton,    // IEC 61131-3 TON timer
+    Tof,    // IEC 61131-3 TOF timer
+    Tp,     // IEC 61131-3 TP timer
 
 }
 
@@ -400,6 +402,8 @@ fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
                 Ok(VarType::Array)
             }
             token if matches!(token, Token::Ton) => Ok(VarType::Ton),
+            token if matches!(token, Token::Tof) => Ok(VarType::Tof),
+            token if matches!(token, Token::Tp) => Ok(VarType::Tp),
 
             _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
         },

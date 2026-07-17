@@ -359,7 +359,7 @@ impl Executor {
     }
 
     fn exec_timer_run(&mut self, operands: &[Operand]) -> ExecutorResult {
-        // operands: [Imm(timer_idx), Reg(IN), Reg(PT_ms)]
+        // operands: [Imm(timer_idx), Reg(IN), Imm(PT_ms), Imm(kind)?]
         if operands.len() < 3 {
             return ExecutorResult::Continue;
         }
@@ -367,9 +367,22 @@ impl Executor {
             Operand::Immediate(HalValue::U32(i)) => *i as usize,
             _ => return ExecutorResult::Continue,
         };
+        // Read timer kind from 4th operand if present (0=TON, 1=TOF, 2=TP)
+        let timer_kind = if operands.len() >= 4 {
+            match &operands[3] {
+                Operand::Immediate(HalValue::U32(k)) => match *k {
+                    1 => crate::vm::TimerKind::Tof,
+                    2 => crate::vm::TimerKind::Tp,
+                    _ => crate::vm::TimerKind::Ton,
+                },
+                _ => crate::vm::TimerKind::Ton,
+            }
+        } else {
+            crate::vm::TimerKind::Ton
+        };
         // ponytail: auto-grow timers vec if index is larger
         while self.vm.timer_count() <= idx {
-            self.vm.add_timer(0);
+            self.vm.add_timer(timer_kind, 0);
         }
         let in_reg = match &operands[1] {
             Operand::Register(r) => *r,
@@ -385,18 +398,61 @@ impl Executor {
         let cycle = self.vm.cycle_time();
         let timer = self.vm.timer_mut(idx);
         timer.preset_ms = pt;
+        timer.kind = timer_kind;
+        let prev_in = timer.in_val;
+        let prev_in = timer.in_val;
 
-        if !in_bool {
-            timer.q = false;
-            timer.elapsed_ms = 0;
-        } else if timer.elapsed_ms >= timer.preset_ms {
-            timer.q = true;
-        } else {
-            let elapsed = timer.elapsed_ms.saturating_add(cycle);
-            timer.elapsed_ms = elapsed;
-            if timer.elapsed_ms >= timer.preset_ms {
-                timer.q = true;
-                timer.elapsed_ms = timer.preset_ms;
+        match timer.kind {
+            crate::vm::TimerKind::Ton => {
+                if !in_bool {
+                    timer.q = false;
+                    timer.elapsed_ms = 0;
+                } else if timer.elapsed_ms >= timer.preset_ms {
+                    timer.q = true;
+                } else {
+                    let elapsed = timer.elapsed_ms.saturating_add(cycle);
+                    timer.elapsed_ms = elapsed;
+                    if timer.elapsed_ms >= timer.preset_ms {
+                        timer.q = true;
+                        timer.elapsed_ms = timer.preset_ms;
+                    }
+                }
+            }
+            crate::vm::TimerKind::Tof => {
+                if in_bool {
+                    // IN true: Q=true immediately, reset ET
+                    timer.q = true;
+                    timer.elapsed_ms = 0;
+                } else if timer.q {
+                    // IN false while Q is true: start/continue timing
+                    let elapsed = timer.elapsed_ms.saturating_add(cycle);
+                    timer.elapsed_ms = elapsed;
+                    if timer.elapsed_ms >= timer.preset_ms {
+                        timer.q = false;
+                        timer.elapsed_ms = timer.preset_ms;
+                    }
+                }
+                // IN false and Q already false: ET stays 0
+            }
+            crate::vm::TimerKind::Tp => {
+                // Detect rising edge: prev_in=false, in_bool=true
+                if in_bool && !prev_in {
+                    timer.q = true;
+                    timer.elapsed_ms = 0;
+                }
+                // While Q is true: advance ET, check timeout, check IN fall
+                if timer.q {
+                    let elapsed = timer.elapsed_ms.saturating_add(cycle);
+                    timer.elapsed_ms = elapsed;
+                    if timer.elapsed_ms >= timer.preset_ms {
+                        timer.q = false;
+                        timer.elapsed_ms = timer.preset_ms;
+                    }
+                    // IN falling edge terminates pulse early
+                    if !in_bool {
+                        timer.q = false;
+                    }
+                }
             }
         }
         timer.in_val = in_bool;
@@ -413,7 +469,7 @@ impl Executor {
             _ => return ExecutorResult::Continue,
         };
         while self.vm.timer_count() <= idx {
-            self.vm.add_timer(0);
+            self.vm.add_timer(crate::vm::TimerKind::Ton, 0);
         }
         let q_dest = match &operands[1] {
             Operand::Register(r) => *r,

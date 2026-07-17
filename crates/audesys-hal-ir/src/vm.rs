@@ -6,10 +6,23 @@ use std::collections::HashMap;
 
 /// Number of general-purpose registers (r0–r15).
 
-/// Per-timer state for TON (on-delay timer).
+/// Timer kind: TON (on-delay), TOF (off-delay), TP (pulse).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimerKind {
+    /// TON: IN=true starts timing, Q=true after ET>=PT
+    Ton,
+    /// TOF: IN=false starts timing, Q stays true until ET>=PT
+    Tof,
+    /// TP: IN rising edge triggers fixed-duration Q pulse
+    Tp,
+}
+
+/// Per-timer state for TON/TOF/TP timers.
 /// ponytail: ms resolution, in-VM, cycle-driven
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TimerState {
+    /// Timer kind
+    pub kind: TimerKind,
     /// Current IN value
     pub in_val: bool,
     /// Elapsed time in milliseconds
@@ -166,10 +179,11 @@ impl Vm {
         self.cycle_time_ms
     }
 
-    /// Add a new timer with given preset (returns timer index).
-    pub fn add_timer(&mut self, preset_ms: u64) -> usize {
+    /// Add a new timer with given kind and preset (returns timer index).
+    pub fn add_timer(&mut self, kind: TimerKind, preset_ms: u64) -> usize {
         let idx = self.timers.len();
         self.timers.push(TimerState {
+            kind,
             in_val: false,
             elapsed_ms: 0,
             q: false,

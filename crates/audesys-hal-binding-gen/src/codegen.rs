@@ -121,7 +121,7 @@ impl Codegen {
             VarType::LReal => HalValue::F64(0.0),
             VarType::String => HalValue::String(String::new()),
             VarType::Array => HalValue::Array { element_type: HalPinType::S32, data: vec![] }, // ponytail: default S32
-            VarType::Ton => HalValue::U32(0), // ponytail: Ton stores timer index
+            VarType::Ton | VarType::Tof | VarType::Tp => HalValue::U32(0), // ponytail: timer stores index
         }
     }
 
@@ -139,7 +139,7 @@ impl Codegen {
             VarType::LReal => HalPinType::F64,
             VarType::String => HalPinType::String,
             VarType::Array => HalPinType::Blob,
-            VarType::Ton => HalPinType::U32,
+            VarType::Ton | VarType::Tof | VarType::Tp => HalPinType::U32,
         }
     }
 
@@ -430,17 +430,46 @@ impl Codegen {
                     self.patch_jump(*j, exit_label);
                 }
             }
-            Statement::FunCall { name: _name, args } => {
-                // ponytail: place args in r0..rN, Call to function address
-                // function table resolution deferred to Phase 2
-                for (i, arg) in args.iter().enumerate() {
-                    if i < 4 {
-                        self.compile_expr(arg, i as u8)?;
+            Statement::FunCall { name, args } => {
+                // Detect timer calls (TON/TOF/TP)
+                let vt = self.var_types.get(name.as_str()).copied();
+                let is_timer = matches!(vt, Some(VarType::Ton | VarType::Tof | VarType::Tp));
+                if is_timer && args.len() >= 2 {
+                    let timer_reg = self.var_reg(name)?;
+                    // Compile IN arg: use Load for simple vars, compile_expr for expressions
+                    let in_scratch = self.alloc_scratch();
+                    match &args[0] {
+                        Expr::Variable(in_name) => {
+                            let in_reg = self.var_reg(in_name)?;
+                            // ponytail: use Load instead of Add to avoid Bool+Bool unsupported op
+                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(in_scratch), Operand::Register(in_reg)]));
+                        }
+                        _ => {
+                            self.compile_expr(&args[0], in_scratch)?;
+                        }
                     }
-                    // ponytail: extra args (>4) deferred to Phase 2 stack ABI
+                    // ponytail: PT must be a literal
+                    let pt_ms = match &args[1] {
+                        Expr::IntLiteral(n) => *n as u32,
+                        _ => 0,
+                    };
+                    let kind: u8 = match vt.unwrap() {
+                        VarType::Ton => 0,
+                        VarType::Tof => 1,
+                        VarType::Tp => 2,
+                        _ => unreachable!(),
+                    };
+                    self.emit(Instruction::timer_run(timer_reg, in_scratch, pt_ms, kind));
+                    self.free_scratch(in_scratch);
+                } else {
+                    // Generic FunCall
+                    for (i, arg) in args.iter().enumerate() {
+                        if i < 4 {
+                            self.compile_expr(arg, i as u8)?;
+                        }
+                    }
+                    self.emit(Instruction::call(0));
                 }
-                // ponytail: placeholder Call(0), patched in finalize when function table known
-                self.emit(Instruction::call(0));
             }
         }
         Ok(())
@@ -530,7 +559,7 @@ impl Codegen {
                 .get(name)
                 .copied()
                 .map(|vt| match vt {
-                    VarType::Ton => VarType::Bool, // ponytail: .Q returns Bool
+                    VarType::Ton | VarType::Tof | VarType::Tp => VarType::Bool, // ponytail: .Q returns Bool
                     _ => vt,
                 })
                 .ok_or_else(|| CodegenError::UndefinedVariable(name.clone())),

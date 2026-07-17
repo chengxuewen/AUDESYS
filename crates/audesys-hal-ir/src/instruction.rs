@@ -159,15 +159,16 @@ impl Instruction {
             operands: vec![Operand::Register(array), Operand::Register(index), Operand::Register(value)],
         }
     }
-    /// Convenience: TON timer run — tick state machine.
-    /// operands: [Imm(timer_idx), Reg(IN), Imm(PT_ms)]
-    pub fn timer_run(timer_idx: u8, in_reg: u8, pt_ms: u32) -> Self {
+    /// Convenience: timer run — tick state machine.
+    /// operands: [Imm(timer_idx), Reg(IN), Imm(PT_ms), Imm(kind: 0=TON,1=TOF,2=TP)]
+    pub fn timer_run(timer_idx: u8, in_reg: u8, pt_ms: u32, kind: u8) -> Self {
         Instruction {
             opcode: Opcode::TimerRun,
             operands: vec![
                 Operand::Immediate(audesys_hal_core::HalValue::U32(timer_idx as u32)),
                 Operand::Register(in_reg),
                 Operand::Immediate(audesys_hal_core::HalValue::U32(pt_ms)),
+                Operand::Immediate(audesys_hal_core::HalValue::U32(kind as u32)),
             ],
         }
     }
