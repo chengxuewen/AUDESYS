@@ -51,6 +51,8 @@ const METHOD_READ_SIGNAL: u8 = 0x03;
 const METHOD_WRITE_SIGNAL: u8 = 0x04;
 const METHOD_HEALTH_QUERY: u8 = 0x05;
 const METHOD_SIGNAL_SNAPSHOT: u8 = 0x06;
+const METHOD_LOAD_PROGRAM: u8 = 0x07;
+const METHOD_LOAD_HAL_CONFIG: u8 = 0x08;
 
 // ── Response status ──
 
@@ -742,8 +744,63 @@ fn handle_connection(
                         );
                     }
                 }
+
+            }
+            METHOD_LOAD_PROGRAM => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_LOAD_PROGRAM, "unauthorized"),
+                    );
+                    continue;
+                }
+                match engine.load_hal_program(&payload) {
+                    Ok(()) => {
+                        let _ = write_all(
+                            &mut stream,
+                            &build_ok_response(METHOD_LOAD_PROGRAM, b"loaded"),
+                        );
+                    }
+                    Err(e) => {
+                        let _ = write_all(
+                            &mut stream,
+                            &build_error_response(METHOD_LOAD_PROGRAM, &e),
+                        );
+                    }
+                }
             }
 
+            METHOD_LOAD_HAL_CONFIG => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_LOAD_HAL_CONFIG, "unauthorized"),
+                    );
+                    continue;
+                }
+                let cmd = ConfigCommand {
+                    id: rand::random(),
+                    method: "loadHalConfig".into(),
+                    params: payload,
+                    queued_at: std::time::Instant::now(),
+                };
+                match engine.queue_config(cmd) {
+                    Ok(()) => {
+                        let _ = write_all(
+                            &mut stream,
+                            &build_ok_response(METHOD_LOAD_HAL_CONFIG, b"queued"),
+                        );
+                    }
+                    Err(e) => {
+                        let _ = write_all(
+                            &mut stream,
+                            &build_error_response(METHOD_LOAD_HAL_CONFIG, &e),
+                        );
+                    }
+                }
+            }
             _ => {
                 let _ = write_all(
                     &mut stream,
