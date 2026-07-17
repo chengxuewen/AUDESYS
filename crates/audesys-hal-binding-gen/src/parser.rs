@@ -73,15 +73,38 @@ impl Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     /// Assignment: variable := expression
-    Assign { name: String, value: Expr },
+    Assign {
+        name: String,
+        value: Expr,
+    },
     /// If-then-else: condition and two blocks
-    If { condition: Expr, then_body: Vec<Statement>, else_body: Vec<Statement> },
+    If {
+        condition: Expr,
+        then_body: Vec<Statement>,
+        else_body: Vec<Statement>,
+    },
     /// While loop: condition and body
-    While { condition: Expr, body: Vec<Statement> },
+    While {
+        condition: Expr,
+        body: Vec<Statement>,
+    },
     /// For loop: variable, start, end, optional step, body
-    For { variable: String, start: Expr, end: Expr, step: Option<Expr>, body: Vec<Statement> },
-    Case { variable: String, cases: Vec<(Vec<i64>, Vec<Statement>)>, else_body: Vec<Statement> },
-    Repeat { body: Vec<Statement>, condition: Expr },
+    For {
+        variable: String,
+        start: Expr,
+        end: Expr,
+        step: Option<Expr>,
+        body: Vec<Statement>,
+    },
+    Case {
+        variable: String,
+        cases: Vec<(Vec<i64>, Vec<Statement>)>,
+        else_body: Vec<Statement>,
+    },
+    Repeat {
+        body: Vec<Statement>,
+        condition: Expr,
+    },
     Return,
     Exit,
 }
@@ -379,7 +402,9 @@ fn parse_case_values(p: &mut Parser) -> Result<Vec<i64>, ParseError> {
             Some(TokenInfo { token: Token::IntegerLiteral(n), .. }) => values.push(*n),
             Some(ti) => {
                 return Err(ParseError::UnexpectedToken(
-                    ti.token.clone(), ti.span.line, ti.span.col
+                    ti.token.clone(),
+                    ti.span.line,
+                    ti.span.col,
                 ));
             }
             None => return Err(ParseError::UnexpectedEof),
@@ -470,6 +495,7 @@ fn parse_expression(p: &mut Parser) -> Result<Expr, ParseError> {
     parse_expr_prec(p, 0)
 }
 
+#[allow(clippy::while_let_loop)]
 fn parse_expr_prec(p: &mut Parser, min_prec: u8) -> Result<Expr, ParseError> {
     let mut left = parse_unary(p)?;
 
@@ -485,7 +511,6 @@ fn parse_expr_prec(p: &mut Parser, min_prec: u8) -> Result<Expr, ParseError> {
             break;
         }
     }
-
 
     Ok(left)
 }

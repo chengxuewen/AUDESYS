@@ -4,7 +4,7 @@ use audesys_hal_core::HalValue;
 use audesys_hal_ir::{
     instruction::{Instruction, Opcode},
     program::HalProgram,
-    types::Operand,
+    types::{Direction, Operand, SignalBinding},
 };
 
 use crate::parser::{BinOp, Expr, Program, Statement, UnaryOp, Variable};
@@ -40,7 +40,12 @@ impl Codegen {
         for (i, var) in variables.iter().enumerate() {
             registers.insert(var.name.clone(), i as u8);
         }
-        Ok(Codegen { registers, instructions: Vec::new(), scratch_avail: [true, true, true], loop_exits: Vec::new() })
+        Ok(Codegen {
+            registers,
+            instructions: Vec::new(),
+            scratch_avail: [true, true, true],
+            loop_exits: Vec::new(),
+        })
     }
 
     fn push_loop(&mut self) {
@@ -443,6 +448,22 @@ pub fn compile_ast(program: &Program) -> Result<HalProgram, CodegenError> {
     }
     let mut result = cg.finalize();
     result.name = program.name.clone();
+
+    // ponytail: extract signal bindings from Store instructions
+    // full AT %IW/%QW mapping deferred to Phase 2
+    let mut seen = std::collections::HashSet::new();
+    for inst in &result.instructions {
+        if inst.opcode == Opcode::Store
+            && let Some(Operand::SignalName(name)) = inst.operands.first()
+            && seen.insert(name.clone())
+        {
+            result.signals.push(SignalBinding {
+                hal_signal_name: name.clone(),
+                program_var: name.clone(),
+                direction: Direction::Write,
+            });
+        }
+    }
     Ok(result)
 }
 

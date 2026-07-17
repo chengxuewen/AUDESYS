@@ -9,13 +9,14 @@
 
 use crate::lifecycle::LifecycleManager;
 use crate::metrics::RuntimeMetrics;
-use crate::signals::{SignalDef, SignalRegistry, StrategyFilter};
+use crate::signals::{SignalDef, SignalRegistry, StrategyFilter, WriteStrategy};
 use audesys_hal_core::middleware::AmwMiddleware;
 use audesys_hal_core::qos::{ConfigCommand, ConfigStatus, LockLevel};
 use audesys_hal_core::types::Timestamp;
 use audesys_hal_core::value::HalValue;
 use audesys_hal_ir::Executor;
 use audesys_hal_ir::program::HalProgram;
+use audesys_hal_ir::types::Direction;
 use audesys_runtime_common::types::{HealthCheck, HealthCheckRegistry, HealthStatus, SourceId};
 use std::sync::{
     Arc, Mutex, RwLock,
@@ -123,7 +124,7 @@ impl Engine {
         let signals = Arc::clone(&self.signals);
         let metrics = Arc::clone(&self.metrics);
         let lifecycle = Arc::clone(&self.lifecycle);
-        let hal_program = Arc::clone(&self.hal_program);
+        let _hal_program = Arc::clone(&self.hal_program);
         let hal_executor = Arc::clone(&self.hal_executor);
 
         thread::spawn(move || {
@@ -316,6 +317,7 @@ impl Engine {
     ///
     /// The program is deserialized from bincode, validated for well-formedness,
     /// and its executor is initialized for cycle-by-cycle execution.
+    /// Signal bindings from the program are auto-registered as Own signals.
     pub fn load_hal_program(&self, bytes: &[u8]) -> Result<(), String> {
         let program: HalProgram = bincode::deserialize(bytes)
             .map_err(|e| format!("Failed to deserialize HAL program: {}", e))?;
@@ -323,6 +325,22 @@ impl Engine {
             return Err("Program is not well-formed".to_string());
         }
         let executor = Executor::new(program.clone());
+
+        // ponytail: auto-register signal bindings as Own signals
+        // full type mapping (VarType → HalPinType) deferred to Phase 2
+        for binding in &program.signals {
+            if binding.direction == Direction::Write || binding.direction == Direction::ReadWrite {
+                // default to S32; Phase 2 maps from VarType in Program.variables
+                let def = SignalDef::new(
+                    &binding.hal_signal_name,
+                    audesys_hal_core::types::HalPinType::S32,
+                    HalValue::S32(0),
+                    WriteStrategy::Own,
+                );
+                let _ = self.signals.write().unwrap().register(def);
+            }
+        }
+
         *self.hal_program.write().unwrap() = Some(program);
         *self.hal_executor.write().unwrap() = Some(executor);
         Ok(())
