@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use audesys_hal_core::HalValue;
+use audesys_hal_core::types::HalPinType;
 
 use audesys_hal_ir::{
     instruction::{Instruction, Opcode},
@@ -108,8 +109,35 @@ impl Codegen {
     fn zero_for_var(&self, name: &str) -> HalValue {
         let vt = self.var_types.get(name).copied().unwrap_or(VarType::Int);
         match vt {
-            VarType::Real | VarType::LReal => HalValue::F32(0.0),
-            _ => HalValue::S32(0),
+            VarType::Bool => HalValue::Bool(false),
+            VarType::SInt => HalValue::S8(0),
+            VarType::USInt | VarType::Byte => HalValue::U8(0),
+            VarType::Int => HalValue::S16(0),
+            VarType::UInt | VarType::Word => HalValue::U16(0),
+            VarType::DInt | VarType::Time => HalValue::S32(0),
+            VarType::ULInt | VarType::DWord | VarType::Date | VarType::TOD | VarType::DT => HalValue::U32(0),
+            VarType::LInt => HalValue::S64(0),
+            VarType::Real => HalValue::F32(0.0),
+            VarType::LReal => HalValue::F64(0.0),
+            VarType::String => HalValue::String(String::new()),
+            VarType::Array => HalValue::Blob(vec![]),
+        }
+    }
+
+    fn var_type_to_hal_pin_type(vt: VarType) -> HalPinType {
+        match vt {
+            VarType::Bool => HalPinType::Bool,
+            VarType::SInt => HalPinType::S8,
+            VarType::USInt | VarType::Byte => HalPinType::U8,
+            VarType::Int => HalPinType::S16,
+            VarType::UInt | VarType::Word => HalPinType::U16,
+            VarType::DInt | VarType::Time => HalPinType::S32,
+            VarType::ULInt | VarType::DWord | VarType::Date | VarType::TOD | VarType::DT => HalPinType::U32,
+            VarType::LInt => HalPinType::S64,
+            VarType::Real => HalPinType::F32,
+            VarType::LReal => HalPinType::F64,
+            VarType::String => HalPinType::String,
+            VarType::Array => HalPinType::Blob,
         }
     }
 
@@ -671,6 +699,9 @@ pub fn compile_ast(program: &Program) -> Result<HalProgram, CodegenError> {
         });
     }
 
+    // Capture var_types before cg is consumed by finalize
+    let var_types = cg.var_types.clone();
+
     // Patch FunCall placeholders with real addresses
     let mut result = cg.finalize();
     result.name = program.name.clone();
@@ -688,6 +719,9 @@ pub fn compile_ast(program: &Program) -> Result<HalProgram, CodegenError> {
                 hal_signal_name: name.clone(),
                 program_var: name.clone(),
                 direction: Direction::Write,
+                hal_pin_type: Codegen::var_type_to_hal_pin_type(
+                    var_types.get(name.as_str()).copied().unwrap_or(VarType::Int)
+                ),
             });
         }
     }

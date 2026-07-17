@@ -124,6 +124,7 @@ mod tests {
             hal_signal_name: "sensor.temp".into(),
             program_var: "sensor".into(),
             direction: Direction::Read,
+            hal_pin_type: audesys_hal_core::types::HalPinType::S32,
         });
         assert_eq!(program.signals.len(), 1);
         assert_eq!(program.signals[0].hal_signal_name, "sensor.temp");

@@ -2,6 +2,7 @@
 //! 来源: docs/modules/compiler/hal-ir-design.md §1, §2.2
 
 use audesys_hal_core::HalValue;
+use audesys_hal_core::types::HalPinType;
 use serde::{Deserialize, Serialize};
 
 /// I/O direction for signal and channel bindings.
@@ -21,6 +22,7 @@ pub struct SignalBinding {
     /// Variable name in IR (register alias used in Load/Store)
     pub program_var: String,
     pub direction: Direction,
+    pub hal_pin_type: HalPinType,
 }
 
 /// Maps a program variable to a named StreamChannel (1.2).
@@ -71,6 +73,7 @@ mod tests {
             hal_signal_name: "sensor.temp".into(),
             program_var: "sensor".into(),
             direction: Direction::Read,
+            hal_pin_type: HalPinType::S32,
         };
         assert_eq!(binding.hal_signal_name, "sensor.temp");
         assert_eq!(binding.direction, Direction::Read);
