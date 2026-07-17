@@ -11,7 +11,7 @@ pub const REGISTER_COUNT: usize = 16;
 ///
 /// # Register layout
 /// - r0–r15: general-purpose, initialized to HalValue::S32(0)
-/// - No stack, no heap (Phase 1)
+/// - Call stack: pushed on Call, popped on Ret
 ///
 /// # Flags
 /// - `flags_zero`: set by comparison instructions (Eq, Neq, Gt, Lt, Gte, Lte)
@@ -27,6 +27,9 @@ pub struct Vm {
     /// Signal table: name → value, populated by Store instructions
     /// ponytail: simple HashMap, full signal binding resolution in Phase 2
     signals: HashMap<String, HalValue>,
+    /// Call stack: pushed on Call (ip→), popped on Ret
+    /// ponytail: simple Vec<usize>, frame save/restore in Phase 2
+    call_stack: Vec<usize>,
 }
 
 impl Vm {
@@ -37,6 +40,7 @@ impl Vm {
             flags_zero: false,
             ip: 0,
             signals: HashMap::new(),
+            call_stack: Vec::new(),
         }
     }
 
@@ -96,6 +100,23 @@ impl Vm {
         self.flags_zero = false;
         self.ip = 0;
         self.signals.clear();
+        self.call_stack.clear();
+    }
+
+    /// Push current IP+1 onto the call stack (used by Call opcode).
+    pub fn push_call_ip(&mut self, return_ip: usize) {
+        self.call_stack.push(return_ip);
+    }
+
+    /// Pop return IP from the call stack (used by Ret opcode).
+    /// Returns None if the call stack is empty (stack underflow guard).
+    pub fn pop_call_ip(&mut self) -> Option<usize> {
+        self.call_stack.pop()
+    }
+
+    /// Current call depth (for diagnostics / recursion guard).
+    pub fn call_depth(&self) -> usize {
+        self.call_stack.len()
     }
 
     /// Write a named signal into the signal table.
@@ -249,5 +270,34 @@ mod tests {
         vm.reset();
         assert!(vm.read_signal("x").is_none());
         assert!(vm.signal_names().is_empty());
+    }
+
+    #[test]
+    fn test_vm_call_stack_push_pop() {
+        let mut vm = Vm::new();
+        assert_eq!(vm.call_depth(), 0);
+        vm.push_call_ip(42);
+        assert_eq!(vm.call_depth(), 1);
+        vm.push_call_ip(100);
+        assert_eq!(vm.call_depth(), 2);
+        assert_eq!(vm.pop_call_ip(), Some(100));
+        assert_eq!(vm.call_depth(), 1);
+        assert_eq!(vm.pop_call_ip(), Some(42));
+        assert_eq!(vm.call_depth(), 0);
+    }
+
+    #[test]
+    fn test_vm_call_stack_underflow() {
+        let mut vm = Vm::new();
+        assert_eq!(vm.pop_call_ip(), None);
+    }
+
+    #[test]
+    fn test_vm_reset_clears_call_stack() {
+        let mut vm = Vm::new();
+        vm.push_call_ip(10);
+        vm.push_call_ip(20);
+        vm.reset();
+        assert_eq!(vm.call_depth(), 0);
     }
 }

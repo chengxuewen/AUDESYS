@@ -57,7 +57,9 @@ impl Executor {
         assert!(ip < self.program.instructions.len(), "IP out of bounds: {ip}");
 
         let inst = self.program.instructions[ip].clone();
-        let is_jump = inst.opcode == Opcode::Jump || inst.opcode == Opcode::JumpIf;
+        let is_jump = inst.opcode == Opcode::Jump
+            || inst.opcode == Opcode::JumpIf
+            || inst.opcode == Opcode::Call;
         let result = self.execute_instruction(&inst);
 
         if !is_jump {
@@ -127,6 +129,8 @@ impl Executor {
 
             Opcode::Jump => self.exec_jump(&inst.operands),
             Opcode::JumpIf => self.exec_jump_if(&inst.operands),
+            Opcode::Call => self.exec_call(&inst.operands),
+            Opcode::Ret => self.exec_ret(&inst.operands),
 
             Opcode::Halt => ExecutorResult::Halted,
         }
@@ -243,6 +247,41 @@ impl Executor {
         let value = self.read_reg(&operands[1]);
         self.vm.write_signal(&name, value);
         ExecutorResult::Continue
+    }
+
+    fn exec_call(&mut self, operands: &[Operand]) -> ExecutorResult {
+        let target = self.read_u32_operand(operands.first());
+        let return_ip = self.vm.ip() + 1;
+        self.vm.push_call_ip(return_ip);
+        self.vm.set_ip(target as usize);
+        ExecutorResult::Continue
+    }
+
+    fn exec_ret(&mut self, operands: &[Operand]) -> ExecutorResult {
+        match self.vm.pop_call_ip() {
+            Some(return_ip) => {
+                // ponytail: result register copy not yet used (r0 convention)
+                // full ABI: if operands.len() == 1, copy reg to r0
+                if let Some(Operand::Register(r)) = operands.first() {
+                    let val = self.vm.read_register(*r);
+                    self.vm.write_register(0, val);
+                }
+                self.vm.set_ip(return_ip);
+                ExecutorResult::Continue
+            }
+            None => {
+                // ponytail: stack underflow → return as Halt (functionality guard)
+                ExecutorResult::Halted
+            }
+        }
+    }
+
+    fn read_u32_operand(&self, operand: Option<&Operand>) -> u32 {
+        match operand {
+            Some(Operand::Immediate(HalValue::U32(v))) => *v,
+            Some(Operand::Immediate(HalValue::S32(v))) => *v as u32,
+            _ => 0,
+        }
     }
 
     fn read_three_regs(&self, operands: &[Operand]) -> (HalValue, HalValue, u8) {

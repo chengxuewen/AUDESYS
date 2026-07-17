@@ -54,6 +54,10 @@ pub enum Opcode {
     // Control flow
     Jump,
     JumpIf,
+    /// Function call: push return address, jump to function
+    Call,
+    /// Return from function: pop return address, jump back
+    Ret,
 
     // Special
     Halt,
@@ -117,6 +121,20 @@ impl Instruction {
             opcode: Opcode::JumpIf,
             operands: vec![Operand::Immediate(audesys_hal_core::HalValue::U32(target))],
         }
+    }
+
+    /// Convenience: Function call (push IP+1, jump to function at instruction index).
+    pub fn call(target: u32) -> Self {
+        Instruction {
+            opcode: Opcode::Call,
+            operands: vec![Operand::Immediate(audesys_hal_core::HalValue::U32(target))],
+        }
+    }
+
+    /// Convenience: Return from function (pop return address, optionally copy result).
+    pub fn ret(result_reg: Option<u8>) -> Self {
+        let operands = result_reg.map(|r| vec![Operand::Register(r)]).unwrap_or_default();
+        Instruction { opcode: Opcode::Ret, operands }
     }
 }
 
@@ -199,6 +217,8 @@ mod tests {
             Opcode::Not,
             Opcode::Jump,
             Opcode::JumpIf,
+            Opcode::Call,
+            Opcode::Ret,
             Opcode::Halt,
         ];
         // Each opcode can be wrapped in an instruction
