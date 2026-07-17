@@ -20,3 +20,5 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 audesys-hal-binding-gen = { path = "../../../crates/audesys-hal-binding-gen" }
 audesys-hal-ir = { path = "../../../crates/audesys-hal-ir" }
+audesys-controller-client = { path = "../../../crates/audesys-controller-client" }
+audesys-runtime-common = { path = "../../../crates/audesys-runtime-common" }
