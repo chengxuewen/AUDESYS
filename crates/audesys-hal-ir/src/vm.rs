@@ -2,6 +2,7 @@
 //! 来源: docs/modules/compiler/hal-ir-design.md §1.3, §3.1
 
 use audesys_hal_core::HalValue;
+use std::collections::HashMap;
 
 /// Number of general-purpose registers (r0–r15).
 pub const REGISTER_COUNT: usize = 16;
@@ -23,12 +24,20 @@ pub struct Vm {
     flags_zero: bool,
     /// Instruction pointer — index into program instruction list
     ip: usize,
+    /// Signal table: name → value, populated by Store instructions
+    /// ponytail: simple HashMap, full signal binding resolution in Phase 2
+    signals: HashMap<String, HalValue>,
 }
 
 impl Vm {
     /// Create a new VM with all registers initialized to S32(0).
     pub fn new() -> Self {
-        Vm { registers: std::array::from_fn(|_| HalValue::S32(0)), flags_zero: false, ip: 0 }
+        Vm {
+            registers: std::array::from_fn(|_| HalValue::S32(0)),
+            flags_zero: false,
+            ip: 0,
+            signals: HashMap::new(),
+        }
     }
 
     /// Read the value in register `idx` (0–15).
@@ -86,6 +95,22 @@ impl Vm {
         }
         self.flags_zero = false;
         self.ip = 0;
+        self.signals.clear();
+    }
+
+    /// Write a named signal into the signal table.
+    pub fn write_signal(&mut self, name: &str, value: HalValue) {
+        self.signals.insert(name.to_string(), value);
+    }
+
+    /// Read a named signal from the signal table.
+    pub fn read_signal(&self, name: &str) -> Option<&HalValue> {
+        self.signals.get(name)
+    }
+
+    /// Return all signal names currently in the table.
+    pub fn signal_names(&self) -> Vec<&String> {
+        self.signals.keys().collect()
     }
 }
 
@@ -197,5 +222,32 @@ mod tests {
     fn test_vm_write_register_oob() {
         let mut vm = Vm::new();
         vm.write_register(16, HalValue::S32(0));
+    }
+
+    #[test]
+    fn test_vm_signal_store_and_read() {
+        let mut vm = Vm::new();
+        vm.write_signal("motor.speed", HalValue::F32(100.0));
+        assert_eq!(vm.read_signal("motor.speed"), Some(&HalValue::F32(100.0)));
+        assert!(vm.read_signal("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_vm_signal_names() {
+        let mut vm = Vm::new();
+        vm.write_signal("a", HalValue::S32(1));
+        vm.write_signal("b", HalValue::S32(2));
+        let mut names = vm.signal_names();
+        names.sort();
+        assert_eq!(names, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn test_vm_reset_clears_signals() {
+        let mut vm = Vm::new();
+        vm.write_signal("x", HalValue::S32(42));
+        vm.reset();
+        assert!(vm.read_signal("x").is_none());
+        assert!(vm.signal_names().is_empty());
     }
 }

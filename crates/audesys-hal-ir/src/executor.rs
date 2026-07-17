@@ -87,7 +87,9 @@ impl Executor {
 
     fn execute_instruction(&mut self, inst: &Instruction) -> ExecutorResult {
         match inst.opcode {
-            Opcode::Nop | Opcode::Store => ExecutorResult::Continue,
+            Opcode::Nop => ExecutorResult::Continue,
+
+            Opcode::Store => self.exec_store(&inst.operands),
 
             Opcode::Load => self.exec_load(&inst.operands),
 
@@ -228,6 +230,19 @@ impl Executor {
             Operand::Register(r) => *r,
             _ => 0,
         }
+    }
+
+    fn exec_store(&mut self, operands: &[Operand]) -> ExecutorResult {
+        if operands.len() < 2 {
+            return ExecutorResult::Continue;
+        }
+        let name = match &operands[0] {
+            Operand::SignalName(n) => n.clone(),
+            _ => return ExecutorResult::Continue,
+        };
+        let value = self.read_reg(&operands[1]);
+        self.vm.write_signal(&name, value);
+        ExecutorResult::Continue
     }
 
     fn read_three_regs(&self, operands: &[Operand]) -> (HalValue, HalValue, u8) {
@@ -585,4 +600,23 @@ mod tests {
         executor.run_to_halt();
         assert_eq!(executor.vm().read_register(1), HalValue::S32(77));
     }
+}
+
+#[test]
+fn test_execute_store() {
+    let program = HalProgram::new(
+        "test_store",
+        vec![
+            Instruction::load_imm(0, HalValue::S32(42)),
+            Instruction::new(
+                Opcode::Store,
+                vec![Operand::SignalName("x".into()), Operand::Register(0)],
+            ),
+            Instruction::halt(),
+        ],
+    );
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_signal("x").unwrap(), &HalValue::S32(42),);
+    assert!(executor.vm().read_signal("y").is_none());
 }
