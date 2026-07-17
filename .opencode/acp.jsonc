@@ -2,20 +2,16 @@
   "enabled": true,
   "debug": false,
   "pruneNotification": "off",
-  "pruneNotificationType": "chat",
   "commands": {
     "enabled": true
   },
   "turnProtection": {
     "enabled": true,
-    "turns": 8
+    "turns": 15
   },
   "compress": {
-    // Percentage limits: auto-adapt to model context window.
-    // 70% × 128K = ~90K  (fast agents: explore, librarian, quick)
-    // 70% × 1M   = ~700K (premium agents: sisyphus, prometheus)
-    "minContextLimit": "70%",
-    "maxContextLimit": "85%"
+    "minContextLimit": "85%",
+    "maxContextLimit": "95%"
   },
   "strategies": {
     "deduplication": {

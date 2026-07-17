@@ -9,9 +9,11 @@ use audesys_hal_ir::{
 
 use crate::parser::{BinOp, Expr, Program, Statement, UnaryOp, Variable};
 
+/// r14 and r15 are scratch, r13 is overflow scratch for nested expressions.
 const SCRATCH0: u8 = 14;
 const SCRATCH1: u8 = 15;
-const MAX_VAR_REGS: u8 = 14;
+const SCRATCH2: u8 = 13;
+const MAX_VAR_REGS: u8 = 13;
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum CodegenError {
@@ -24,7 +26,7 @@ pub enum CodegenError {
 struct Codegen {
     registers: HashMap<String, u8>,
     instructions: Vec<Instruction>,
-    scratch_avail: [bool; 2],
+    scratch_avail: [bool; 3],
     // ponytail: stack of loop exit labels for EXIT; full label stack if needed for nested loops
     loop_exits: Vec<Vec<u32>>,
 }
@@ -38,7 +40,7 @@ impl Codegen {
         for (i, var) in variables.iter().enumerate() {
             registers.insert(var.name.clone(), i as u8);
         }
-        Ok(Codegen { registers, instructions: Vec::new(), scratch_avail: [true, true], loop_exits: Vec::new() })
+        Ok(Codegen { registers, instructions: Vec::new(), scratch_avail: [true, true, true], loop_exits: Vec::new() })
     }
 
     fn push_loop(&mut self) {
@@ -60,12 +62,18 @@ impl Codegen {
     }
 
     fn alloc_scratch(&mut self) -> u8 {
-        if self.scratch_avail[0] {
-            self.scratch_avail[0] = false;
-            return SCRATCH0;
+        for (i, avail) in self.scratch_avail.iter_mut().enumerate() {
+            if *avail {
+                *avail = false;
+                return match i {
+                    0 => SCRATCH0,
+                    1 => SCRATCH1,
+                    2 => SCRATCH2,
+                    _ => unreachable!(),
+                };
+            }
         }
-        self.scratch_avail[1] = false;
-        SCRATCH1
+        panic!("scratch overflow: r13/r14/r15 all in use")
     }
 
     fn free_scratch(&mut self, reg: u8) {
@@ -74,6 +82,9 @@ impl Codegen {
         }
         if reg == SCRATCH1 {
             self.scratch_avail[1] = true;
+        }
+        if reg == SCRATCH2 {
+            self.scratch_avail[2] = true;
         }
     }
 
@@ -113,10 +124,11 @@ impl Codegen {
             }
             Expr::Variable(name) => {
                 let src_reg = self.var_reg(name)?;
-                let zero = self.alloc_scratch();
-                self.emit(Instruction::load_imm(zero, HalValue::S32(0)));
-                self.emit(Instruction::arith(Opcode::Add, src_reg, zero, dest_reg));
-                self.free_scratch(zero);
+                // ponytail: load_imm(dest,0)+Add(src,dest,dest) avoids scratch
+                if src_reg != dest_reg {
+                    self.emit(Instruction::load_imm(dest_reg, HalValue::S32(0)));
+                    self.emit(Instruction::arith(Opcode::Add, src_reg, dest_reg, dest_reg));
+                }
             }
             Expr::Binary(left, op, right) => {
                 if let Some(arith_op) = op_to_arith_opcode(*op) {

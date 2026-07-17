@@ -35,7 +35,6 @@
     "oracle": {
       "model": "new-api/premium-max",
       "fallback_models": ["new-api/premium-max-1", "new-api/premium-max-2"],
-      "reasoningEffort": "high",
       "temperature": 0.2
     },
 
@@ -120,7 +119,6 @@
     "ultrabrain": {
       "model": "new-api/premium-max",
       "fallback_models": ["new-api/premium-max-1", "new-api/premium-max-2"],
-      "reasoningEffort": "high",
       "temperature": 0.2
     },
 
@@ -133,7 +131,6 @@
     "unspecified-high": {
       "model": "new-api/premium",
       "fallback_models": ["new-api/premium-1", "new-api/premium-2"],
-      "reasoningEffort": "medium",
       "temperature": 0.1
     },
 
@@ -175,7 +172,7 @@
     "retry_on_errors": [402, 429, 500, 502, 503, 504],
     "max_fallback_attempts": 2,
     "cooldown_seconds": 60,
-    "timeout_seconds":  60,
+    "timeout_seconds":  30,
     "notify_on_fallback": true
   },
 

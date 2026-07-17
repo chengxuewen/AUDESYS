@@ -389,3 +389,109 @@ fn test_exit_for() {
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(0), HalValue::S32(3));
 }
+
+// ── Nesting Tests ──
+
+// Test 25: if_inside_while
+#[test]
+fn test_nested_if_in_while() {
+    // WHILE x<5 DO IF x MOD 2 = 0 THEN even:=even+1 END_IF; x:=x+1 END_WHILE;
+    let src = "PROGRAM test VAR x : INT; even : INT; END_VAR; x := 0; even := 0; WHILE x < 5 DO IF x MOD 2 = 0 THEN even := even + 1; END_IF; x := x + 1; END_WHILE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // x=0,2,4 are even → even=3
+    assert_eq!(executor.vm().read_register(1), HalValue::S32(3));
+}
+
+// Test 26: while_inside_if
+#[test]
+fn test_nested_while_in_if() {
+    // IF flag=0 THEN WHILE x<3 DO x:=x+1 END_WHILE END_IF;
+    let src = "PROGRAM test VAR x : INT; flag : INT; END_VAR; x := 0; flag := 0; IF flag = 0 THEN WHILE x < 3 DO x := x + 1; END_WHILE; END_IF; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(3));
+}
+
+// Test 27: case_inside_while
+#[test]
+fn test_nested_case_in_while() {
+    // WHILE i<4 DO CASE i OF 0: a:=1; | 1: b:=2; | 2: c:=3; | 3: d:=4; END_CASE; i:=i+1 END_WHILE;
+    let src = "PROGRAM test VAR i : INT; a : INT; b : INT; c : INT; d : INT; END_VAR; i := 0; a := 0; b := 0; c := 0; d := 0; WHILE i < 4 DO CASE i OF 0: a := 1; 1: b := 2; 2: c := 3; 3: d := 4; END_CASE; i := i + 1; END_WHILE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(1), HalValue::S32(1));
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(2));
+    assert_eq!(executor.vm().read_register(3), HalValue::S32(3));
+    assert_eq!(executor.vm().read_register(4), HalValue::S32(4));
+}
+
+// Test 28: for_inside_if_else
+#[test]
+fn test_nested_for_in_if() {
+    // IF mode=1 THEN FOR i:=0 TO 2 DO x:=x+1 END_FOR ELSE x:=99 END_IF;
+    let src = "PROGRAM test VAR x : INT; i : INT; mode : INT; END_VAR; x := 0; mode := 1; IF mode = 1 THEN FOR i := 0 TO 2 DO x := x + 1; END_FOR; ELSE x := 99; END_IF; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(3));
+}
+
+// Test 29: deep_nesting
+#[test]
+fn test_nested_deep() {
+    // IF x=0 THEN WHILE x<3 DO FOR i:=0 TO 1 DO CASE i OF 0: a:=a+1; 1: b:=b+1; END_CASE; END_FOR; x:=x+1 END_WHILE END_IF;
+    let src = "PROGRAM test VAR x : INT; i : INT; a : INT; b : INT; END_VAR; x := 0; a := 0; b := 0; IF x = 0 THEN WHILE x < 3 DO FOR i := 0 TO 1 DO CASE i OF 0: a := a + 1; 1: b := b + 1; END_CASE; END_FOR; x := x + 1; END_WHILE; END_IF; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // 3 WHILE iterations × 2 FOR iterations (i=0→a, i=1→b) = a=3, b=3
+    assert_eq!(executor.vm().read_register(2), HalValue::S32(3));
+    assert_eq!(executor.vm().read_register(3), HalValue::S32(3));
+}
+
+// Test 30: exit_from_nested
+#[test]
+fn test_nested_exit() {
+    // EXIT breaks the nearest loop only, not outer loops
+    let src = "PROGRAM test VAR x : INT; i : INT; END_VAR; x := 0; WHILE x < 10 DO FOR i := 0 TO 9 DO x := x + 1; IF x >= 3 THEN EXIT; END_IF; END_FOR; END_WHILE; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // EXIT from FOR → outer WHILE continues until x >= 10
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(10));
+}
+
+// Test 31: return_inside_nested
+#[test]
+fn test_nested_return() {
+    // RETURN from deep inside nested control flow stops everything
+    let src = "PROGRAM test VAR x : INT; END_VAR; x := 0; WHILE x < 10 DO x := x + 1; IF x >= 3 THEN RETURN; END_IF; END_WHILE; x := 99; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(3));
+}
+
+// Test 32: repeat_with_if
+#[test]
+fn test_nested_repeat_with_if() {
+    // REPEAT IF x MOD 2=0 THEN even:=even+1 END_IF; x:=x+1 UNTIL x>=6 END_REPEAT;
+    let src = "PROGRAM test VAR x : INT; even : INT; END_VAR; x := 0; even := 0; REPEAT IF x MOD 2 = 0 THEN even := even + 1; END_IF; x := x + 1; UNTIL x >= 6 END_REPEAT; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // x=0,2,4 → even=3
+    assert_eq!(executor.vm().read_register(1), HalValue::S32(3));
+}
