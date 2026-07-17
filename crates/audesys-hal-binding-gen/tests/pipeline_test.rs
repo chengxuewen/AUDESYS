@@ -219,3 +219,48 @@ fn test_while_never_true() {
     // x was never incremented because condition was false
     assert_eq!(executor.vm().read_register(0), HalValue::S32(42));
 }
+
+// ── Test 12: for_loop ──
+
+#[test]
+fn test_for_loop() {
+    // FOR i := 0 TO 4 DO x := x + 1; END_FOR;
+    let src = "PROGRAM test VAR x : INT; i : INT; END_VAR; x := 0; FOR i := 0 TO 4 DO x := x + 1; END_FOR; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // 5 iterations (i = 0, 1, 2, 3, 4)
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(5));
+}
+
+// ── Test 13: for_zero_iterations ──
+
+#[test]
+fn test_for_zero_iterations() {
+    // FOR i := 10 TO 1 DO x := x + 1; END_FOR — 10 > 1 so no iterations
+    let src = "PROGRAM test VAR x : INT; i : INT; END_VAR; x := 0; FOR i := 10 TO 1 DO x := x + 1; END_FOR; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // zero iterations: x stays 0
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(0));
+}
+
+// ── Test 14: for_with_by_step ──
+
+#[test]
+fn test_for_with_by_step() {
+    // FOR i := 0 TO 10 BY 2 DO x := x + 1; END_FOR;
+    let src = "PROGRAM test VAR x : INT; i : INT; END_VAR; x := 0; FOR i := 0 TO 10 BY 2 DO x := x + 1; END_FOR; END_PROGRAM";
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let mut executor = Executor::new(program);
+    executor.run_to_halt();
+    // 6 iterations (i = 0, 2, 4, 6, 8, 10)
+    assert_eq!(executor.vm().read_register(0), HalValue::S32(6));
+}

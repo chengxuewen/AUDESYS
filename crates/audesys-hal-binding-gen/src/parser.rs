@@ -78,6 +78,8 @@ pub enum Statement {
     If { condition: Expr, then_body: Vec<Statement>, else_body: Vec<Statement> },
     /// While loop: condition and body
     While { condition: Expr, body: Vec<Statement> },
+    /// For loop: variable, start, end, optional step, body
+    For { variable: String, start: Expr, end: Expr, step: Option<Expr>, body: Vec<Statement> },
 }
 
 /// A variable declaration.
@@ -235,6 +237,7 @@ fn parse_statement(p: &mut Parser) -> Result<Statement, ParseError> {
     match p.peek_token() {
         Some(Token::If) => parse_if(p),
         Some(Token::While) => parse_while(p),
+        Some(Token::For) => parse_for(p),
         _ => parse_assignment(p),
     }
 }
@@ -289,6 +292,34 @@ fn parse_while(p: &mut Parser) -> Result<Statement, ParseError> {
     p.expect(Token::Semicolon)?;
 
     Ok(Statement::While { condition, body })
+}
+
+fn parse_for(p: &mut Parser) -> Result<Statement, ParseError> {
+    // FOR variable := start TO end BY step DO body END_FOR;
+    p.expect(Token::For)?;
+    let (variable, _line, _col) = p.expect_ident()?;
+    p.expect(Token::Assign)?;
+    let start = parse_expression(p)?;
+    p.expect(Token::To)?;
+    let end = parse_expression(p)?;
+    // ponytail: BY is optional, defaults to 1; negative step deferred to Phase 2
+    let step = if p.peek_token() == Some(&Token::By) {
+        p.expect(Token::By)?;
+        Some(parse_expression(p)?)
+    } else {
+        None
+    };
+    p.expect(Token::Do)?;
+
+    let mut body = Vec::new();
+    while p.peek_token() != Some(&Token::EndFor) {
+        body.push(parse_statement(p)?);
+    }
+
+    p.expect(Token::EndFor)?;
+    p.expect(Token::Semicolon)?;
+
+    Ok(Statement::For { variable, start, end, step, body })
 }
 
 // ── Expression parsing with precedence climbing ──

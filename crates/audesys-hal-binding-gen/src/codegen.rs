@@ -209,6 +209,36 @@ impl Codegen {
                 let exit_label = self.current_idx();
                 self.patch_jump(exit_jump, exit_label);
             }
+            Statement::For { variable, start, end, step, body } => {
+                let var_reg = self.var_reg(variable)?;
+                // 1. Init: variable := start
+                self.compile_expr(start, var_reg)?;
+                let loop_start = self.current_idx();
+                // 2. Check: if variable > end → exit
+                let end_scratch = self.alloc_scratch();
+                self.compile_expr(end, end_scratch)?;
+                self.emit(Instruction::cmp(Opcode::Gt, var_reg, end_scratch));
+                self.free_scratch(end_scratch);
+                let exit_jump = self.emit(Instruction::jump_if(0));
+                // 3. Body
+                for stmt in body {
+                    self.compile_stmt(stmt)?;
+                }
+                // 4. Increment: variable := variable + step
+                let step_scratch = self.alloc_scratch();
+                if let Some(step_expr) = step {
+                    self.compile_expr(step_expr, step_scratch)?;
+                } else {
+                    // ponytail: default step = 1, negative step deferred to Phase 2
+                    self.emit(Instruction::load_imm(step_scratch, HalValue::S32(1)));
+                }
+                self.emit(Instruction::arith(Opcode::Add, var_reg, step_scratch, var_reg));
+                self.free_scratch(step_scratch);
+                self.emit(Instruction::jump(loop_start));
+                // 5. Exit
+                let exit_label = self.current_idx();
+                self.patch_jump(exit_jump, exit_label);
+            }
         }
         Ok(())
     }
