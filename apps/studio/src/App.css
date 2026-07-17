@@ -1,0 +1,143 @@
+/* ── App Layout ── */
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-canvas);
+}
+
+/* ── Toolbar ── */
+
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  background: var(--color-surface-3);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.app-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ── Buttons ── */
+
+.app-btn {
+  padding: 4px 16px;
+  background: var(--color-amber);
+  color: var(--color-canvas);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: opacity 100ms ease-out;
+}
+
+.app-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.app-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* ── Main Split Pane ── */
+
+.app-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Panels ── */
+
+.app-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.app-panel--editor {
+  border-right: 1px solid var(--color-border);
+}
+
+.app-panel__header {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  flex-shrink: 0;
+}
+
+.app-panel__empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+/* ── Signal Table ── */
+
+.app-signal-table-wrap {
+  flex: 1;
+  overflow: auto;
+}
+
+.app-signal-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.app-signal-table__th {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.app-signal-table__tr {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-signal-table__td {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--font-body);
+}
+
+.app-signal-table__td--mono {
+  font-family: var(--font-mono);
+}
+
+.app-signal-table__td--secondary {
+  color: var(--color-text-secondary);
+}

@@ -1,5 +1,12 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import CodeEditor, { type CodeEditorHandle, type EditorDiagnostic } from "./components/CodeEditor";
+import FileOperations from "./components/FileOperations";
+import StatusBar, { type CompileStatus } from "./components/StatusBar";
+import ErrorPanel, { type PanelError } from "./components/ErrorPanel";
+import "./App.css";
 
 interface SignalState {
   name: string;
@@ -7,19 +14,90 @@ interface SignalState {
   pin_type: string;
 }
 
+const DEFAULT_SOURCE =
+  "PROGRAM test\nVAR\n  x : INT;\n  y : INT;\nEND_VAR\nx := 42;\ny := x + 8;\nEND_PROGRAM";
+
+/** Parse compiler error string into structured PanelError array. */
+function parseErrors(errorText: string): PanelError[] {
+  const errors: PanelError[] = [];
+
+  // Pattern: "at line N, col M" or "at line N"
+  const atLineCol = /at line\s+(\d+),\s+col\s+(\d+)/g;
+  // Pattern: "redeclared at line N"
+  const atLine = /at line\s+(\d+)/g;
+
+  // Split by error separators
+  const lines = errorText.split(/\n/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    let lineNum = 1;
+    let colNum = 1;
+
+    // Try "at line N, col M" first
+    const lcMatch = atLineCol.exec(trimmed);
+    if (lcMatch) {
+      lineNum = parseInt(lcMatch[1], 10) || 1;
+      colNum = parseInt(lcMatch[2], 10) || 1;
+    } else {
+      // Try "at line N"
+      const lMatch = atLine.exec(trimmed);
+      if (lMatch) {
+        lineNum = parseInt(lMatch[1], 10) || 1;
+      }
+    }
+
+    // Reset regex state
+    atLineCol.lastIndex = 0;
+    atLine.lastIndex = 0;
+
+    // Determine severity
+    const isWarning = trimmed.includes("warning");
+    const severity: "error" | "warning" = isWarning ? "warning" : "error";
+
+    // Clean message: remove prefix like "lexer error: " or "parse error: "
+    const message = trimmed.replace(/^(lexer|parse|codegen)\s+error:\s*/i, "");
+
+    errors.push({ line: lineNum, col: colNum, message, severity });
+  }
+
+  return errors;
+}
+
+/** Convert PanelError to CodeMirror EditorDiagnostic (0-based positions). */
+function toEditorDiagnostics(errors: PanelError[], source: string): EditorDiagnostic[] {
+  const lines = source.split("\n");
+  return errors.map((e) => {
+    const lineIdx = Math.max(0, e.line - 1);
+    const colIdx = Math.max(0, e.col - 1);
+    let from = 0;
+    for (let i = 0; i < lineIdx; i++) {
+      from += (lines[i]?.length ?? 0) + 1;
+    }
+    from += colIdx;
+    // ponytail: highlight to end of line for simplicity
+    const to = from + (lines[lineIdx]?.length ?? 0) - colIdx;
+    return { from, to: Math.max(from + 1, to), message: e.message, severity: e.severity };
+  });
+}
 
 export default function App() {
-  const [source, setSource] = useState(
-    'PROGRAM test\nVAR\n  x : INT;\n  y : INT;\nEND_VAR\nx := 42;\ny := x + 8;\nEND_PROGRAM'
-  );
+  const [source, setSource] = useState(DEFAULT_SOURCE);
   const [signals, setSignals] = useState<SignalState[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [compileStatus, setCompileStatus] = useState<CompileStatus>("ready");
+  const [errors, setErrors] = useState<PanelError[]>([]);
+  const [currentFile, setCurrentFile] = useState<string | null>(null);
+  const [cursorLine, setCursorLine] = useState(1);
+  const [cursorCol, setCursorCol] = useState(1);
+  const editorRef = useRef<CodeEditorHandle>(null);
 
-  const handleCompileRun = async () => {
-    setError(null);
+  const handleCompileRun = useCallback(async () => {
+    setCompileStatus("compiling");
+    setErrors([]);
     setSignals([]);
-    setLoading(true);
+
     try {
       const programJson: string = await invoke("compile_st", { source });
       const result: string = await invoke("run_program", {
@@ -28,66 +106,147 @@ export default function App() {
       });
       const states: SignalState[] = JSON.parse(result);
       setSignals(states);
+      setCompileStatus("success");
     } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
+      const errStr = String(e);
+      const parsedErrors = parseErrors(errStr);
+      setErrors(parsedErrors);
+      setCompileStatus("error");
+
+      // Push diagnostics to editor
+      const diags = toEditorDiagnostics(parsedErrors, source);
+      editorRef.current?.setDiagnostics(diags);
     }
-  };
+  }, [source]);
+
+  const handleNew = useCallback(() => {
+    setSource("");
+    setCurrentFile(null);
+    setErrors([]);
+    setSignals([]);
+    setCompileStatus("ready");
+    editorRef.current?.setDiagnostics([]);
+  }, []);
+
+  const handleOpen = useCallback(async () => {
+    try {
+      const selected = await open({
+        title: "Open ST Source File",
+        filters: [{ name: "Structured Text", extensions: ["st", "ST", "txt"] }],
+        multiple: false,
+      });
+      if (selected && typeof selected === "string") {
+        const content = await readTextFile(selected);
+        setSource(content);
+        setCurrentFile(selected);
+        setErrors([]);
+        setSignals([]);
+        setCompileStatus("ready");
+        editorRef.current?.setDiagnostics([]);
+      }
+    } catch (e) {
+      const msg = String(e);
+      if (!msg.includes("cancelled") && !msg.includes("canceled")) {
+        setErrors([{ line: 1, col: 1, message: `Failed to open file: ${msg}`, severity: "error" }]);
+      }
+    }
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    try {
+      if (currentFile) {
+        await writeTextFile(currentFile, source);
+        setCompileStatus("ready");
+      } else {
+        const selected = await save({
+          title: "Save ST Source File",
+          filters: [{ name: "Structured Text", extensions: ["st"] }],
+        });
+        if (selected) {
+          await writeTextFile(selected, source);
+          setCurrentFile(selected);
+          setCompileStatus("ready");
+        }
+      }
+    } catch (e) {
+      const msg = String(e);
+      if (!msg.includes("cancelled") && !msg.includes("canceled")) {
+        setErrors([{ line: 1, col: 1, message: `Failed to save file: ${msg}`, severity: "error" }]);
+      }
+    }
+  }, [source, currentFile]);
+
+  const handleErrorClick = useCallback((line: number, col: number) => {
+    if (!editorRef.current) return;
+    const lines = source.split("\n");
+    const lineIdx = Math.max(0, line - 1);
+    let pos = 0;
+    for (let i = 0; i < lineIdx; i++) {
+      pos += (lines[i]?.length ?? 0) + 1;
+    }
+    pos += Math.max(0, col - 1);
+    editorRef.current.focusByPosition(pos);
+  }, [source]);
+
+  const handleCursorChange = useCallback((line: number, col: number) => {
+    setCursorLine(line);
+    setCursorCol(col);
+  }, []);
 
   return (
-    <div style={styles.root}>
+    <div className="app-root">
       {/* Toolbar */}
-      <div style={styles.toolbar}>
-        <span style={styles.title}>AUDESYS Studio</span>
-        <button
-          onClick={handleCompileRun}
-          disabled={loading || source.trim().length === 0}
-          style={{
-            ...styles.btn,
-            opacity: loading ? 0.6 : 1,
-          }}
-        >
-          {loading ? "Compiling..." : "Compile & Run"}
-        </button>
+      <div className="app-toolbar">
+        <FileOperations
+          currentFile={currentFile}
+          onNew={handleNew}
+          onOpen={handleOpen}
+          onSave={handleSave}
+        />
+        <div className="app-toolbar__actions">
+          <button
+            className="app-btn"
+            onClick={handleCompileRun}
+            disabled={compileStatus === "compiling" || source.trim().length === 0}
+          >
+            {compileStatus === "compiling" ? "Compiling..." : "Compile & Run"}
+          </button>
+        </div>
       </div>
 
       {/* Main split pane */}
-      <div style={styles.main}>
-        {/* Left: ST Editor */}
-        <div style={styles.panel}>
-          <div style={styles.panelHeader}>ST Source Editor</div>
-          <textarea
+      <div className="app-main">
+        <div className="app-panel app-panel--editor">
+          <div className="app-panel__header">ST Source Editor</div>
+          <CodeEditor
+            ref={editorRef}
             value={source}
-            onChange={(e) => setSource(e.target.value)}
-            spellCheck={false}
-            style={styles.textarea}
+            onChange={setSource}
+            onSave={handleSave}
+            onCursorChange={handleCursorChange}
           />
         </div>
 
-        {/* Right: Signal Table */}
-        <div style={styles.panel}>
-          <div style={styles.panelHeader}>Signal Output</div>
-          {error ? (
-            <div style={styles.errorBanner}>{error}</div>
-          ) : signals.length > 0 ? (
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
+        <div className="app-panel app-panel--output">
+          <div className="app-panel__header">Signal Output</div>
+          {signals.length > 0 ? (
+            <div className="app-signal-table-wrap">
+              <table className="app-signal-table">
                 <thead>
                   <tr>
-                    <th style={styles.th}>Signal Name</th>
-                    <th style={styles.th}>Value</th>
-                    <th style={styles.th}>Type</th>
+                    <th className="app-signal-table__th">Signal Name</th>
+                    <th className="app-signal-table__th">Value</th>
+                    <th className="app-signal-table__th">Type</th>
                   </tr>
                 </thead>
                 <tbody>
                   {signals.map((s, i) => (
-                    <tr key={i} style={styles.tr}>
-                      <td style={styles.td}>{s.name}</td>
-                      <td style={{ ...styles.td, fontFamily: "var(--font-mono)" }}>
+                    <tr key={i} className="app-signal-table__tr">
+                      <td className="app-signal-table__td">{s.name}</td>
+                      <td className="app-signal-table__td app-signal-table__td--mono">
                         {JSON.stringify(s.value)}
                       </td>
-                      <td style={{ ...styles.td, color: "var(--color-text-secondary)" }}>
+                      <td className="app-signal-table__td app-signal-table__td--secondary">
                         {s.pin_type}
                       </td>
                     </tr>
@@ -96,132 +255,25 @@ export default function App() {
               </table>
             </div>
           ) : (
-            <div style={styles.empty}>Compile an ST program to see signal output.</div>
+            <div className="app-panel__empty">
+              {compileStatus === "compiling"
+                ? "Compiling..."
+                : "Compile an ST program to see signal output."}
+            </div>
           )}
         </div>
       </div>
+
+      {/* Error Panel */}
+      <ErrorPanel errors={errors} onErrorClick={handleErrorClick} />
+
+      {/* Status Bar */}
+      <StatusBar
+        line={cursorLine}
+        col={cursorCol}
+        status={compileStatus}
+        fileName={currentFile}
+      />
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    background: "var(--color-canvas)",
-  },
-  toolbar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    height: 40,
-    padding: "0 16px",
-    background: "var(--color-surface-3)",
-    borderBottom: "1px solid var(--color-border)",
-    flexShrink: 0,
-  },
-  title: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "var(--color-text-secondary)",
-    letterSpacing: "0.5px",
-  },
-  btn: {
-    padding: "4px 16px",
-    background: "var(--color-amber)",
-    color: "var(--color-canvas)",
-    border: "none",
-    borderRadius: "var(--radius-sm)",
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "var(--font-body)",
-  },
-  main: {
-    display: "flex",
-    flex: 1,
-    overflow: "hidden",
-  },
-  panel: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    borderRight: "1px solid var(--color-border)",
-    overflow: "hidden",
-  },
-  panelHeader: {
-    height: 28,
-    display: "flex",
-    alignItems: "center",
-    padding: "0 12px",
-    fontSize: 11,
-    fontWeight: 600,
-    color: "var(--color-text-tertiary)",
-    background: "var(--color-surface-1)",
-    borderBottom: "1px solid var(--color-border)",
-    textTransform: "uppercase",
-    letterSpacing: "0.8px",
-  },
-  textarea: {
-    flex: 1,
-    background: "var(--color-surface-1)",
-    color: "var(--color-text-primary)",
-    border: "none",
-    resize: "none",
-    padding: 12,
-    fontFamily: "var(--font-mono)",
-    fontSize: 13,
-    lineHeight: 1.6,
-    outline: "none",
-    tabSize: 2,
-  },
-  tableWrap: {
-    flex: 1,
-    overflow: "auto",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
-  th: {
-    position: "sticky",
-    top: 0,
-    background: "var(--color-surface-2)",
-    color: "var(--color-text-secondary)",
-    fontSize: 11,
-    fontWeight: 600,
-    textAlign: "left",
-    padding: "6px 12px",
-    borderBottom: "1px solid var(--color-border)",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  tr: {
-    borderBottom: "1px solid var(--color-border)",
-  },
-  td: {
-    padding: "6px 12px",
-    fontSize: 13,
-    fontFamily: "var(--font-body)",
-  },
-  errorBanner: {
-    padding: 12,
-    margin: 12,
-    background: "rgba(255, 68, 68, 0.1)",
-    borderLeft: "3px solid var(--color-error)",
-    color: "var(--color-error)",
-    fontSize: 12,
-    fontFamily: "var(--font-mono)",
-    borderRadius: "0 var(--radius-sm) var(--radius-sm) 0",
-    whiteSpace: "pre-wrap",
-  },
-  empty: {
-    flex: 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "var(--color-text-tertiary)",
-    fontSize: 13,
-  },
-};

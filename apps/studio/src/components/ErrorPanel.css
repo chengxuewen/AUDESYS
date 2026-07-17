@@ -1,0 +1,136 @@
+.error-panel {
+  background: var(--color-surface-1);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.error-panel--collapsed {
+  flex-shrink: 0;
+}
+
+.error-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 28px;
+  padding: 0 12px;
+  background: var(--color-surface-2);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-tertiary);
+  transition: background 100ms ease-out;
+}
+
+.error-panel__header:hover {
+  background: var(--color-surface-3);
+}
+
+.error-panel__chevron {
+  font-size: 8px;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.error-panel__label {
+  flex: 1;
+  text-align: left;
+}
+
+.error-panel__label--has-errors {
+  color: var(--color-error);
+}
+
+.error-panel__counts {
+  display: flex;
+  gap: 6px;
+}
+
+.error-panel__count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}
+
+.error-panel__count--error {
+  background: rgba(255, 68, 68, 0.15);
+  color: var(--color-error);
+}
+
+.error-panel__count--warning {
+  background: rgba(255, 184, 0, 0.15);
+  color: var(--color-warning);
+}
+
+.error-panel__list {
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid var(--color-border);
+}
+
+.error-panel__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 4px 12px;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  transition: background 100ms ease-out;
+}
+
+.error-panel__item:last-child {
+  border-bottom: none;
+}
+
+.error-panel__item:hover {
+  background: var(--color-surface-2);
+}
+
+.error-panel__item--error .error-panel__item-location {
+  color: var(--color-error);
+}
+
+.error-panel__item--warning .error-panel__item-location {
+  color: var(--color-warning);
+}
+
+.error-panel__item--error {
+  border-left: 3px solid var(--color-error);
+}
+
+.error-panel__item--warning {
+  border-left: 3px solid var(--color-warning);
+}
+
+.error-panel__item-location {
+  flex-shrink: 0;
+  font-weight: 600;
+  min-width: 90px;
+}
+
+.error-panel__item-message {
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.error-panel__empty {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+}
