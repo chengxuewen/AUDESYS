@@ -90,6 +90,8 @@
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.6;
+  user-select: text;
+  -webkit-user-select: text;
   transition: background 100ms ease-out;
 }
 
@@ -126,6 +128,8 @@
 .error-panel__item-message {
   color: var(--color-text-secondary);
   word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .error-panel__empty {

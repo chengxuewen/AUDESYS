@@ -293,7 +293,9 @@ fn parse_var_block(p: &mut Parser) -> Result<Vec<Variable>, ParseError> {
         vars.push(Variable { name, var_type, array_bounds: None, string_len: None });
     }
     p.expect(Token::EndVar)?;
-    p.expect(Token::Semicolon)?;
+    if p.peek_token() == Some(&Token::Semicolon) {
+        p.advance();
+    }
     Ok(vars)
 }
 
