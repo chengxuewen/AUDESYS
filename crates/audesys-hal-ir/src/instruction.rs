@@ -62,6 +62,9 @@ pub enum Opcode {
     // Array access
     LoadIndex,
     StoreIndex,
+    // Timer
+    TimerRun,
+    ReadTimer,
 
     Halt,
 }
@@ -156,6 +159,32 @@ impl Instruction {
             operands: vec![Operand::Register(array), Operand::Register(index), Operand::Register(value)],
         }
     }
+    /// Convenience: TON timer run — tick state machine.
+    /// operands: [Imm(timer_idx), Reg(IN), Imm(PT_ms)]
+    pub fn timer_run(timer_idx: u8, in_reg: u8, pt_ms: u32) -> Self {
+        Instruction {
+            opcode: Opcode::TimerRun,
+            operands: vec![
+                Operand::Immediate(audesys_hal_core::HalValue::U32(timer_idx as u32)),
+                Operand::Register(in_reg),
+                Operand::Immediate(audesys_hal_core::HalValue::U32(pt_ms)),
+            ],
+        }
+    }
+
+    /// Convenience: Read timer Q and ET into registers.
+    /// operands: [Imm(timer_idx), Reg(Q_dest), Reg(ET_dest)]
+    pub fn read_timer(timer_idx: u8, q_dest: u8, et_dest: u8) -> Self {
+        Instruction {
+            opcode: Opcode::ReadTimer,
+            operands: vec![
+                Operand::Immediate(audesys_hal_core::HalValue::U32(timer_idx as u32)),
+                Operand::Register(q_dest),
+                Operand::Register(et_dest),
+            ],
+        }
+    }
+
 
 }
 

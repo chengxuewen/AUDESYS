@@ -83,6 +83,8 @@ pub enum Token {
     LBracket,   // [
     RBracket,   // ]
     DotDot,     // ..
+    Dot,        // .
+    Ton,        // IEC 61131-3 TON timer
 
     // Literals and identifiers
     Identifier(String),
@@ -270,6 +272,11 @@ pub fn tokenize(source: &str) -> Result<Vec<TokenInfo>, LexError> {
                 col += 2;
                 pos += 2;
             }
+            '.' => {
+                tokens.push(TokenInfo::new(Token::Dot, start_line, start_col));
+                col += 1;
+                pos += 1;
+            }
             // Identifiers and keywords
             c if c.is_alphabetic() || c == '_' => {
                 let mut ident = String::new();
@@ -374,6 +381,7 @@ fn match_keyword(s: &str) -> Token {
         "DT" => Token::DT,
         "STRING" => Token::String,
         "ARRAY" => Token::Array,
+        "TON" => Token::Ton,
         _ => Token::Identifier(s.to_string()),
     }
 }

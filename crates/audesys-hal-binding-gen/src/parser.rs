@@ -26,6 +26,8 @@ pub enum VarType {
     DT,     // → DATE_AND_TIME (datetime)
     String, // → STRING (fixed length, UTF-8)
     Array,  // → ARRAY [lo..hi] OF <type>
+    Ton,    // IEC 61131-3 TON timer
+
 }
 
 /// Binary operator.
@@ -71,6 +73,8 @@ pub enum Expr {
     Unary(UnaryOp, Box<Expr>),
     /// Array element access: name[index]
     ArrayAccess { name: String, index: Box<Expr> },
+    /// Field access: timer1.Q, timer1.ET
+    FieldAccess { name: String, field: String },
 }
 
 impl Expr {
@@ -395,6 +399,8 @@ fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
                 let _elem_type = parse_var_type(p)?;
                 Ok(VarType::Array)
             }
+            token if matches!(token, Token::Ton) => Ok(VarType::Ton),
+
             _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
         },
         None => Err(ParseError::UnexpectedEof),
@@ -727,6 +733,10 @@ fn parse_primary(p: &mut Parser) -> Result<Expr, ParseError> {
                         let index = parse_expression(p)?;
                         p.expect(Token::RBracket)?;
                         Ok(Expr::ArrayAccess { name: name.clone(), index: Box::new(index) })
+                    } else if p.peek_token() == Some(&Token::Dot) {
+                        p.expect(Token::Dot)?;
+                        let (field, _, _) = p.expect_ident()?;
+                        Ok(Expr::FieldAccess { name: name.clone(), field })
                     } else {
                         Ok(Expr::Variable(name.clone()))
                     }

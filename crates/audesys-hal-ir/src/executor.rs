@@ -135,6 +135,10 @@ impl Executor {
             Opcode::Call => self.exec_call(&inst.operands),
             Opcode::Ret => self.exec_ret(&inst.operands),
 
+
+            Opcode::TimerRun => self.exec_timer_run(&inst.operands),
+            Opcode::ReadTimer => self.exec_read_timer(&inst.operands),
+
             Opcode::Halt => ExecutorResult::Halted,
         }
     }
@@ -353,6 +357,79 @@ impl Executor {
     fn read_three_regs(&self, operands: &[Operand]) -> (HalValue, HalValue, u8) {
         (self.read_reg(&operands[0]), self.read_reg(&operands[1]), self.dest_reg(&operands[2]))
     }
+
+    fn exec_timer_run(&mut self, operands: &[Operand]) -> ExecutorResult {
+        // operands: [Imm(timer_idx), Reg(IN), Reg(PT_ms)]
+        if operands.len() < 3 {
+            return ExecutorResult::Continue;
+        }
+        let idx = match &operands[0] {
+            Operand::Immediate(HalValue::U32(i)) => *i as usize,
+            _ => return ExecutorResult::Continue,
+        };
+        if idx >= self.vm.timer_count() {
+            return ExecutorResult::Continue;
+        }
+        let in_reg = match &operands[1] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let pt = match &operands[2] {
+            Operand::Immediate(HalValue::U32(p)) => *p as u64,
+            Operand::Immediate(HalValue::S32(p)) => *p as u64,
+            _ => return ExecutorResult::Continue,
+        };
+        let in_val = self.vm.read_register(in_reg);
+        let in_bool = in_val == HalValue::Bool(true);
+        let cycle = self.vm.cycle_time();
+        let timer = self.vm.timer_mut(idx);
+        timer.preset_ms = pt;
+
+        if !in_bool {
+            timer.q = false;
+            timer.elapsed_ms = 0;
+        } else if timer.elapsed_ms >= timer.preset_ms {
+            timer.q = true;
+        } else {
+            let elapsed = timer.elapsed_ms.saturating_add(cycle);
+            timer.elapsed_ms = elapsed;
+            if timer.elapsed_ms >= timer.preset_ms {
+                timer.q = true;
+                timer.elapsed_ms = timer.preset_ms;
+            }
+        }
+        timer.in_val = in_bool;
+        ExecutorResult::Continue
+    }
+
+    fn exec_read_timer(&mut self, operands: &[Operand]) -> ExecutorResult {
+        // operands: [Imm(timer_idx), Reg(Q_dest), Reg(ET_dest)]
+        if operands.len() < 3 {
+            return ExecutorResult::Continue;
+        }
+        let idx = match &operands[0] {
+            Operand::Immediate(HalValue::U32(i)) => *i as usize,
+            _ => return ExecutorResult::Continue,
+        };
+        if idx >= self.vm.timer_count() {
+            return ExecutorResult::Continue;
+        }
+        let q_dest = match &operands[1] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let et_dest = match &operands[2] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let timer = self.vm.timer(idx);
+        let q_val = HalValue::Bool(timer.q);
+        let et_val = HalValue::U32(timer.elapsed_ms as u32);
+        self.vm.write_register(q_dest, q_val);
+        self.vm.write_register(et_dest, et_val);
+        ExecutorResult::Continue
+    }
+
 }
 
 // ── Tests ──

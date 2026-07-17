@@ -5,6 +5,20 @@ use audesys_hal_core::HalValue;
 use std::collections::HashMap;
 
 /// Number of general-purpose registers (r0–r15).
+
+/// Per-timer state for TON (on-delay timer).
+/// ponytail: ms resolution, in-VM, cycle-driven
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TimerState {
+    /// Current IN value
+    pub in_val: bool,
+    /// Elapsed time in milliseconds
+    pub elapsed_ms: u64,
+    /// Current Q (output) value
+    pub q: bool,
+    /// Preset time PT in milliseconds
+    pub preset_ms: u64,
+}
 pub const REGISTER_COUNT: usize = 16;
 
 /// Virtual machine state — 16 registers + comparison flags + instruction pointer.
@@ -30,6 +44,12 @@ pub struct Vm {
     /// Call stack: pushed on Call (ip→), popped on Ret
     /// ponytail: simple Vec<usize>, frame save/restore in Phase 2
     call_stack: Vec<usize>,
+    /// Timer states indexed by timer index (position in Vec)
+    /// ponytail: simple Vec, max 16 timers (matching register count)
+    timers: Vec<TimerState>,
+    /// Cycle time in milliseconds — set by engine before each cycle
+    /// Used by TimerRun to advance elapsed time
+    cycle_time_ms: u64,
 }
 
 impl Vm {
@@ -41,6 +61,8 @@ impl Vm {
             ip: 0,
             signals: HashMap::new(),
             call_stack: Vec::new(),
+            timers: Vec::new(),
+            cycle_time_ms: 0,
         }
     }
 
@@ -132,6 +154,43 @@ impl Vm {
     /// Return all signal names currently in the table.
     pub fn signal_names(&self) -> Vec<&String> {
         self.signals.keys().collect()
+    }
+
+    /// Set the cycle time before each engine cycle.
+    pub fn set_cycle_time(&mut self, ms: u64) {
+        self.cycle_time_ms = ms;
+    }
+
+    /// Get the current cycle time.
+    pub fn cycle_time(&self) -> u64 {
+        self.cycle_time_ms
+    }
+
+    /// Add a new timer with given preset (returns timer index).
+    pub fn add_timer(&mut self, preset_ms: u64) -> usize {
+        let idx = self.timers.len();
+        self.timers.push(TimerState {
+            in_val: false,
+            elapsed_ms: 0,
+            q: false,
+            preset_ms,
+        });
+        idx
+    }
+
+    /// Get a reference to a timer state.
+    pub fn timer(&self, idx: usize) -> &TimerState {
+        &self.timers[idx]
+    }
+
+    /// Get a mutable reference to a timer state.
+    pub fn timer_mut(&mut self, idx: usize) -> &mut TimerState {
+        &mut self.timers[idx]
+    }
+
+    /// Number of timers allocated.
+    pub fn timer_count(&self) -> usize {
+        self.timers.len()
     }
 }
 

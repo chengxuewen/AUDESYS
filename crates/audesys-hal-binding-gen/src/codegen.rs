@@ -121,6 +121,7 @@ impl Codegen {
             VarType::LReal => HalValue::F64(0.0),
             VarType::String => HalValue::String(String::new()),
             VarType::Array => HalValue::Array { element_type: HalPinType::S32, data: vec![] }, // ponytail: default S32
+            VarType::Ton => HalValue::U32(0), // ponytail: Ton stores timer index
         }
     }
 
@@ -138,6 +139,7 @@ impl Codegen {
             VarType::LReal => HalPinType::F64,
             VarType::String => HalPinType::String,
             VarType::Array => HalPinType::Blob,
+            VarType::Ton => HalPinType::U32,
         }
     }
 
@@ -217,6 +219,12 @@ impl Codegen {
                 self.compile_expr(index, idx_reg)?;
                 self.emit(Instruction::load_index(dest_reg, array_reg, idx_reg));
                 self.free_scratch(idx_reg);
+            }
+            Expr::FieldAccess { name, field } => {
+                let reg = self.var_reg(name)?;
+                let et_dest = self.alloc_scratch();
+                self.emit(Instruction::read_timer(reg, dest_reg, et_dest));
+                self.free_scratch(et_dest);
             }
         }
         Ok(dest_reg)
@@ -514,6 +522,15 @@ impl Codegen {
                 .copied()
                 .map(|vt| match vt {
                     VarType::Array => VarType::Int, // ponytail: default element type
+                    _ => vt,
+                })
+                .ok_or_else(|| CodegenError::UndefinedVariable(name.clone())),
+            Expr::FieldAccess { name, .. } => self
+                .var_types
+                .get(name)
+                .copied()
+                .map(|vt| match vt {
+                    VarType::Ton => VarType::Bool, // ponytail: .Q returns Bool
                     _ => vt,
                 })
                 .ok_or_else(|| CodegenError::UndefinedVariable(name.clone())),
