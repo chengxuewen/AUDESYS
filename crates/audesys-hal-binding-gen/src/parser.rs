@@ -80,6 +80,7 @@ pub enum Statement {
     While { condition: Expr, body: Vec<Statement> },
     /// For loop: variable, start, end, optional step, body
     For { variable: String, start: Expr, end: Expr, step: Option<Expr>, body: Vec<Statement> },
+    Case { variable: String, cases: Vec<(Vec<i64>, Vec<Statement>)>, else_body: Vec<Statement> },
 }
 
 /// A variable declaration.
@@ -238,6 +239,7 @@ fn parse_statement(p: &mut Parser) -> Result<Statement, ParseError> {
         Some(Token::If) => parse_if(p),
         Some(Token::While) => parse_while(p),
         Some(Token::For) => parse_for(p),
+        Some(Token::Case) => parse_case(p),
         _ => parse_assignment(p),
     }
 }
@@ -322,6 +324,80 @@ fn parse_for(p: &mut Parser) -> Result<Statement, ParseError> {
     Ok(Statement::For { variable, start, end, step, body })
 }
 
+fn parse_case(p: &mut Parser) -> Result<Statement, ParseError> {
+    // CASE variable OF
+    //   value, value, ... : body;
+    //   ...
+    // [ELSE else_body;]
+    // END_CASE;
+    p.expect(Token::Case)?;
+    let (variable, _line, _col) = p.expect_ident()?;
+    p.expect(Token::Of)?;
+
+    let mut cases: Vec<(Vec<i64>, Vec<Statement>)> = Vec::new();
+    loop {
+        let next = p.peek_token();
+        if next == Some(&Token::EndCase) || next == Some(&Token::Else) {
+            break;
+        }
+        let values = parse_case_values(p)?;
+        let mut body = Vec::new();
+        while {
+            let tok = p.peek_token();
+            tok != Some(&Token::Else)
+                && tok != Some(&Token::EndCase)
+                && !matches!(tok, Some(Token::IntegerLiteral(_)))
+        } {
+            body.push(parse_statement(p)?);
+        }
+        cases.push((values, body));
+    }
+
+    let else_body = if p.peek_token() == Some(&Token::Else) {
+        p.expect(Token::Else)?;
+        parse_statements_until(p, &Token::EndCase)?
+    } else {
+        Vec::new()
+    };
+
+    p.expect(Token::EndCase)?;
+    p.expect(Token::Semicolon)?;
+
+    Ok(Statement::Case { variable, cases, else_body })
+}
+
+fn parse_case_values(p: &mut Parser) -> Result<Vec<i64>, ParseError> {
+    let mut values = Vec::new();
+    loop {
+        match p.advance() {
+            Some(TokenInfo { token: Token::IntegerLiteral(n), .. }) => values.push(*n),
+            Some(ti) => {
+                return Err(ParseError::UnexpectedToken(
+                    ti.token.clone(), ti.span.line, ti.span.col
+                ));
+            }
+            None => return Err(ParseError::UnexpectedEof),
+        }
+        match p.peek_token() {
+            Some(Token::Colon) => {
+                p.advance();
+                return Ok(values);
+            }
+            Some(Token::Comma) => {
+                p.advance();
+                // continue to next value
+            }
+            _ => {
+                return Err(ParseError::ExpectedToken(
+                    Token::Colon,
+                    p.current().map(|t| t.span.line).unwrap_or(0),
+                    p.current().map(|t| t.span.col).unwrap_or(0),
+                ));
+            }
+        }
+    }
+}
+
 // ── Expression parsing with precedence climbing ──
 
 /// Precedence levels (higher = binds tighter).
@@ -363,20 +439,18 @@ fn parse_expr_prec(p: &mut Parser, min_prec: u8) -> Result<Expr, ParseError> {
     let mut left = parse_unary(p)?;
 
     loop {
-        let op = match p.peek_token() {
-            Some(tok) => token_to_binop(tok),
-            None => break,
-        };
-        match op {
-            Some(op) if precedence(&op) >= min_prec => {
-                p.advance(); // consume operator
-                let next_prec = precedence(&op) + 1;
-                let right = parse_expr_prec(p, next_prec)?;
-                left = Expr::binary(left, op, right);
-            }
-            _ => break,
+        let Some(tok) = p.peek_token() else { break };
+        let Some(op) = token_to_binop(tok) else { break };
+        if precedence(&op) >= min_prec {
+            p.advance();
+            let next_prec = precedence(&op) + 1;
+            let right = parse_expr_prec(p, next_prec)?;
+            left = Expr::binary(left, op, right);
+        } else {
+            break;
         }
     }
+
 
     Ok(left)
 }

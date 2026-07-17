@@ -20,6 +20,9 @@ pub enum Token {
     To,
     By,
     EndFor,
+    Case,
+    Of,
+    EndCase,
 
     And,
     Or,
@@ -54,6 +57,7 @@ pub enum Token {
     Colon,     // :
     LParen,    // (
     RParen,    // )
+    Comma,     // ,
 
     // Literals and identifiers
     Identifier(String),
@@ -221,6 +225,11 @@ pub fn tokenize(source: &str) -> Result<Vec<TokenInfo>, LexError> {
                 pos += 1;
                 col += 1;
             }
+            ',' => {
+                tokens.push(TokenInfo::new(Token::Comma, start_line, start_col));
+                pos += 1;
+                col += 1;
+            }
             // Identifiers and keywords
             c if c.is_alphabetic() || c == '_' => {
                 let mut ident = String::new();
@@ -286,6 +295,9 @@ fn match_keyword(s: &str) -> Token {
         "TO" => Token::To,
         "BY" => Token::By,
         "END_FOR" => Token::EndFor,
+        "CASE" => Token::Case,
+        "OF" => Token::Of,
+        "END_CASE" => Token::EndCase,
         "AND" => Token::And,
         "OR" => Token::Or,
         "NOT" => Token::Not,
