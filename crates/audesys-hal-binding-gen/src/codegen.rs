@@ -163,6 +163,11 @@ impl Codegen {
             Statement::Assign { name, value } => {
                 let dest_reg = self.var_reg(name)?;
                 self.compile_expr(value, dest_reg)?;
+                // ponytail: store result as named signal; full binding resolution in Phase 2
+                self.emit(Instruction::new(
+                    Opcode::Store,
+                    vec![Operand::SignalName(name.clone()), Operand::Register(dest_reg)],
+                ));
             }
             Statement::If { condition, then_body, else_body } => {
                 let (else_jumps, end_jumps) = self.compile_condition(condition)?;
