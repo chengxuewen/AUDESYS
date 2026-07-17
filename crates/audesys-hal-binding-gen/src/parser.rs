@@ -4,7 +4,7 @@
 use crate::lexer::{Token, TokenInfo};
 
 /// Types supported in variable declarations.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum VarType {
     Int,  // → S32
     Real, // → F32

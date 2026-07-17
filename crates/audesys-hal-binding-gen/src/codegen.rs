@@ -7,7 +7,7 @@ use audesys_hal_ir::{
     types::{Direction, Operand, SignalBinding},
 };
 
-use crate::parser::{BinOp, Expr, Program, Statement, UnaryOp, Variable};
+use crate::parser::{BinOp, Expr, Program, Statement, UnaryOp, VarType, Variable};
 
 /// r14 and r15 are scratch, r13 is overflow scratch for nested expressions.
 const SCRATCH0: u8 = 14;
@@ -21,13 +21,14 @@ pub enum CodegenError {
     UndefinedVariable(String),
     #[error("too many variables (max {0})")]
     TooManyVariables(usize),
+    #[error("type mismatch: expected {expected:?}, got {got:?} at '{context}'")]
+    TypeMismatch { expected: VarType, got: VarType, context: String },
 }
-
 struct Codegen {
     registers: HashMap<String, u8>,
+    var_types: HashMap<String, VarType>,
     instructions: Vec<Instruction>,
     scratch_avail: [bool; 3],
-    // ponytail: stack of loop exit labels for EXIT; full label stack if needed for nested loops
     loop_exits: Vec<Vec<u32>>,
 }
 
@@ -37,11 +38,14 @@ impl Codegen {
             return Err(CodegenError::TooManyVariables(MAX_VAR_REGS as usize));
         }
         let mut registers = HashMap::new();
+        let mut var_types = HashMap::new();
         for (i, var) in variables.iter().enumerate() {
             registers.insert(var.name.clone(), i as u8);
+            var_types.insert(var.name.clone(), var.var_type);
         }
         Ok(Codegen {
             registers,
+            var_types,
             instructions: Vec::new(),
             scratch_avail: [true, true, true],
             loop_exits: Vec::new(),
@@ -198,15 +202,16 @@ impl Codegen {
     fn compile_stmt(&mut self, stmt: &Statement) -> Result<(), CodegenError> {
         match stmt {
             Statement::Assign { name, value } => {
+                self.check_assign(name, value)?;
                 let dest_reg = self.var_reg(name)?;
                 self.compile_expr(value, dest_reg)?;
-                // ponytail: store result as named signal; full binding resolution in Phase 2
                 self.emit(Instruction::new(
                     Opcode::Store,
                     vec![Operand::SignalName(name.clone()), Operand::Register(dest_reg)],
                 ));
             }
             Statement::If { condition, then_body, else_body } => {
+                self.check_condition(condition, "IF")?;
                 let (else_jumps, end_jumps) = self.compile_condition(condition)?;
                 // else_jumps: JumpIf when condition is TRUE
                 // TRUE → jump to then_body; FALSE → fall through to else
@@ -236,6 +241,7 @@ impl Codegen {
                 self.patch_jump(to_end, end_label);
             }
             Statement::While { condition, body } => {
+                self.check_condition(condition, "WHILE")?;
                 self.push_loop();
                 let loop_start = self.current_idx();
                 let (else_jumps, _end_jumps) = self.compile_condition(condition)?;
@@ -253,6 +259,18 @@ impl Codegen {
                 self.pop_loop();
             }
             Statement::For { variable, start, end, step, body } => {
+                let vt = self
+                    .var_types
+                    .get(variable.as_str())
+                    .copied()
+                    .ok_or_else(|| CodegenError::UndefinedVariable(variable.clone()))?;
+                if !matches!(vt, VarType::Int | VarType::DInt) {
+                    return Err(CodegenError::TypeMismatch {
+                        expected: VarType::Int,
+                        got: vt,
+                        context: format!("FOR variable '{variable}'"),
+                    });
+                }
                 let var_reg = self.var_reg(variable)?;
                 self.compile_expr(start, var_reg)?;
                 self.push_loop();
@@ -279,6 +297,7 @@ impl Codegen {
                 self.pop_loop();
             }
             Statement::Repeat { body, condition } => {
+                self.check_condition(condition, "REPEAT")?;
                 self.push_loop();
                 let loop_start = self.current_idx();
                 for stmt in body {
@@ -416,6 +435,108 @@ impl Codegen {
                 self.free_scratch(t);
                 else_jumps.push(self.emit(Instruction::jump_if(0)));
             }
+        }
+        Ok(())
+    }
+
+    fn type_of_expr(&self, expr: &Expr) -> Result<VarType, CodegenError> {
+        match expr {
+            Expr::IntLiteral(_) => Ok(VarType::Int),
+            Expr::RealLiteral(_) => Ok(VarType::Real),
+            Expr::BoolLiteral(_) => Ok(VarType::Bool),
+            Expr::Variable(name) => self
+                .var_types
+                .get(name)
+                .copied()
+                .ok_or_else(|| CodegenError::UndefinedVariable(name.clone())),
+            Expr::Binary(left, op, right) => {
+                let lt = self.type_of_expr(left)?;
+                let rt = self.type_of_expr(right)?;
+                if is_cmp_op(*op) || matches!(op, BinOp::And | BinOp::Or | BinOp::Xor) {
+                    // comparisons → Bool result; logic → both Bool
+                    let is_logic = matches!(op, BinOp::And | BinOp::Or | BinOp::Xor);
+                    #[allow(clippy::collapsible_if)]
+                    if is_logic {
+                        if lt != VarType::Bool || rt != VarType::Bool {
+                            return Err(CodegenError::TypeMismatch {
+                                expected: VarType::Bool,
+                                got: if lt != VarType::Bool { lt } else { rt },
+                                context: format!("logic '{:?}'", op),
+                            });
+                        }
+                    }
+                    Ok(VarType::Bool)
+                } else {
+                    // arithmetic: operands must match
+                    if lt != rt {
+                        return Err(CodegenError::TypeMismatch {
+                            expected: lt,
+                            got: rt,
+                            context: format!("binary '{:?}'", op),
+                        });
+                    }
+                    Ok(lt)
+                }
+            }
+            Expr::Unary(UnaryOp::Neg, inner) => {
+                let t = self.type_of_expr(inner)?;
+                if !matches!(t, VarType::Int | VarType::Real | VarType::DInt | VarType::LReal) {
+                    return Err(CodegenError::TypeMismatch {
+                        expected: VarType::Int,
+                        got: t,
+                        context: "negation".into(),
+                    });
+                }
+                Ok(t)
+            }
+            Expr::Unary(UnaryOp::Not, inner) => {
+                let t = self.type_of_expr(inner)?;
+                // ponytail: NOT is bitwise in IEC 61131-3, valid on integers and bool
+                if !matches!(
+                    t,
+                    VarType::Bool
+                        | VarType::Int
+                        | VarType::DInt
+                        | VarType::Byte
+                        | VarType::Word
+                        | VarType::DWord
+                ) {
+                    return Err(CodegenError::TypeMismatch {
+                        expected: VarType::Int,
+                        got: t,
+                        context: "NOT".into(),
+                    });
+                }
+                Ok(t)
+            }
+        }
+    }
+
+    fn check_assign(&self, name: &str, value: &Expr) -> Result<(), CodegenError> {
+        let expected = self
+            .var_types
+            .get(name)
+            .copied()
+            .ok_or_else(|| CodegenError::UndefinedVariable(name.to_string()))?;
+        let got = self.type_of_expr(value)?;
+        if expected != got {
+            return Err(CodegenError::TypeMismatch {
+                expected,
+                got,
+                context: format!("assign to '{name}'"),
+            });
+        }
+        Ok(())
+    }
+
+    fn check_condition(&self, expr: &Expr, context: &str) -> Result<(), CodegenError> {
+        let t = self.type_of_expr(expr)?;
+        if t != VarType::Bool {
+            return Err(CodegenError::TypeMismatch {
+                expected: VarType::Bool,
+                got: t,
+                context: context.into(),
+            });
         }
         Ok(())
     }
