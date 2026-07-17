@@ -46,6 +46,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-controller-client"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-core",
+ "audesys-runtime-common",
+ "hmac",
+ "rand",
+ "sha2",
+]
+
+[[package]]
 name = "audesys-hal-binding-gen"
 version = "0.1.0"
 dependencies = [

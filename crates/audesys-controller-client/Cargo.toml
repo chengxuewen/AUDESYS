@@ -1,0 +1,14 @@
+[package]
+name = "audesys-controller-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AUDESYS Controller IPC client — sync UDS client for Controller wire protocol"
+
+[dependencies]
+audesys-hal-core = { path = "../audesys-hal-core" }
+audesys-runtime-common = { path = "../audesys-runtime-common" }
+hmac = "0.12"
+sha2 = "0.10"
+rand = "0.8"
