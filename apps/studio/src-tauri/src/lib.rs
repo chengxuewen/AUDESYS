@@ -17,6 +17,10 @@ use audesys_ld_compiler::ld_compile;
 use audesys_runtime_common::types::Role;
 use serde::Serialize;
 use std::sync::Mutex;
+use audesys_controller::SimulationHarness;
+use audesys_hal_core::value::HalValue;
+use audesys_hal_ir::Executor;
+use audesys_hal_ir::program::HalProgram;
 pub mod project;
 use crate::project::{ProjectConfig, ProjectInfo};
 /// Signal state returned to the frontend after execution.
@@ -30,6 +34,11 @@ struct SignalState {
 /// Shared controller client state for the debug panel.
 struct ControllerState {
     client: Mutex<Option<ControllerClient>>,
+}
+
+/// Shared simulator state for offline simulation panel.
+struct SimState {
+    harness: Mutex<Option<SimulationHarness>>,
 }
 
 /// Compile an IEC 61131-3 Structured Text source into a HAL IR program (JSON).
@@ -279,6 +288,80 @@ fn create_project(name: String, dir: String) -> Result<String, String> {
     Ok(project_file)
 }
 
+/// Create a new simulation environment with the given cycle interval (ms).
+#[tauri::command]
+fn sim_create(state: tauri::State<'_, SimState>, cycle_ms: u64) -> Result<String, String> {
+    let mut guard = state.harness.lock().map_err(|e| format!("lock: {e}"))?;
+    *guard = Some(SimulationHarness::new(cycle_ms));
+    Ok("created".into())
+}
+
+/// Destroy the current simulation environment.
+#[tauri::command]
+fn sim_destroy(state: tauri::State<'_, SimState>) -> Result<String, String> {
+    let mut guard = state.harness.lock().map_err(|e| format!("lock: {e}"))?;
+    *guard = None;
+    Ok("destroyed".into())
+}
+
+/// Inject a signal value into the simulation.
+/// `value_str` uses HalValue Debug format: "Bool(true)", "U32(42)", "F32(3.14)".
+#[tauri::command]
+fn sim_set_signal(state: tauri::State<'_, SimState>, name: String, value_str: String) -> Result<String, String> {
+    let guard = state.harness.lock().map_err(|e| format!("lock: {e}"))?;
+    let sim = guard.as_ref().ok_or("no simulation")?;
+    let value = parse_hal_value_str(&value_str).ok_or_else(|| format!("invalid value: {value_str}"))?;
+    sim.set_signal(&name, value);
+    Ok("ok".into())
+}
+
+/// Get all signal states as a JSON array.
+#[tauri::command]
+fn sim_get_signals(state: tauri::State<'_, SimState>) -> Result<String, String> {
+    let guard = state.harness.lock().map_err(|e| format!("lock: {e}"))?;
+    let sim = guard.as_ref().ok_or("no simulation")?;
+    let snapshot = sim.signal_snapshot();
+    serde_json::to_string(&snapshot).map_err(|e| e.to_string())
+}
+
+/// Step exactly one simulation cycle.
+#[tauri::command]
+fn sim_step(state: tauri::State<'_, SimState>) -> Result<String, String> {
+    let guard = state.harness.lock().map_err(|e| format!("lock: {e}"))?;
+    let sim = guard.as_ref().ok_or("no simulation")?;
+    sim.step_cycle();
+    Ok("stepped".into())
+}
+
+/// Run N simulation cycles (blocks until complete).
+#[tauri::command]
+fn sim_run(state: tauri::State<'_, SimState>, cycles: u64) -> Result<String, String> {
+    let mut guard = state.harness.lock().map_err(|e| format!("lock: {e}"))?;
+    let sim = guard.as_mut().ok_or("no simulation")?;
+    sim.run_cycles(cycles);
+    Ok("done".into())
+}
+
+/// Parse a HalValue from Debug format string (e.g., "Bool(true)", "U32(42)", "F32(3.14)").
+fn parse_hal_value_str(s: &str) -> Option<HalValue> {
+    let s = s.trim();
+    if let Some(inner) = s.strip_prefix("Bool(").and_then(|r| r.strip_suffix(')')) {
+        return Some(HalValue::Bool(inner == "true"));
+    }
+    if let Some(inner) = s.strip_prefix("U32(").and_then(|r| r.strip_suffix(')')) {
+        return inner.parse().ok().map(HalValue::U32);
+    }
+    if let Some(inner) = s.strip_prefix("S32(").and_then(|r| r.strip_suffix(')')) {
+        return inner.parse().ok().map(HalValue::S32);
+    }
+    if let Some(inner) = s.strip_prefix("F32(").and_then(|r| r.strip_suffix(')')) {
+        return inner.parse().ok().map(HalValue::F32);
+    }
+    if let Some(inner) = s.strip_prefix("F64(").and_then(|r| r.strip_suffix(')')) {
+        return inner.parse().ok().map(HalValue::F64);
+    }
+    None
+}
 /// List .st files in the project source directory.
 #[tauri::command]
 fn list_project_files(project_path: String) -> Result<Vec<String>, String> {
@@ -305,12 +388,16 @@ fn list_project_files(project_path: String) -> Result<Vec<String>, String> {
 fn read_project_file(file_path: String) -> Result<String, String> {
     std::fs::read_to_string(&file_path).map_err(|e| format!("read: {e}"))
 }
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(ControllerState {
             client: Mutex::new(None),
+        })
+        .manage(SimState {
+            harness: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             compile_st,
@@ -336,6 +423,12 @@ pub fn run() {
             create_project,
             list_project_files,
             read_project_file,
+            sim_create,
+            sim_destroy,
+            sim_set_signal,
+            sim_get_signals,
+            sim_step,
+            sim_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

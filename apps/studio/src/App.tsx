@@ -14,6 +14,7 @@ import ErrorPanel, { type PanelError } from "./components/ErrorPanel";
 import "./App.css";
 import FbdEditor from "./components/FbdEditor";
 import SfcEditor from "./components/SfcEditor";
+import SimulatorPanel from "./components/SimulatorPanel";
 
 interface SignalState {
   name: string;
@@ -306,6 +307,7 @@ export default function App() {
           <DebugPanel />
           <SignalWatchPanel />
           <ObservablePanel />
+          <SimulatorPanel />
         </div>
       </div>
 
