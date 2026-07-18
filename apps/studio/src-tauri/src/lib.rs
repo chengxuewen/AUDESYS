@@ -16,6 +16,8 @@ use audesys_hal_ir::{program::HalProgram, Executor};
 use audesys_runtime_common::types::Role;
 use serde::Serialize;
 use std::sync::Mutex;
+pub mod project;
+use crate::project::{ProjectConfig, ProjectInfo};
 /// Signal state returned to the frontend after execution.
 #[derive(Serialize)]
 struct SignalState {
@@ -204,7 +206,6 @@ fn controller_get_debug_state(
     let mut guard = state.client.lock().map_err(|e| format!("lock: {e}"))?;
     guard.as_mut().ok_or("not connected")?.debug_state()
 }
-}
 
 /// Fetch Prometheus metrics from the Controller's HTTP /metrics endpoint.
 #[tauri::command]
@@ -231,6 +232,63 @@ fn controller_signal_snapshot(
     Ok(signals.into_iter().map(|(name, val)| (name, format!("{val:?}"))).collect())
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+
+/// Open a project by reading its .audesys-project.yaml file.
+#[tauri::command]
+fn open_project(project_path: String) -> Result<ProjectInfo, String> {
+    let config = ProjectConfig::from_file(&project_path)?;
+    Ok(config.info(&project_path))
+}
+
+/// Create a new engineering project with a default entry file.
+#[tauri::command]
+fn create_project(name: String, dir: String) -> Result<String, String> {
+    use std::fs;
+    fs::create_dir_all(&dir).map_err(|e| format!("mkdir: {e}"))?;
+    let config = ProjectConfig::Engineering(crate::project::EngineeringProject {
+        name: name.clone(),
+        version: "0.1.0".into(),
+        target: None,
+        source: crate::project::SourceConfig {
+            entry: "src/main.st".into(),
+            files: vec![],
+        },
+    });
+    let project_file = format!("{dir}/{name}.audesys-project.yaml");
+    // Create src dir and default entry file
+    let src_dir = format!("{dir}/src");
+    fs::create_dir_all(&src_dir).map_err(|e| format!("mkdir src: {e}"))?;
+    fs::write(format!("{src_dir}/main.st"), "PROGRAM main\nEND_PROGRAM").map_err(|e| format!("write: {e}"))?;
+    config.to_file(&project_file)?;
+    Ok(project_file)
+}
+
+/// List .st files in the project source directory.
+#[tauri::command]
+fn list_project_files(project_path: String) -> Result<Vec<String>, String> {
+    use std::fs;
+    let base = std::path::Path::new(&project_path).parent().unwrap_or(std::path::Path::new("."));
+    let src_dir = base.join("src");
+    let mut files = Vec::new();
+    if src_dir.exists() {
+        for entry in fs::read_dir(&src_dir).map_err(|e| format!("read_dir: {e}"))? {
+            let entry = entry.map_err(|e| format!("entry: {e}"))?;
+            if entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.ends_with(".st") {
+                    files.push(entry.path().to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    Ok(files)
+}
+
+/// Read a project source file.
+#[tauri::command]
+fn read_project_file(file_path: String) -> Result<String, String> {
+    std::fs::read_to_string(&file_path).map_err(|e| format!("read: {e}"))
+}
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -256,6 +314,10 @@ pub fn run() {
             controller_get_debug_state,
             controller_signal_snapshot,
             fetch_controller_metrics,
+            open_project,
+            create_project,
+            list_project_files,
+            read_project_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

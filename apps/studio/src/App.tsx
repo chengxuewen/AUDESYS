@@ -7,6 +7,7 @@ import FileOperations from "./components/FileOperations";
 import DebugPanel from "./components/DebugPanel";
 import SignalWatchPanel from "./components/SignalWatchPanel";
 import ObservablePanel from "./components/ObservablePanel";
+import ProjectTree from "./components/ProjectTree";
 import StatusBar, { type CompileStatus } from "./components/StatusBar";
 import ErrorPanel, { type PanelError } from "./components/ErrorPanel";
 import "./App.css";
@@ -216,6 +217,12 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      <ProjectTree
+        onFileOpen={(f) => { setSource(f.content); setCurrentFile(f.path); }}
+        activeFile={currentFile}
+      />
+
 
       {/* Main split pane */}
       <div className="app-main">
