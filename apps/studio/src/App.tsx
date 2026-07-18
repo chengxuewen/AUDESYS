@@ -20,6 +20,7 @@ interface SignalState {
 
 const DEFAULT_SOURCE =
   "PROGRAM test\nVAR\n  x : INT;\n  y : INT;\nEND_VAR\nx := 42;\ny := x + 8;\nEND_PROGRAM";
+const DEFAULT_IL = "LD 42\nST x";
 
 /** Parse compiler error string into structured PanelError array. */
 function parseErrors(errorText: string): PanelError[] {
@@ -95,6 +96,7 @@ export default function App() {
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
+  const [langMode, setLangMode] = useState<"st" | "il">("st");
   const editorRef = useRef<CodeEditorHandle>(null);
 
   const handleCompileRun = useCallback(async () => {
@@ -103,7 +105,9 @@ export default function App() {
     setSignals([]);
 
     try {
-      const programJson: string = await invoke("compile_st", { source });
+      const programJson: string = langMode === "st"
+        ? await invoke("compile_st", { source })
+        : await invoke("compile_il", { source });
       const result: string = await invoke("run_program", {
         programJson,
         cycleMs: 10,
@@ -121,7 +125,7 @@ export default function App() {
       const diags = toEditorDiagnostics(parsedErrors, source);
       editorRef.current?.setDiagnostics(diags);
     }
-  }, [source]);
+  }, [source, langMode]);
 
   const handleNew = useCallback(() => {
     setSource("");
@@ -215,7 +219,13 @@ export default function App() {
           >
             {compileStatus === "compiling" ? "Compiling..." : "Compile & Run"}
           </button>
-        </div>
+          <button
+            className="app-btn"
+            onClick={() => setLangMode(l => l === "st" ? "il" : "st")}
+            style={{ marginLeft: "8px", fontSize: "12px", fontFamily: "monospace" }}
+          >
+            {langMode.toUpperCase()}
+          </button>
       </div>
 
       <ProjectTree

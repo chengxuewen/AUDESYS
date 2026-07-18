@@ -38,6 +38,13 @@ fn compile_st(source: String) -> Result<String, String> {
     serde_json::to_string(&program).map_err(|e| e.to_string())
 }
 
+/// Compile an IEC 61131-3 IL (Instruction List) source into HAL IR.
+#[tauri::command]
+fn compile_il(source: String) -> Result<String, String> {
+    let program = il_compile(&source).map_err(|e| e.to_string())?;
+    serde_json::to_string(&program).map_err(|e| e.to_string())
+}
+
 /// Run a compiled HalProgram on the register VM and return signal states.
 ///
 /// `cycle_ms` is reserved for Phase 2 (multi-cycle execution); currently ignored.
@@ -298,6 +305,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             compile_st,
+            compile_il,
+            run_program,
             run_program,
             deploy_program,
             load_hal_config,
