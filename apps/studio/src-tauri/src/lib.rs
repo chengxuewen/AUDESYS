@@ -204,7 +204,19 @@ fn controller_get_debug_state(
     let mut guard = state.client.lock().map_err(|e| format!("lock: {e}"))?;
     guard.as_mut().ok_or("not connected")?.debug_state()
 }
+}
 
+/// Snapshot all signals from the Controller. Returns Vec of (name, value) pairs.
+#[tauri::command]
+fn controller_signal_snapshot(
+    state: tauri::State<'_, ControllerState>,
+    pattern: String,
+) -> Result<Vec<(String, String)>, String> {
+    let mut guard = state.client.lock().map_err(|e| format!("lock: {e}"))?;
+    let client = guard.as_mut().ok_or("not connected")?;
+    let signals = client.signal_snapshot(&pattern).map_err(|e| format!("snapshot: {e}"))?;
+    Ok(signals.into_iter().map(|(name, val)| (name, format!("{val:?}"))).collect())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -229,6 +241,8 @@ pub fn run() {
             controller_get_breakpoints,
             controller_get_registers,
             controller_get_debug_state,
+            controller_signal_snapshot,
+        ])
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -5,6 +5,7 @@ import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import CodeEditor, { type CodeEditorHandle, type EditorDiagnostic } from "./components/CodeEditor";
 import FileOperations from "./components/FileOperations";
 import DebugPanel from "./components/DebugPanel";
+import SignalWatchPanel from "./components/SignalWatchPanel";
 import StatusBar, { type CompileStatus } from "./components/StatusBar";
 import ErrorPanel, { type PanelError } from "./components/ErrorPanel";
 import "./App.css";
@@ -263,7 +264,7 @@ export default function App() {
             </div>
           )}
           <DebugPanel />
-        </div>
+          <SignalWatchPanel />
       </div>
 
       {/* Error Panel */}
