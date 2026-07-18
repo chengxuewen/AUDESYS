@@ -3,7 +3,7 @@
 //! Tests exercise: ST compile → deploy → signal injection → debug → verify.
 //! Uses InprocMiddleware (no real hardware or TCP/UDS).
 
-use audesys_controller::simulation::SimulationHarness;
+use audesys_controller::SimulationHarness;
 use audesys_hal_core::{HalPinType, HalValue};
 use audesys_controller::WriteStrategy;
 

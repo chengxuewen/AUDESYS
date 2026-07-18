@@ -12,18 +12,10 @@ use audesys_amw_inproc::{
 use audesys_controller::lifecycle::ProcessState;
 use audesys_controller::{Engine, LifecycleManager};
 
-// ── helpers ──
+mod common;
+use common::build_inproc_stack;
 
-fn build_inproc_stack() -> (Arc<InprocTransport>, InprocMiddleware) {
-    let transport = Arc::new(InprocTransport::new());
-    let signal_reg = transport.signal_registry();
-    let discovery = Arc::new(StaticDiscovery::new(signal_reg));
-    let qos = Arc::new(InprocQoS::new());
-    let audit = Arc::new(InprocAuditLog::new());
-    let mw = InprocMiddleware::new(Arc::clone(&transport), discovery, qos, audit);
-    (transport, mw)
-}
-
+// ── tests ──
 // ── tests ──
 
 #[test]

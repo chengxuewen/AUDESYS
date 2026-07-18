@@ -35,3 +35,4 @@ pub use ipc::IpcServer;
 pub use lifecycle::LifecycleManager;
 pub use metrics::RuntimeMetrics;
 pub use signals::{SignalDef, SignalRegistry, SignalSnapshot, StrategyFilter, WriteStrategy};
+pub use simulation::SimulationHarness;

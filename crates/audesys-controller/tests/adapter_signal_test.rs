@@ -13,16 +13,8 @@ use audesys_controller::{Engine, LifecycleManager, SignalDef, WriteStrategy};
 use audesys_hal_core::{HalPinType, HalTransport, HalValue, Timestamp};
 
 // ── helpers ──
-
-fn build_inproc_stack() -> (Arc<InprocTransport>, InprocMiddleware) {
-    let transport = Arc::new(InprocTransport::new());
-    let signal_reg = transport.signal_registry();
-    let discovery = Arc::new(StaticDiscovery::new(signal_reg));
-    let qos = Arc::new(InprocQoS::new());
-    let audit = Arc::new(InprocAuditLog::new());
-    let mw = InprocMiddleware::new(Arc::clone(&transport), discovery, qos, audit);
-    (transport, mw)
-}
+mod common;
+use common::build_inproc_stack;
 
 // ── tests ──
 

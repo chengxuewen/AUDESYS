@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-#![allow(dead_code)] // ponytail: DAP types used via serde, not directly
 
 // ── DAP JSON-RPC base types ──
 
