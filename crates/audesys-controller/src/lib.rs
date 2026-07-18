@@ -26,6 +26,7 @@ pub mod metrics;
 
 pub mod signals;
 pub mod simulation;
+pub mod virtual_modbus;
 pub use adapter_manager::AdapterManager;
 pub use config::ConfigWatcher;
 pub use config::RuntimeConfig;
@@ -36,3 +37,4 @@ pub use lifecycle::LifecycleManager;
 pub use metrics::RuntimeMetrics;
 pub use signals::{SignalDef, SignalRegistry, SignalSnapshot, StrategyFilter, WriteStrategy};
 pub use simulation::SimulationHarness;
+pub use virtual_modbus::VirtualModbusTcpDevice;
