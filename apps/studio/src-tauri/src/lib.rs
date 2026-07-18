@@ -206,6 +206,19 @@ fn controller_get_debug_state(
 }
 }
 
+/// Fetch Prometheus metrics from the Controller's HTTP /metrics endpoint.
+#[tauri::command]
+fn fetch_controller_metrics(health_port: String) -> Result<String, String> {
+    use std::io::{Read, Write};
+    let addr = format!("127.0.0.1:{health_port}");
+    let mut stream = std::net::TcpStream::connect(&addr).map_err(|e| format!("connect: {e}"))?;
+    let request = "GET /metrics HTTP/1.0\r\nHost: localhost\r\n\r\n";
+    stream.write_all(request.as_bytes()).map_err(|e| format!("write: {e}"))?;
+    let mut response = String::new();
+    stream.read_to_string(&mut response).map_err(|e| format!("read: {e}"))?;
+    Ok(response.split("\r\n\r\n").nth(1).unwrap_or("").to_string())
+}
+
 /// Snapshot all signals from the Controller. Returns Vec of (name, value) pairs.
 #[tauri::command]
 fn controller_signal_snapshot(
@@ -242,7 +255,7 @@ pub fn run() {
             controller_get_registers,
             controller_get_debug_state,
             controller_signal_snapshot,
-        ])
+            fetch_controller_metrics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -6,6 +6,7 @@ import CodeEditor, { type CodeEditorHandle, type EditorDiagnostic } from "./comp
 import FileOperations from "./components/FileOperations";
 import DebugPanel from "./components/DebugPanel";
 import SignalWatchPanel from "./components/SignalWatchPanel";
+import ObservablePanel from "./components/ObservablePanel";
 import StatusBar, { type CompileStatus } from "./components/StatusBar";
 import ErrorPanel, { type PanelError } from "./components/ErrorPanel";
 import "./App.css";
@@ -265,7 +266,8 @@ export default function App() {
           )}
           <DebugPanel />
           <SignalWatchPanel />
-      </div>
+          <ObservablePanel />
+        </div>
 
       {/* Error Panel */}
       <ErrorPanel errors={errors} onErrorClick={handleErrorClick} />
