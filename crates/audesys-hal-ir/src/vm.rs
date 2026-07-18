@@ -56,6 +56,35 @@ pub struct CounterState {
     pub qu: bool,
     pub qd: bool,
 }
+
+/// SR/RS flip-flop kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SrKind {
+    /// SR: Set-dominant — S1=true sets Q1, R=true resets, S1 wins in conflict
+    Sr,
+    /// RS: Reset-dominant — R=true resets Q1, S1=true sets, R wins in conflict
+    Rs,
+}
+
+/// Per-function-block state for SR/RS flip-flops.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SrState {
+    pub kind: SrKind,
+    pub s1: bool,
+    pub r: bool,
+    pub q1: bool,
+    pub q2: bool,
+}
+
+/// Per-function-block state for R_TRIG/F_TRIG edge detectors.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EdgeState {
+    /// 0=R_TRIG, 1=F_TRIG
+    pub kind: u8,
+    pub last_clk: bool,
+    pub q: bool,
+}
+
 pub const REGISTER_COUNT: usize = 16;
 
 /// Virtual machine state — 16 registers + comparison flags + instruction pointer.
@@ -87,7 +116,10 @@ pub struct Vm {
     /// Counter states indexed by counter index
     /// ponytail: simple Vec, max 16 counters (matching register count)
     counters: Vec<CounterState>,
-    /// Cycle time in milliseconds — set by engine before each cycle
+    /// SR/RS flip-flop states indexed by index
+    srs: Vec<SrState>,
+    /// Edge detector states indexed by index
+    edges: Vec<EdgeState>,
     cycle_time_ms: u64,
 }
 
@@ -102,6 +134,8 @@ impl Vm {
             call_stack: Vec::new(),
             timers: Vec::new(),
             counters: Vec::new(),
+            srs: Vec::new(),
+            edges: Vec::new(),
             cycle_time_ms: 0,
         }
     }
@@ -263,6 +297,60 @@ impl Vm {
     /// Number of counters allocated.
     pub fn counter_count(&self) -> usize {
         self.counters.len()
+    }
+
+    /// Add a new SR/RS flip-flop (returns index).
+    pub fn add_sr(&mut self, kind: SrKind) -> usize {
+        let idx = self.srs.len();
+        self.srs.push(SrState {
+            kind,
+            s1: false,
+            r: false,
+            q1: false,
+            q2: false,
+        });
+        idx
+    }
+
+    /// Get a reference to an SR state.
+    pub fn sr(&self, idx: usize) -> &SrState {
+        &self.srs[idx]
+    }
+
+    /// Get a mutable reference to an SR state.
+    pub fn sr_mut(&mut self, idx: usize) -> &mut SrState {
+        &mut self.srs[idx]
+    }
+
+    /// Number of SR/RS flip-flops allocated.
+    pub fn sr_count(&self) -> usize {
+        self.srs.len()
+    }
+
+    /// Add a new edge detector (returns index).
+    pub fn add_edge(&mut self) -> usize {
+        let idx = self.edges.len();
+        self.edges.push(EdgeState {
+            kind: 0,
+            last_clk: false,
+            q: false,
+        });
+        idx
+    }
+
+    /// Get a reference to an edge state.
+    pub fn edge(&self, idx: usize) -> &EdgeState {
+        &self.edges[idx]
+    }
+
+    /// Get a mutable reference to an edge state.
+    pub fn edge_mut(&mut self, idx: usize) -> &mut EdgeState {
+        &mut self.edges[idx]
+    }
+
+    /// Number of edge detectors allocated.
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
     }
 }
 

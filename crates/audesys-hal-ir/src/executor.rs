@@ -255,6 +255,10 @@ impl Executor {
             Opcode::ReadTimer => self.exec_read_timer(&inst.operands),
             Opcode::CounterRun => self.exec_counter_run(&inst.operands),
             Opcode::ReadCounter => self.exec_read_counter(&inst.operands),
+            Opcode::SrRun => self.exec_sr_run(&inst.operands),
+            Opcode::ReadSr => self.exec_read_sr(&inst.operands),
+            Opcode::EdgeRun => self.exec_edge_run(&inst.operands),
+            Opcode::ReadEdge => self.exec_read_edge(&inst.operands),
 
             Opcode::Halt => ExecutorResult::Halted,
         }
@@ -713,6 +717,140 @@ impl Executor {
         // drop counter reference before mutable write_register
         self.vm.write_register(q_dest, HalValue::Bool(q));
         self.vm.write_register(cv_dest, HalValue::U32(cv));
+        ExecutorResult::Continue
+    }
+
+    fn exec_sr_run(&mut self, operands: &[Operand]) -> ExecutorResult {
+        // operands: [Imm(idx), Reg(S1), Reg(R), Imm(kind: 0=SR,1=RS)]
+        if operands.len() < 4 {
+            return ExecutorResult::Continue;
+        }
+        let idx = match &operands[0] {
+            Operand::Immediate(HalValue::U32(i)) => *i as usize,
+            _ => return ExecutorResult::Continue,
+        };
+        let s1 = match &operands[1] {
+            Operand::Register(r) => match self.vm.read_register(*r) {
+                HalValue::Bool(b) => b,
+                _ => false,
+            },
+            _ => false,
+        };
+        let r = match &operands[2] {
+            Operand::Register(reg) => match self.vm.read_register(*reg) {
+                HalValue::Bool(b) => b,
+                _ => false,
+            },
+            _ => false,
+        };
+        let kind_raw = match &operands[3] {
+            Operand::Immediate(HalValue::U32(k)) => *k,
+            _ => 0,
+        };
+        // ponytail: auto-grow
+        while self.vm.sr_count() <= idx {
+            let sk = if kind_raw == 1 { crate::vm::SrKind::Rs } else { crate::vm::SrKind::Sr };
+            self.vm.add_sr(sk);
+        }
+        let state = self.vm.sr_mut(idx);
+        // Update kind each cycle (codegen may re-emit with different kind)
+        state.kind = if kind_raw == 1 { crate::vm::SrKind::Rs } else { crate::vm::SrKind::Sr };
+        match state.kind {
+            crate::vm::SrKind::Sr => {
+                if s1 { state.q1 = true; state.q2 = false; }
+                else if r { state.q1 = false; state.q2 = true; }
+            }
+            crate::vm::SrKind::Rs => {
+                if r { state.q1 = false; state.q2 = true; }
+                else if s1 { state.q1 = true; state.q2 = false; }
+            }
+        }
+        state.s1 = s1;
+        state.r = r;
+        ExecutorResult::Continue
+    }
+
+    fn exec_read_sr(&mut self, operands: &[Operand]) -> ExecutorResult {
+        // operands: [Imm(idx), Reg(Q1_dest), Reg(Q2_dest)]
+        if operands.len() < 3 {
+            return ExecutorResult::Continue;
+        }
+        let idx = match &operands[0] {
+            Operand::Immediate(HalValue::U32(i)) => *i as usize,
+            _ => return ExecutorResult::Continue,
+        };
+        while self.vm.sr_count() <= idx {
+            self.vm.add_sr(crate::vm::SrKind::Sr);
+        }
+        let q1_dest = match &operands[1] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let q2_dest = match &operands[2] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let state = self.vm.sr(idx);
+        let q1 = state.q1;
+        let q2 = state.q2;
+        self.vm.write_register(q1_dest, HalValue::Bool(q1));
+        self.vm.write_register(q2_dest, HalValue::Bool(q2));
+        ExecutorResult::Continue
+    }
+
+    fn exec_edge_run(&mut self, operands: &[Operand]) -> ExecutorResult {
+        // operands: [Imm(idx), Reg(CLK), Imm(kind: 0=R_TRIG,1=F_TRIG)]
+        if operands.len() < 3 {
+            return ExecutorResult::Continue;
+        }
+        let idx = match &operands[0] {
+            Operand::Immediate(HalValue::U32(i)) => *i as usize,
+            _ => return ExecutorResult::Continue,
+        };
+        let clk = match &operands[1] {
+            Operand::Register(r) => match self.vm.read_register(*r) {
+                HalValue::Bool(b) => b,
+                _ => false,
+            },
+            _ => false,
+        };
+        let kind = match &operands[2] {
+            Operand::Immediate(HalValue::U32(k)) => *k as u8,
+            _ => 0,
+        };
+        // ponytail: auto-grow
+        while self.vm.edge_count() <= idx {
+            self.vm.add_edge();
+        }
+        let state = self.vm.edge_mut(idx);
+        state.kind = kind;
+        state.q = match kind {
+            0 => clk && !state.last_clk,   // R_TRIG: rising edge (CLK ∧ ¬last_CLK)
+            1 => !clk && state.last_clk,   // F_TRIG: falling edge (¬CLK ∧ last_CLK)
+            _ => false,
+        };
+        state.last_clk = clk;
+        ExecutorResult::Continue
+    }
+
+    fn exec_read_edge(&mut self, operands: &[Operand]) -> ExecutorResult {
+        // operands: [Imm(idx), Reg(Q_dest)]
+        if operands.len() < 2 {
+            return ExecutorResult::Continue;
+        }
+        let idx = match &operands[0] {
+            Operand::Immediate(HalValue::U32(i)) => *i as usize,
+            _ => return ExecutorResult::Continue,
+        };
+        while self.vm.edge_count() <= idx {
+            self.vm.add_edge();
+        }
+        let q_dest = match &operands[1] {
+            Operand::Register(r) => *r,
+            _ => return ExecutorResult::Continue,
+        };
+        let state = self.vm.edge(idx);
+        self.vm.write_register(q_dest, HalValue::Bool(state.q));
         ExecutorResult::Continue
     }
 

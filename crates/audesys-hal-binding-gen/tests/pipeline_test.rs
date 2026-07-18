@@ -826,4 +826,188 @@ fn test_ctu_counts_up() {
     assert_eq!(executor.vm().read_register(3), HalValue::Bool(true));
 }
 
+// ── Test 53: SR flip-flop (set-dominant) ──
+
+#[test]
+fn test_sr_sets_q1_on_s1() {
+    // SR: S1=true sets Q1, R=true resets, S1 wins in conflict
+    let src = concat!(
+        "PROGRAM test VAR sr1 : SR; s : BOOL; r : BOOL; out : BOOL; END_VAR ",
+        "sr1(s, r); ",
+        "out := sr1.Q1; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+
+    let has_sr_run = program.instructions.iter().any(|i| matches!(i.opcode, audesys_hal_ir::instruction::Opcode::SrRun));
+    assert!(has_sr_run, "Program must contain SrRun instruction");
+
+    let mut executor = Executor::new(program);
+
+    // Cycle 1: S1=true, R=false → Q1=true, Q2=false
+    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
+    executor.vm_mut().write_register(2, HalValue::Bool(false)); // r
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "SR: S1=true should set Q1");
+}
+
+#[test]
+fn test_sr_reset() {
+    // SR: S1=true then R=true resets Q1
+    let src = concat!(
+        "PROGRAM test VAR sr1 : SR; s : BOOL; r : BOOL; out : BOOL; END_VAR ",
+        "sr1(s, r); ",
+        "out := sr1.Q1; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    let mut executor = Executor::new(program);
+
+    // Set it first
+    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
+    executor.vm_mut().write_register(2, HalValue::Bool(false)); // r
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "SR: Q1 should be true after set");
+
+    // Then reset
+    executor.vm_mut().write_register(1, HalValue::Bool(false)); // s
+    executor.vm_mut().write_register(2, HalValue::Bool(true));  // r
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "SR: R=true should clear Q1");
+}
+
+#[test]
+fn test_sr_both_true_s_sets() {
+    // SR: both S1 and R true → S1 wins (set-dominant)
+    let src = concat!(
+        "PROGRAM test VAR sr1 : SR; s : BOOL; r : BOOL; out : BOOL; END_VAR ",
+        "sr1(s, r); ",
+        "out := sr1.Q1; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    let mut executor = Executor::new(program);
+
+    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
+    executor.vm_mut().write_register(2, HalValue::Bool(true));  // r
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "SR: S1 wins when both true");
+}
+
+// ── Test 54: RS flip-flop (reset-dominant) ──
+
+#[test]
+fn test_rs_reset_dominant() {
+    // RS: R=true resets, S1=true sets, R wins in conflict
+    let src = concat!(
+        "PROGRAM test VAR rs1 : RS; s : BOOL; r : BOOL; out : BOOL; END_VAR ",
+        "rs1(s, r); ",
+        "out := rs1.Q1; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+
+    // Set
+    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
+    executor.vm_mut().write_register(2, HalValue::Bool(false)); // r
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "RS: S1=true should set Q1");
+
+    // Reset
+    executor.vm_mut().write_register(1, HalValue::Bool(false)); // s
+    executor.vm_mut().write_register(2, HalValue::Bool(true));  // r
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "RS: R=true should clear Q1");
+
+    // Both true → R wins (reset-dominant)
+    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
+    executor.vm_mut().write_register(2, HalValue::Bool(true));  // r
+    executor.vm_mut().reset_ip();
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "RS: R wins when both true");
+}
+
+// ── Test 55: R_TRIG (rising edge detector) ──
+
+#[test]
+fn test_rtrig_rising_edge() {
+    // R_TRIG: Q=true for ONE cycle on 0→1 transition of CLK
+    let src = concat!(
+        "PROGRAM test VAR trig1 : R_TRIG; clk : BOOL; out : BOOL; END_VAR ",
+        "trig1(clk); ",
+        "out := trig1.Q; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    assert!(program.is_well_formed());
+    let mut executor = Executor::new(program);
+
+    // Cycle 1: CLK=false → Q stays false (no edge)
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "R_TRIG: Q=false when CLK stays low");
+
+    // Cycle 2: CLK=true (rising edge) → Q=true
+    executor.vm_mut().reset_ip();
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "R_TRIG: Q=true on rising edge");
+
+    // Cycle 3: CLK stays true → Q goes false (only one-cycle pulse)
+    executor.vm_mut().reset_ip();
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "R_TRIG: Q=false after rising edge pulse");
+
+    // Cycle 4: CLK=false (falling edge) → Q false (no trigger)
+    executor.vm_mut().reset_ip();
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "R_TRIG: Q ignored falling edge");
+
+    // Cycle 5: CLK=true (another rising edge) → Q=true again
+    executor.vm_mut().reset_ip();
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "R_TRIG: second rising edge triggered");
+}
+
+// ── Test 56: F_TRIG (falling edge detector) ──
+
+#[test]
+fn test_ftrig_falling_edge() {
+    // F_TRIG: Q=true for ONE cycle on 1→0 transition of CLK
+    let src = concat!(
+        "PROGRAM test VAR trig1 : F_TRIG; clk : BOOL; out : BOOL; END_VAR ",
+        "trig1(clk); ",
+        "out := trig1.Q; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation failed");
+    let mut executor = Executor::new(program);
+
+    // Cycle 1: CLK=true → no edge yet, last_clk stored as true
+    executor.vm_mut().write_register(1, HalValue::Bool(true));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "F_TRIG: Q=false when CLK starts high");
+
+    // Cycle 2: CLK=false (falling edge) → Q=true
+    executor.vm_mut().reset_ip();
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "F_TRIG: Q=true on falling edge");
+
+    // Cycle 3: CLK stays false → Q=false
+    executor.vm_mut().reset_ip();
+    executor.vm_mut().write_register(1, HalValue::Bool(false));
+    executor.run_to_halt();
+    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "F_TRIG: Q=false after falling edge pulse");
+}
+
 

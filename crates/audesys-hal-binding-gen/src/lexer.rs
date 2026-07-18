@@ -90,6 +90,10 @@ pub enum Token {
     Ctu,        // IEC 61131-3 CTU counter (up)
     Ctd,        // IEC 61131-3 CTD counter (down)
     Ctud,       // IEC 61131-3 CTUD counter (up-down)
+    Sr,         // IEC 61131-3 SR (set-dominant)
+    Rs,         // IEC 61131-3 RS (reset-dominant)
+    RTrig,      // IEC 61131-3 R_TRIG (rising edge)
+    FTrig,      // IEC 61131-3 F_TRIG (falling edge)
 
     // Literals and identifiers
     Identifier(String),
@@ -392,6 +396,10 @@ fn match_keyword(s: &str) -> Token {
         "CTU" => Token::Ctu,
         "CTD" => Token::Ctd,
         "CTUD" => Token::Ctud,
+        "SR" => Token::Sr,
+        "RS" => Token::Rs,
+        "R_TRIG" => Token::RTrig,
+        "F_TRIG" => Token::FTrig,
         _ => Token::Identifier(s.to_string()),
     }
 }

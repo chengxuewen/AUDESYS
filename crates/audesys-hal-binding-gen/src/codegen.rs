@@ -123,6 +123,7 @@ impl Codegen {
             VarType::Array => HalValue::Array { element_type: HalPinType::S32, data: vec![] }, // ponytail: default S32
             VarType::Ton | VarType::Tof | VarType::Tp => HalValue::U32(0), // ponytail: timer stores index
             VarType::Ctu | VarType::Ctd | VarType::Ctud => HalValue::U32(0), // ponytail: counter stores index
+            VarType::Sr | VarType::Rs | VarType::RTrig | VarType::FTrig => HalValue::U32(0), // ponytail: fb stores index
         }
     }
 
@@ -142,6 +143,7 @@ impl Codegen {
             VarType::Array => HalPinType::Blob,
             VarType::Ton | VarType::Tof | VarType::Tp => HalPinType::U32,
             VarType::Ctu | VarType::Ctd | VarType::Ctud => HalPinType::U32,
+            VarType::Sr | VarType::Rs | VarType::RTrig | VarType::FTrig => HalPinType::U32,
         }
     }
 
@@ -224,9 +226,22 @@ impl Codegen {
             }
             Expr::FieldAccess { name, field } => {
                 let reg = self.var_reg(name)?;
-                let et_dest = self.alloc_scratch();
-                self.emit(Instruction::read_timer(reg, dest_reg, et_dest));
-                self.free_scratch(et_dest);
+                let vt = self.var_types.get(name.as_str()).copied();
+                let is_sr_rs = matches!(vt, Some(VarType::Sr | VarType::Rs));
+                let is_edge = matches!(vt, Some(VarType::RTrig | VarType::FTrig));
+                if is_sr_rs {
+                    // ponytail: emit ReadSr, Q1→dest_reg if field=="Q2" swap
+                    let q1_dest = if field == "Q2" { self.alloc_scratch() } else { dest_reg };
+                    let q2_dest = if field == "Q2" { dest_reg } else { self.alloc_scratch() };
+                    self.emit(Instruction::read_sr(reg, q1_dest, q2_dest));
+                    if field != "Q2" { self.free_scratch(q2_dest); } else { self.free_scratch(q1_dest); }
+                } else if is_edge {
+                    self.emit(Instruction::read_edge(reg, dest_reg));
+                } else {
+                    let et_dest = self.alloc_scratch();
+                    self.emit(Instruction::read_timer(reg, dest_reg, et_dest));
+                    self.free_scratch(et_dest);
+                }
             }
         }
         Ok(dest_reg)
@@ -433,25 +448,24 @@ impl Codegen {
                 }
             }
             Statement::FunCall { name, args } => {
-                // Detect timer calls (TON/TOF/TP)
+                // Detect function block calls
                 let vt = self.var_types.get(name.as_str()).copied();
                 let is_timer = matches!(vt, Some(VarType::Ton | VarType::Tof | VarType::Tp));
                 let is_counter = matches!(vt, Some(VarType::Ctu | VarType::Ctd | VarType::Ctud));
+                let is_sr_rs = matches!(vt, Some(VarType::Sr | VarType::Rs));
+                let is_edge = matches!(vt, Some(VarType::RTrig | VarType::FTrig));
                 if is_timer && args.len() >= 2 {
                     let timer_reg = self.var_reg(name)?;
-                    // Compile IN arg: use Load for simple vars, compile_expr for expressions
                     let in_scratch = self.alloc_scratch();
                     match &args[0] {
                         Expr::Variable(in_name) => {
                             let in_reg = self.var_reg(in_name)?;
-                            // ponytail: use Load instead of Add to avoid Bool+Bool unsupported op
                             self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(in_scratch), Operand::Register(in_reg)]));
                         }
                         _ => {
                             self.compile_expr(&args[0], in_scratch)?;
                         }
                     }
-                    // ponytail: PT must be a literal
                     let pt_ms = match &args[1] {
                         Expr::IntLiteral(n) => *n as u32,
                         _ => 0,
@@ -467,7 +481,6 @@ impl Codegen {
                 } else if is_counter && args.len() >= 2 {
                     let ctr_reg = self.var_reg(name)?;
                     let cu_scratch = self.alloc_scratch();
-                    // CU input — use Load for simple vars
                     match &args[0] {
                         Expr::Variable(in_name) => {
                             let in_reg = self.var_reg(in_name)?;
@@ -477,7 +490,6 @@ impl Codegen {
                             self.compile_expr(&args[0], cu_scratch)?;
                         }
                     }
-                    // CD input — same logic for second arg (or zero if no CD)
                     let cd_scratch = self.alloc_scratch();
                     if args.len() >= 3 {
                         match &args[2] {
@@ -505,6 +517,55 @@ impl Codegen {
                     self.emit(Instruction::counter_run(ctr_reg, cu_scratch, cd_scratch, pv, kind));
                     self.free_scratch(cd_scratch);
                     self.free_scratch(cu_scratch);
+                } else if is_sr_rs && args.len() >= 2 {
+                    let fb_reg = self.var_reg(name)?;
+                    let s1_scratch = self.alloc_scratch();
+                    match &args[0] {
+                        Expr::Variable(in_name) => {
+                            let in_reg = self.var_reg(in_name)?;
+                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(s1_scratch), Operand::Register(in_reg)]));
+                        }
+                        _ => {
+                            self.compile_expr(&args[0], s1_scratch)?;
+                        }
+                    }
+                    let r_scratch = self.alloc_scratch();
+                    match &args[1] {
+                        Expr::Variable(in_name) => {
+                            let in_reg = self.var_reg(in_name)?;
+                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(r_scratch), Operand::Register(in_reg)]));
+                        }
+                        _ => {
+                            self.compile_expr(&args[1], r_scratch)?;
+                        }
+                    }
+                    let kind: u8 = match vt.unwrap() {
+                        VarType::Sr => 0,
+                        VarType::Rs => 1,
+                        _ => unreachable!(),
+                    };
+                    self.emit(Instruction::sr_run(fb_reg, s1_scratch, r_scratch, kind));
+                    self.free_scratch(r_scratch);
+                    self.free_scratch(s1_scratch);
+                } else if is_edge && !args.is_empty() {
+                    let fb_reg = self.var_reg(name)?;
+                    let clk_scratch = self.alloc_scratch();
+                    match &args[0] {
+                        Expr::Variable(in_name) => {
+                            let in_reg = self.var_reg(in_name)?;
+                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(clk_scratch), Operand::Register(in_reg)]));
+                        }
+                        _ => {
+                            self.compile_expr(&args[0], clk_scratch)?;
+                        }
+                    }
+                    let kind: u8 = match vt.unwrap() {
+                        VarType::RTrig => 0,
+                        VarType::FTrig => 1,
+                        _ => unreachable!(),
+                    };
+                    self.emit(Instruction::edge_run(fb_reg, clk_scratch, kind));
+                    self.free_scratch(clk_scratch);
                 } else {
                     // Generic FunCall
                     for (i, arg) in args.iter().enumerate() {
@@ -605,6 +666,7 @@ impl Codegen {
                 .map(|vt| match vt {
                     VarType::Ton | VarType::Tof | VarType::Tp => VarType::Bool, // ponytail: .Q returns Bool
                     VarType::Ctu | VarType::Ctd | VarType::Ctud => VarType::Bool, // ponytail: .Q returns Bool
+                    VarType::Sr | VarType::Rs | VarType::RTrig | VarType::FTrig => VarType::Bool, // ponytail: .Q1/.Q returns Bool
                     _ => vt,
                 })
                 .ok_or_else(|| CodegenError::UndefinedVariable(name.clone())),

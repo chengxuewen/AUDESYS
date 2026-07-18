@@ -32,6 +32,10 @@ pub enum VarType {
     Ctu,    // IEC 61131-3 CTU counter (up)
     Ctd,    // IEC 61131-3 CTD counter (down)
     Ctud,   // IEC 61131-3 CTUD counter (up-down)
+    Sr,     // IEC 61131-3 SR (set-dominant)
+    Rs,     // IEC 61131-3 RS (reset-dominant)
+    RTrig,  // IEC 61131-3 R_TRIG (rising edge)
+    FTrig,  // IEC 61131-3 F_TRIG (falling edge)
 
 }
 
@@ -411,6 +415,10 @@ fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
             token if matches!(token, Token::Ctu) => Ok(VarType::Ctu),
             token if matches!(token, Token::Ctd) => Ok(VarType::Ctd),
             token if matches!(token, Token::Ctud) => Ok(VarType::Ctud),
+            token if matches!(token, Token::Sr) => Ok(VarType::Sr),
+            token if matches!(token, Token::Rs) => Ok(VarType::Rs),
+            token if matches!(token, Token::RTrig) => Ok(VarType::RTrig),
+            token if matches!(token, Token::FTrig) => Ok(VarType::FTrig),
 
             _ => Err(ParseError::UnexpectedToken(ti.token.clone(), ti.span.line, ti.span.col)),
         },

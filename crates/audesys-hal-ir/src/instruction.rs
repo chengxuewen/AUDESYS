@@ -68,6 +68,12 @@ pub enum Opcode {
     // Counter
     CounterRun,
     ReadCounter,
+    // SR/RS flip-flops
+    SrRun,
+    ReadSr,
+    // R_TRIG/F_TRIG edge detection
+    EdgeRun,
+    ReadEdge,
 
     Halt,
 }
@@ -189,6 +195,7 @@ impl Instruction {
     }
     /// Convenience: counter run — tick state machine.
     /// operands: [Imm(counter_idx), Reg(CU), Reg(CD), Imm(PV), Imm(kind: 0=CTU,1=CTD,2=CTUD)]
+    /// operands: [Imm(counter_idx), Reg(CU), Reg(CD), Imm(PV), Imm(kind: 0=CTU,1=CTD,2=CTUD)]
     pub fn counter_run(counter_idx: u8, cu_reg: u8, cd_reg: u8, pv: u32, kind: u8) -> Self {
         Instruction {
             opcode: Opcode::CounterRun,
@@ -211,6 +218,58 @@ impl Instruction {
                 Operand::Immediate(audesys_hal_core::HalValue::U32(counter_idx as u32)),
                 Operand::Register(q_dest),
                 Operand::Register(cv_dest),
+            ],
+        }
+    }
+
+    /// Convenience: SR/RS run — tick state machine.
+    /// operands: [Imm(idx), Reg(S1), Reg(R), Imm(kind: 0=SR,1=RS)]
+    pub fn sr_run(idx: u8, s1_reg: u8, r_reg: u8, kind: u8) -> Self {
+        Instruction {
+            opcode: Opcode::SrRun,
+            operands: vec![
+                Operand::Immediate(audesys_hal_core::HalValue::U32(idx as u32)),
+                Operand::Register(s1_reg),
+                Operand::Register(r_reg),
+                Operand::Immediate(audesys_hal_core::HalValue::U32(kind as u32)),
+            ],
+        }
+    }
+
+    /// Convenience: Read SR/RS Q1 and Q2 into registers.
+    /// operands: [Imm(idx), Reg(Q1_dest), Reg(Q2_dest)]
+    pub fn read_sr(idx: u8, q1_dest: u8, q2_dest: u8) -> Self {
+        Instruction {
+            opcode: Opcode::ReadSr,
+            operands: vec![
+                Operand::Immediate(audesys_hal_core::HalValue::U32(idx as u32)),
+                Operand::Register(q1_dest),
+                Operand::Register(q2_dest),
+            ],
+        }
+    }
+
+    /// Convenience: Edge detection run.
+    /// operands: [Imm(idx), Reg(CLK), Imm(kind: 0=R_TRIG,1=F_TRIG)]
+    pub fn edge_run(idx: u8, clk_reg: u8, kind: u8) -> Self {
+        Instruction {
+            opcode: Opcode::EdgeRun,
+            operands: vec![
+                Operand::Immediate(audesys_hal_core::HalValue::U32(idx as u32)),
+                Operand::Register(clk_reg),
+                Operand::Immediate(audesys_hal_core::HalValue::U32(kind as u32)),
+            ],
+        }
+    }
+
+    /// Convenience: Read edge detection Q into register.
+    /// operands: [Imm(idx), Reg(Q_dest)]
+    pub fn read_edge(idx: u8, q_dest: u8) -> Self {
+        Instruction {
+            opcode: Opcode::ReadEdge,
+            operands: vec![
+                Operand::Immediate(audesys_hal_core::HalValue::U32(idx as u32)),
+                Operand::Register(q_dest),
             ],
         }
     }
@@ -304,6 +363,10 @@ mod tests {
             Opcode::ReadTimer,
             Opcode::CounterRun,
             Opcode::ReadCounter,
+            Opcode::SrRun,
+            Opcode::ReadSr,
+            Opcode::EdgeRun,
+            Opcode::ReadEdge,
             Opcode::Halt,
         ];
         // Each opcode can be wrapped in an instruction
