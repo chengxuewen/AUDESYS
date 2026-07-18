@@ -21,6 +21,7 @@ interface SignalState {
 const DEFAULT_SOURCE =
   "PROGRAM test\nVAR\n  x : INT;\n  y : INT;\nEND_VAR\nx := 42;\ny := x + 8;\nEND_PROGRAM";
 const DEFAULT_IL = "LD 42\nST x";
+const DEFAULT_LD = "NETWORK 1\nNO 1\nOUT 2\nEND_NETWORK";
 
 /** Parse compiler error string into structured PanelError array. */
 function parseErrors(errorText: string): PanelError[] {
@@ -96,7 +97,7 @@ export default function App() {
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
-  const [langMode, setLangMode] = useState<"st" | "il">("st");
+  const [langMode, setLangMode] = useState<"st" | "il" | "ld">("st");
   const editorRef = useRef<CodeEditorHandle>(null);
 
   const handleCompileRun = useCallback(async () => {
@@ -107,6 +108,8 @@ export default function App() {
     try {
       const programJson: string = langMode === "st"
         ? await invoke("compile_st", { source })
+        : langMode === "ld"
+        ? await invoke("compile_ld", { source })
         : await invoke("compile_il", { source });
       const result: string = await invoke("run_program", {
         programJson,
@@ -128,13 +131,13 @@ export default function App() {
   }, [source, langMode]);
 
   const handleNew = useCallback(() => {
-    setSource("");
+    setSource(langMode === "st" ? "" : langMode === "ld" ? DEFAULT_LD : "LD 0\nST 0");
     setCurrentFile(null);
     setErrors([]);
     setSignals([]);
     setCompileStatus("ready");
     editorRef.current?.setDiagnostics([]);
-  }, []);
+  }, [langMode]);
 
   const handleOpen = useCallback(async () => {
     try {
@@ -221,7 +224,7 @@ export default function App() {
           </button>
           <button
             className="app-btn"
-            onClick={() => setLangMode(l => l === "st" ? "il" : "st")}
+            onClick={() => setLangMode(l => l === "st" ? "il" : l === "il" ? "ld" : "st")}
             style={{ marginLeft: "8px", fontSize: "12px", fontFamily: "monospace" }}
           >
             {langMode.toUpperCase()}

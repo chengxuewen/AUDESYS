@@ -12,7 +12,8 @@
 //! - `controller_get_registers` / `controller_get_debug_state`: Debug inspection
 use audesys_controller_client::ControllerClient;
 use audesys_hal_binding_gen::compile;
-use audesys_hal_ir::{program::HalProgram, Executor};
+use audesys_il_compiler::il_compile;
+use audesys_ld_compiler::ld_compile;
 use audesys_runtime_common::types::Role;
 use serde::Serialize;
 use std::sync::Mutex;
@@ -42,6 +43,14 @@ fn compile_st(source: String) -> Result<String, String> {
 #[tauri::command]
 fn compile_il(source: String) -> Result<String, String> {
     let program = il_compile(&source).map_err(|e| e.to_string())?;
+    serde_json::to_string(&program).map_err(|e| e.to_string())
+}
+
+/// Compile an IEC 61131-3 LD (Ladder Diagram) source into HAL IR (via IL).
+#[tauri::command]
+fn compile_ld(source: String) -> Result<String, String> {
+    let il = ld_compile(&source).map_err(|e| e.to_string())?;
+    let program = il_compile(&il).map_err(|e| e.to_string())?;
     serde_json::to_string(&program).map_err(|e| e.to_string())
 }
 
@@ -306,7 +315,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             compile_st,
             compile_il,
-            run_program,
+            compile_ld,
             run_program,
             deploy_program,
             load_hal_config,

@@ -24,3 +24,4 @@ audesys-hal-ir = { path = "../../../crates/audesys-hal-ir" }
 audesys-controller-client = { path = "../../../crates/audesys-controller-client" }
 audesys-runtime-common = { path = "../../../crates/audesys-runtime-common" }
 audesys-il-compiler = { path = "../../../crates/audesys-il-compiler" }
+audesys-ld-compiler = { path = "../../../crates/audesys-ld-compiler" }
