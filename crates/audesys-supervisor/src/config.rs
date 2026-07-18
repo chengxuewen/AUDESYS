@@ -42,8 +42,10 @@ pub struct ChildConfig {
 
 // ── Defaults ──────────────────────────────────────────────────────────
 
+const DEFAULT_UDS_PATH: &str = "/tmp/audesys-controller.sock";
+
 fn default_uds_path() -> String {
-    "/tmp/audesys-controller.sock".into()
+    DEFAULT_UDS_PATH.into()
 }
 
 fn default_check_interval() -> u64 {

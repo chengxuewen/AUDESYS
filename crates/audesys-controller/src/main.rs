@@ -13,6 +13,12 @@ use audesys_controller::{log_error, log_info, log_warn};
 use audesys_hal_core::{AmwConfig, AmwFactory};
 use audesys_runtime_common::types::{HealthCheck, HealthCheckRegistry, HealthStatus};
 
+// ── Defaults ──
+
+const DEFAULT_SOCKET_PATH: &str = "/tmp/audesys-controller.sock";
+const DEFAULT_HEALTH_PORT: u16 = 9000;
+const DEFAULT_CYCLE_INTERVAL_MS: u64 = 1000;
+
 // ── Health check ──
 
 /// Always-healthy health check for the controller /healthz endpoint.
@@ -36,9 +42,9 @@ fn main() {
     logging::init();
     // Parse CLI args
     let args: Vec<String> = std::env::args().collect();
-    let mut cycle_interval_ms: u64 = 1000;
-    let mut health_port: u16 = 9000;
-    let mut socket_path = String::from("/tmp/audesys-controller.sock");
+    let mut cycle_interval_ms: u64 = DEFAULT_CYCLE_INTERVAL_MS;
+    let mut health_port: u16 = DEFAULT_HEALTH_PORT;
+    let mut socket_path = String::from(DEFAULT_SOCKET_PATH);
 
     let mut i = 1;
     while i < args.len() {
@@ -46,13 +52,13 @@ fn main() {
             "--cycle-interval" => {
                 i += 1;
                 if i < args.len() {
-                    cycle_interval_ms = args[i].parse().unwrap_or(1000);
+                    cycle_interval_ms = args[i].parse().unwrap_or(DEFAULT_CYCLE_INTERVAL_MS);
                 }
             }
             "--health-port" => {
                 i += 1;
                 if i < args.len() {
-                    health_port = args[i].parse().unwrap_or(9000);
+                    health_port = args[i].parse().unwrap_or(DEFAULT_HEALTH_PORT);
                 }
             }
             "--socket-path" => {
