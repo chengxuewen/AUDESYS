@@ -40,6 +40,7 @@ impl DapResponse {
         Self { seq, msg_type: "response", request_seq, success: true, command: command.to_string(), body: Some(body), message: None }
     }
 
+    #[allow(dead_code)]
     pub fn ok_empty(seq: u64, request_seq: u64, command: &str) -> Self {
         Self { seq, msg_type: "response", request_seq, success: true, command: command.to_string(), body: None, message: None }
     }
@@ -63,6 +64,7 @@ impl DapEvent {
         Self { seq, msg_type: "event", event: "initialized".into(), body: None }
     }
 
+    #[allow(dead_code)]
     pub fn output(seq: u64, text: &str) -> Self {
         let body = serde_json::json!({"output": text, "category": "console"});
         Self { seq, msg_type: "event", event: "output".into(), body: Some(body) }
@@ -181,6 +183,7 @@ fn default_secret() -> String { "audesys-dev-secret".into() }
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetBreakpointsArguments {
+    #[allow(dead_code)]
     pub source: SourceArg,
     #[serde(default)]
     pub breakpoints: Vec<BreakpointArg>,
@@ -188,9 +191,9 @@ pub struct SetBreakpointsArguments {
 
 #[derive(Debug, Deserialize)]
 pub struct SourceArg {
-    #[serde(default)]
+    #[allow(dead_code)]
     pub name: String,
-    #[serde(default)]
+    #[allow(dead_code)]
     pub path: Option<String>,
 }
 
