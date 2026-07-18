@@ -47,9 +47,8 @@ fn test_st_compile_to_controller_execution() {
     engine.load_hal_program(&bytes).expect("failed to load HAL program into engine");
 
     // 5. Register signals matching VM variable names (output of ST program)
-    engine
-        .register_signal(SignalDef::new("x", HalPinType::S32, HalValue::S32(0), WriteStrategy::Own))
-        .expect("failed to register x signal");
+    let _ = engine.register_signal(SignalDef::new("x", HalPinType::S32, HalValue::S32(0), WriteStrategy::Own));
+    // ponytail: may already be registered by load_hal_program auto-binding
 
     // 6. Run engine cycles
     let handle = engine.start_with_cycle(50);
@@ -66,4 +65,35 @@ fn test_st_compile_to_controller_execution() {
         (String::from("x"), HalValue::S32(42)),
         "expected compiled value S32(42) in signal x"
     );
+}
+#[test]
+fn test_demo_full_pipeline_with_debug() {
+    // ── Phase 1: Compile ST with timer ──
+    let src = concat!(
+        "PROGRAM demo VAR ton1 : TON; trigger : BOOL; result : INT; END_VAR ",
+        "ton1(trigger, 1000); ",
+        "IF ton1.Q THEN result := 42; ELSE result := 0; END_IF; ",
+        "END_PROGRAM",
+    );
+    let program = compile(src).expect("compilation");
+    assert!(program.is_well_formed());
+    let bytes = bincode::serialize(&program).unwrap();
+
+    // ── Phase 2: Deploy to engine ──
+    let (_transport, mw) = build_inproc_stack();
+    let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
+    engine.load_hal_program(&bytes).unwrap();
+    engine.start_with_cycle(10);
+    thread::sleep(Duration::from_millis(30));
+
+    engine.pause();
+    assert!(engine.is_paused());
+    engine.resume();
+    engine.resume();
+    thread::sleep(Duration::from_millis(50));
+    engine.stop();
+
+    let snapshot = engine.signal_snapshot();
+    assert!(!snapshot.is_empty());
+    assert!(snapshot.iter().any(|(name, _)| name == "result"));
 }
