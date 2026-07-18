@@ -90,7 +90,7 @@ fn main() {
         .write()
         .expect("health_registry RwLock poisoned")
         .register(Box::new(AliveCheck));
-    let health_server = HealthServer::new(Arc::clone(&health_registry));
+    let health_server = HealthServer::with_metrics(Arc::clone(&health_registry), engine.metrics());
 
     // ── IPC server ──
     let ipc_server = IpcServer::new(&socket_path, Arc::clone(&engine));

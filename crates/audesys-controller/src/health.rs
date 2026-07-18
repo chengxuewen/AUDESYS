@@ -5,6 +5,7 @@
 //!
 //! 来源: docs/modules/runtime/observability-design.md
 
+use crate::metrics::RuntimeMetrics;
 use audesys_runtime_common::types::{HealthCheckRegistry, HealthStatus};
 use std::net::TcpListener;
 use std::sync::{
@@ -13,6 +14,23 @@ use std::sync::{
 };
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
+
+fn prometheus_text(m: &RuntimeMetrics) -> String {
+    use std::sync::atomic::Ordering;
+    let mut out = String::new();
+    out.push_str(&format!("audesys_cycles_completed {}\n", m.cycles_completed.load(Ordering::Relaxed)));
+    out.push_str(&format!("audesys_signals_published {}\n", m.signals_published.load(Ordering::Relaxed)));
+    out.push_str(&format!("audesys_config_changes_applied {}\n", m.config_changes_applied.load(Ordering::Relaxed)));
+    out.push_str(&format!("audesys_child_restarts {}\n", m.child_restarts.load(Ordering::Relaxed)));
+    out.push_str(&format!("audesys_health_check_failures {}\n", m.health_check_failures.load(Ordering::Relaxed)));
+    let jitter = m.cycle_jitter_us.read();
+    for (i, v) in jitter.iter().enumerate() {
+        if *v > 0 {
+            out.push_str(&format!("audesys_cycle_jitter_us{{offset=\"{}\"}} {}\n", i, v));
+        }
+    }
+    out
+}
 
 fn health_status_str(status: &HealthStatus) -> String {
     match status {
@@ -27,12 +45,17 @@ fn health_status_str(status: &HealthStatus) -> String {
 pub struct HealthServer {
     running: Arc<AtomicBool>,
     health_registry: Arc<RwLock<HealthCheckRegistry>>,
+    metrics: Option<Arc<RuntimeMetrics>>,
 }
 
 impl HealthServer {
     /// Create a new HealthServer that reads status dynamically from the shared registry.
     pub fn new(health_registry: Arc<RwLock<HealthCheckRegistry>>) -> Self {
-        Self { running: Arc::new(AtomicBool::new(false)), health_registry }
+        Self { running: Arc::new(AtomicBool::new(false)), health_registry, metrics: None }
+    }
+
+    pub fn with_metrics(health_registry: Arc<RwLock<HealthCheckRegistry>>, metrics: Arc<RuntimeMetrics>) -> Self {
+        Self { running: Arc::new(AtomicBool::new(false)), health_registry, metrics: Some(metrics) }
     }
 
     /// Start the health HTTP endpoint. Status is read from the shared registry on every request.
@@ -46,24 +69,59 @@ impl HealthServer {
         self.running.store(true, Ordering::SeqCst);
         let running = Arc::clone(&self.running);
         let registry = Arc::clone(&self.health_registry);
+        let metrics = self.metrics.clone();
 
         let handle = thread::spawn(move || {
             let poll = Duration::from_millis(100);
             while running.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
-                        use std::io::Write;
-                        let status = registry.read().expect("health RwLock poisoned").aggregate();
-                        let status_str = health_status_str(&status);
-                        let response = format!(
-                            "HTTP/1.1 200 OK\r\n\
-                             Content-Type: application/json\r\n\
-                             Connection: close\r\n\
-                             \r\n\
-                             {{\"status\":\"{}\",\"module\":\"audesys-controller\"}}\r\n",
-                            status_str,
-                        );
-                        let _ = stream.write_all(response.as_bytes());
+                        use std::io::{BufRead, BufReader, Read, Write};
+
+                        // Read HTTP request line in scoped block so reader is dropped before writes
+                        let path = {
+                            let mut reader = BufReader::new(&mut stream);
+                            let mut line = String::new();
+                            match reader.read_line(&mut line) {
+                                Ok(n) if n > 0 => line.split_whitespace().nth(1).unwrap_or("/").to_string(),
+                                _ => "/".to_string(),
+                            }
+                        };
+
+                        match path.as_str() {
+                            "/metrics" => {
+                                if let Some(ref m) = metrics {
+                                    let body = prometheus_text(m);
+                                    let response = format!(
+                                        "HTTP/1.1 200 OK\r\n\
+                                         Content-Type: text/plain; version=0.0.4\r\n\
+                                         Connection: close\r\n\
+                                         Content-Length: {}\r\n\
+                                         \r\n\
+                                        {}",
+                                        body.len(), body
+                                    );
+                                    let _ = stream.write_all(response.as_bytes());
+                                } else {
+                                    let _ = stream.write_all(b"HTTP/1.1 404 Not Found\r\n\r\n");
+                                }
+                            }
+                            _ => {
+                                let status = registry.read().expect("health RwLock poisoned").aggregate();
+                                let status_str = health_status_str(&status);
+                                let json = format!("{{\"status\":\"{}\",\"module\":\"audesys-controller\"}}", status_str);
+                                let response = format!(
+                                    "HTTP/1.1 200 OK\r\n\
+                                     Content-Type: application/json\r\n\
+                                     Connection: close\r\n\
+                                     Content-Length: {}\r\n\
+                                     \r\n\
+                                    {}",
+                                    json.len(), json
+                                );
+                                let _ = stream.write_all(response.as_bytes());
+                            }
+                        }
                         let _ = stream.flush();
                         drop(stream);
                     }
