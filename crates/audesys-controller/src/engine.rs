@@ -186,7 +186,7 @@ impl Engine {
                             if binding.direction == Direction::Write || binding.direction == Direction::ReadWrite {
                                 let def = SignalDef::new(
                                     &binding.hal_signal_name,
-                                    audesys_hal_core::types::HalPinType::S32,
+                                    binding.hal_pin_type,
                                     HalValue::S32(0),
                                     WriteStrategy::Own,
                                 );
@@ -397,13 +397,11 @@ impl Engine {
         let executor = Executor::new(program.clone());
 
         // ponytail: auto-register signal bindings as Own signals
-        // full type mapping (VarType → HalPinType) deferred to Phase 2
         for binding in &program.signals {
             if binding.direction == Direction::Write || binding.direction == Direction::ReadWrite {
-                // default to S32; Phase 2 maps from VarType in Program.variables
                 let def = SignalDef::new(
                     &binding.hal_signal_name,
-                    audesys_hal_core::types::HalPinType::S32,
+                    binding.hal_pin_type,
                     HalValue::S32(0),
                     WriteStrategy::Own,
                 );
