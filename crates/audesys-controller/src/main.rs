@@ -8,7 +8,8 @@
 use std::sync::{Arc, RwLock};
 
 use audesys_amw_inproc::InprocFactory;
-use audesys_controller::{Engine, HealthServer, IpcServer, LifecycleManager};
+use audesys_controller::{Engine, HealthServer, IpcServer, LifecycleManager, logging};
+use audesys_controller::{log_error, log_info, log_warn};
 use audesys_hal_core::{AmwConfig, AmwFactory};
 use audesys_runtime_common::types::{HealthCheck, HealthCheckRegistry, HealthStatus};
 
@@ -32,6 +33,7 @@ impl HealthCheck for AliveCheck {
 // ── Main ──
 
 fn main() {
+    logging::init();
     // Parse CLI args
     let args: Vec<String> = std::env::args().collect();
     let mut cycle_interval_ms: u64 = 1000;
@@ -69,6 +71,7 @@ fn main() {
     let mw = match factory.create(AmwConfig::default()) {
         Ok(mw) => mw,
         Err(e) => {
+            log_error!("main", "Failed to create middleware", "error" => e);
             eprintln!("Failed to create middleware: {}", e);
             std::process::exit(1);
         }
@@ -98,7 +101,7 @@ fn main() {
     let health_handle = match health_server.start(health_port) {
         Ok(h) => h,
         Err(e) => {
-            eprintln!("Failed to start health server: {}", e);
+            log_error!("main", "Failed to start health server", "error" => e);
             engine.stop();
             let _ = engine_handle.join();
             std::process::exit(1);
@@ -108,7 +111,7 @@ fn main() {
     let ipc_handle = match ipc_server.start() {
         Ok(h) => h,
         Err(e) => {
-            eprintln!("Failed to start IPC server: {}", e);
+            log_error!("main", "Failed to start IPC server", "error" => e);
             health_server.stop();
             let _ = health_handle.join();
             engine.stop();
@@ -117,18 +120,13 @@ fn main() {
         }
     };
 
-    println!("AUDESYS Controller started");
-    println!("  Health endpoint: http://0.0.0.0:{}", health_port);
-    println!("  IPC socket: {}", socket_path);
-    println!("  Cycle interval: {}ms", cycle_interval_ms);
-    println!("Press Enter to stop...");
-
+    log_info!("main", "AUDESYS Controller started", "health_port" => health_port, "socket" => socket_path, "cycle_ms" => cycle_interval_ms);
     // ── Wait for shutdown signal ──
     let mut line = String::new();
     let _ = std::io::stdin().read_line(&mut line);
 
     // ── Graceful shutdown: ipc → health → engine → lifecycle ──
-    eprintln!("Shutting down...");
+    log_info!("main", "Shutting down");
 
     ipc_server.stop();
     let _ = ipc_handle.join();
@@ -141,6 +139,6 @@ fn main() {
 
     let failed = lifecycle.shutdown_all(5000);
     if !failed.is_empty() {
-        eprintln!("Child processes did not shut down cleanly: {:?}", failed);
+        log_warn!("main", "Child processes did not shut down cleanly", "failed" => format!("{:?}", failed));
     }
 }

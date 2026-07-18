@@ -21,6 +21,7 @@ pub mod engine;
 pub mod health;
 pub mod ipc;
 pub mod lifecycle;
+pub mod logging;
 pub mod metrics;
 
 pub mod signals;
