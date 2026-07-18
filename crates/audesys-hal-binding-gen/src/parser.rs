@@ -384,7 +384,7 @@ fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
             Token::TOD => Ok(VarType::TOD),
             Token::DT => Ok(VarType::DT),
             Token::String => {
-                let len = if p.peek_token() == Some(&Token::LParen) {
+                let _len = if p.peek_token() == Some(&Token::LParen) {
                     p.expect(Token::LParen)?;
                     match p.advance() {
                         Some(ti) if matches!(&ti.token, Token::IntegerLiteral(_)) => {

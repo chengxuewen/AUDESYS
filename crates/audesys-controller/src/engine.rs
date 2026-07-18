@@ -137,9 +137,9 @@ impl Engine {
         let metrics = Arc::clone(&self.metrics);
         let lifecycle = Arc::clone(&self.lifecycle);
         let hal_program = Arc::clone(&self.hal_program);
-        let hal_executor = Arc::clone(&self.hal_executor);
-        let paused = Arc::clone(&self.paused);
-        let step_requested = Arc::clone(&self.step_requested);
+        let _hal_executor = Arc::clone(&self.hal_executor);
+        let _paused = Arc::clone(&self.paused);
+        let _step_requested = Arc::clone(&self.step_requested);
         let pending_swap = Arc::clone(&self.pending_swap);
         let swap_committed = Arc::clone(&self.swap_committed);
         let hal_executor = Arc::clone(&self.hal_executor);

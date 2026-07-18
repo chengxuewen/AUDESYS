@@ -74,8 +74,6 @@ impl HalValue {
     }
     /// Serialize this value to bytes (for array storage).
     fn to_bytes(&self) -> Vec<u8> {
-        use HalPinType::*;
-        let et = self.pin_type();
         match self {
             HalValue::Bool(b) => vec![*b as u8],
             HalValue::S8(n) => n.to_le_bytes().to_vec(),

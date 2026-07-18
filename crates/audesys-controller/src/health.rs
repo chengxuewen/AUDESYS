@@ -76,7 +76,7 @@ impl HealthServer {
             while running.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
-                        use std::io::{BufRead, BufReader, Read, Write};
+                        use std::io::{BufRead, BufReader, Write};
 
                         // Read HTTP request line in scoped block so reader is dropped before writes
                         let path = {
