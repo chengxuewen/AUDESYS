@@ -321,3 +321,136 @@ mod tests {
         assert_eq!(val, Some(HalValue::Bool(true)));
     }
 }
+
+// ── Scene Recording / Playback ──
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// A recorded simulation scene — signal snapshots over cycles.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Scene {
+    pub name: String,
+    pub cycle_ms: u64,
+    pub signal_names: Vec<String>,
+    /// frames[cycle_idx] → Vec of (signal_name, value_json_string)
+    pub frames: Vec<HashMap<String, String>>,
+}
+
+impl SimulationHarness {
+    /// Record signal snapshots for N cycles, returning a Scene.
+    pub fn record(&mut self, name: &str, cycles: u64) -> Scene {
+        let signal_names: Vec<String> = self.engine
+            .signal_snapshot()
+            .iter()
+            .map(|(n, _)| n.clone())
+            .collect();
+
+        let mut frames = Vec::new();
+        for _ in 0..cycles {
+            self.step_cycle();
+            std::thread::sleep(std::time::Duration::from_millis(self.cycle_ms + 5));
+            let snap = self.engine.signal_snapshot();
+            let frame: HashMap<String, String> = snap
+                .iter()
+                .map(|(n, v)| (n.clone(), format!("{v:?}")))
+                .collect();
+            frames.push(frame);
+        }
+
+        Scene {
+            name: name.to_string(),
+            cycle_ms: self.cycle_ms,
+            signal_names,
+            frames,
+        }
+    }
+
+    /// Play back a recorded scene, injecting signals cycle by cycle.
+    pub fn play(&mut self, scene: &Scene) {
+        self.start();
+        for frame in &scene.frames {
+            for (name, val_str) in frame {
+                if let Some(value) = parse_hal_value(val_str) {
+                    self.set_signal(name, value);
+                }
+            }
+            self.step_cycle();
+            std::thread::sleep(std::time::Duration::from_millis(scene.cycle_ms + 5));
+        }
+        self.stop();
+    }
+}
+
+/// Parse a HalValue from its Debug format string (e.g., "Bool(true)", "U32(42)").
+fn parse_hal_value(s: &str) -> Option<HalValue> {
+    let s = s.trim();
+    if let Some(inner) = s.strip_prefix("Bool(").and_then(|r| r.strip_suffix(')')) {
+        return Some(HalValue::Bool(inner == "true"));
+    }
+    if let Some(inner) = s.strip_prefix("U32(").and_then(|r| r.strip_suffix(')')) {
+        return inner.parse().ok().map(HalValue::U32);
+    }
+    if let Some(inner) = s.strip_prefix("S32(").and_then(|r| r.strip_suffix(')')) {
+        return inner.parse().ok().map(HalValue::S32);
+    }
+    if let Some(inner) = s.strip_prefix("F32(").and_then(|r| r.strip_suffix(')')) {
+        return inner.parse().ok().map(HalValue::F32);
+    }
+    if let Some(inner) = s.strip_prefix("F64(").and_then(|r| r.strip_suffix(')')) {
+        return inner.parse().ok().map(HalValue::F64);
+    }
+    None
+}
+
+/// Save a scene to a JSON file.
+pub fn save_scene(scene: &Scene, path: &str) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(scene).map_err(|e| e.to_string())?;
+    std::fs::write(path, json).map_err(|e| e.to_string())
+}
+
+/// Load a scene from a JSON file.
+pub fn load_scene(path: &str) -> Result<Scene, String> {
+    let json = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    serde_json::from_str(&json).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod scene_tests {
+    use super::*;
+
+    #[test]
+    fn test_record_and_play() {
+        let mut sim = SimulationHarness::new(1);
+        sim.register_signal("sensor.x", HalPinType::U32, HalValue::U32(0), WriteStrategy::Monitored).unwrap();
+
+        sim.set_signal("sensor.x", HalValue::U32(10));
+        let scene = sim.record("test", 3);
+
+        assert_eq!(scene.name, "test");
+        assert_eq!(scene.frames.len(), 3);
+        assert!(scene.signal_names.contains(&"sensor.x".to_string()));
+    }
+
+    #[test]
+    fn test_save_and_load() {
+        let mut sim = SimulationHarness::new(1);
+        sim.register_signal("sensor.x", HalPinType::U32, HalValue::U32(0), WriteStrategy::Monitored).unwrap();
+        sim.set_signal("sensor.x", HalValue::U32(42));
+        let scene = sim.record("save_test", 2);
+
+        let path = "/tmp/audesys_test_scene.json";
+        save_scene(&scene, path).unwrap();
+        let loaded = load_scene(path).unwrap();
+        assert_eq!(loaded.name, scene.name);
+        assert_eq!(loaded.frames.len(), scene.frames.len());
+    }
+
+    #[test]
+    fn test_parse_hal_values() {
+        assert_eq!(parse_hal_value("Bool(true)"), Some(HalValue::Bool(true)));
+        assert_eq!(parse_hal_value("U32(42)"), Some(HalValue::U32(42)));
+        assert_eq!(parse_hal_value("F32(3.14)"), Some(HalValue::F32(3.14)));
+        assert_eq!(parse_hal_value("unknown"), None);
+    }
+}
