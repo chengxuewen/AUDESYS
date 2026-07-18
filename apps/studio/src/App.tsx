@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import CodeEditor, { type CodeEditorHandle, type EditorDiagnostic } from "./components/CodeEditor";
+import LdEditor from "./components/LdEditor";
 import FileOperations from "./components/FileOperations";
 import DebugPanel from "./components/DebugPanel";
 import SignalWatchPanel from "./components/SignalWatchPanel";
@@ -11,6 +12,8 @@ import ProjectTree from "./components/ProjectTree";
 import StatusBar, { type CompileStatus } from "./components/StatusBar";
 import ErrorPanel, { type PanelError } from "./components/ErrorPanel";
 import "./App.css";
+import FbdEditor from "./components/FbdEditor";
+import SfcEditor from "./components/SfcEditor";
 
 interface SignalState {
   name: string;
@@ -23,16 +26,10 @@ const DEFAULT_SOURCE =
 const DEFAULT_IL = "LD 42\nST x";
 const DEFAULT_LD = "NETWORK 1\nNO 1\nOUT 2\nEND_NETWORK";
 
-/** Parse compiler error string into structured PanelError array. */
 function parseErrors(errorText: string): PanelError[] {
   const errors: PanelError[] = [];
-
-  // Pattern: "at line N, col M" or "at line N"
   const atLineCol = /at line\s+(\d+),\s+col\s+(\d+)/g;
-  // Pattern: "redeclared at line N"
   const atLine = /at line\s+(\d+)/g;
-
-  // Split by error separators
   const lines = errorText.split(/\n/);
 
   for (const line of lines) {
@@ -42,37 +39,28 @@ function parseErrors(errorText: string): PanelError[] {
     let lineNum = 1;
     let colNum = 1;
 
-    // Try "at line N, col M" first
     const lcMatch = atLineCol.exec(trimmed);
     if (lcMatch) {
       lineNum = parseInt(lcMatch[1], 10) || 1;
       colNum = parseInt(lcMatch[2], 10) || 1;
     } else {
-      // Try "at line N"
       const lMatch = atLine.exec(trimmed);
       if (lMatch) {
         lineNum = parseInt(lMatch[1], 10) || 1;
       }
     }
 
-    // Reset regex state
     atLineCol.lastIndex = 0;
     atLine.lastIndex = 0;
 
-    // Determine severity
     const isWarning = trimmed.includes("warning");
     const severity: "error" | "warning" = isWarning ? "warning" : "error";
-
-    // Clean message: remove prefix like "lexer error: " or "parse error: "
     const message = trimmed.replace(/^(lexer|parse|codegen)\s+error:\s*/i, "");
-
     errors.push({ line: lineNum, col: colNum, message, severity });
   }
-
   return errors;
 }
 
-/** Convert PanelError to CodeMirror EditorDiagnostic (0-based positions). */
 function toEditorDiagnostics(errors: PanelError[], source: string): EditorDiagnostic[] {
   const lines = source.split("\n");
   return errors.map((e) => {
@@ -83,7 +71,6 @@ function toEditorDiagnostics(errors: PanelError[], source: string): EditorDiagno
       from += (lines[i]?.length ?? 0) + 1;
     }
     from += colIdx;
-    // ponytail: highlight to end of line for simplicity
     const to = from + (lines[lineIdx]?.length ?? 0) - colIdx;
     return { from, to: Math.max(from + 1, to), message: e.message, severity: e.severity };
   });
@@ -97,7 +84,8 @@ export default function App() {
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
-  const [langMode, setLangMode] = useState<"st" | "il" | "ld">("st");
+  const [langMode, setLangMode] = useState<"st" | "il" | "ld" | "fbd" | "sfc">("st");
+  const [fbdText, setFbdText] = useState("");
   const editorRef = useRef<CodeEditorHandle>(null);
 
   const handleCompileRun = useCallback(async () => {
@@ -106,7 +94,9 @@ export default function App() {
     setSignals([]);
 
     try {
-      const programJson: string = langMode === "st"
+      const programJson: string = langMode === "fbd"
+        ? await invoke("compile_st", { source: fbdText })
+        : langMode === "st"
         ? await invoke("compile_st", { source })
         : langMode === "ld"
         ? await invoke("compile_ld", { source })
@@ -124,14 +114,20 @@ export default function App() {
       setErrors(parsedErrors);
       setCompileStatus("error");
 
-      // Push diagnostics to editor
-      const diags = toEditorDiagnostics(parsedErrors, source);
+      const diags = toEditorDiagnostics(parsedErrors, langMode === "fbd" ? fbdText : source);
       editorRef.current?.setDiagnostics(diags);
     }
-  }, [source, langMode]);
+  }, [source, langMode, fbdText]);
 
   const handleNew = useCallback(() => {
-    setSource(langMode === "st" ? "" : langMode === "ld" ? DEFAULT_LD : "LD 0\nST 0");
+    const defaults: Record<string, string> = {
+      st: "",
+      il: DEFAULT_IL,
+      ld: DEFAULT_LD,
+      fbd: "",
+      sfc: "",
+    };
+    setSource(defaults[langMode]);
     setCurrentFile(null);
     setErrors([]);
     setSignals([]);
@@ -204,6 +200,10 @@ export default function App() {
     setCursorCol(col);
   }, []);
 
+  const handleLdCompile = useCallback((ldText: string) => {
+    setSource(ldText);
+  }, []);
+
   return (
     <div className="app-root">
       {/* Toolbar */}
@@ -224,11 +224,12 @@ export default function App() {
           </button>
           <button
             className="app-btn"
-            onClick={() => setLangMode(l => l === "st" ? "il" : l === "il" ? "ld" : "st")}
+            onClick={() => setLangMode((l) => (l === "st" ? "il" : l === "il" ? "ld" : l === "ld" ? "fbd" : l === "fbd" ? "sfc" : "st"))}
             style={{ marginLeft: "8px", fontSize: "12px", fontFamily: "monospace" }}
           >
             {langMode.toUpperCase()}
           </button>
+        </div>
       </div>
 
       <ProjectTree
@@ -236,19 +237,37 @@ export default function App() {
         activeFile={currentFile}
       />
 
-
       {/* Main split pane */}
       <div className="app-main">
-        <div className="app-panel app-panel--editor">
-          <div className="app-panel__header">ST Source Editor</div>
-          <CodeEditor
-            ref={editorRef}
-            value={source}
-            onChange={setSource}
-            onSave={handleSave}
-            onCursorChange={handleCursorChange}
-          />
-        </div>
+        {langMode === "sfc" ? (
+          <div className="app-panel app-panel--editor">
+            <div className="app-panel__header">SFC Editor</div>
+            <SfcEditor />
+          </div>
+        ) : langMode === "fbd" ? (
+          <div className="app-panel app-panel--editor">
+            <div className="app-panel__header">FBD Editor</div>
+            <FbdEditor onFbdChange={setFbdText} />
+          </div>
+        ) : langMode === "ld" ? (
+          <div className="app-panel app-panel--editor">
+            <div className="app-panel__header">LD Editor</div>
+            <LdEditor onCompile={handleLdCompile} />
+          </div>
+        ) : (
+          <div className="app-panel app-panel--editor">
+            <div className="app-panel__header">
+              {langMode === "st" ? "ST Source Editor" : "IL Source Editor"}
+            </div>
+            <CodeEditor
+              ref={editorRef}
+              value={source}
+              onChange={setSource}
+              onSave={handleSave}
+              onCursorChange={handleCursorChange}
+            />
+          </div>
+        )}
 
         <div className="app-panel app-panel--output">
           <div className="app-panel__header">Signal Output</div>
@@ -288,6 +307,7 @@ export default function App() {
           <SignalWatchPanel />
           <ObservablePanel />
         </div>
+      </div>
 
       {/* Error Panel */}
       <ErrorPanel errors={errors} onErrorClick={handleErrorClick} />

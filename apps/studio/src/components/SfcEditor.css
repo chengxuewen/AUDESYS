@@ -1,0 +1,272 @@
+/* ── SFC Editor Layout ── */
+.sfc-editor {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.sfc-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--color-surface-3);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  min-height: 36px;
+}
+
+.sfc-editor__toolbar-btn {
+  padding: 3px 12px;
+  background: var(--color-amber);
+  color: var(--color-canvas);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: opacity 100ms ease-out;
+}
+
+.sfc-editor__toolbar-btn:hover {
+  opacity: 0.9;
+}
+
+.sfc-editor__toolbar-btn--secondary {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.sfc-editor__canvas {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.sfc-editor__diagram {
+  position: relative;
+  min-height: 100%;
+  padding: 24px 24px 48px;
+}
+
+.sfc-editor__connections {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sfc-editor__connections line,
+.sfc-editor__connections path {
+  stroke: var(--color-text-tertiary);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* ── Step Block ── */
+.sfc-step {
+  position: relative;
+  margin: 0 auto;
+  width: 260px;
+  z-index: 1;
+}
+
+.sfc-step__box {
+  border: 2px solid var(--color-amber);
+  background: var(--color-surface-1);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.sfc-step__box:hover {
+  border-color: var(--color-text-primary);
+}
+
+.sfc-step__box--selected {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-text-primary);
+}
+
+.sfc-step__box--initial {
+  border-width: 3px;
+  box-shadow: 0 0 0 2px var(--color-amber);
+}
+
+.sfc-step__box--initial.sfc-step__box--selected {
+  box-shadow: 0 0 0 2px var(--color-text-primary);
+}
+
+.sfc-step__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.sfc-step__badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--color-amber);
+  color: var(--color-canvas);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.sfc-step__action {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  padding: 2px 0;
+}
+
+.sfc-step__action-qual {
+  color: var(--color-amber);
+  font-weight: 600;
+  min-width: 20px;
+}
+
+.sfc-step__empty {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Transition Block ── */
+.sfc-transition {
+  position: relative;
+  margin: 0 auto;
+  width: 260px;
+  z-index: 1;
+}
+
+.sfc-transition__bar {
+  height: 32px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.sfc-transition__bar:hover {
+  border-color: var(--color-text-primary);
+}
+
+.sfc-transition__bar--selected {
+  border-color: var(--color-text-primary);
+  background: var(--color-surface-3);
+  box-shadow: 0 0 0 1px var(--color-text-primary);
+}
+
+.sfc-transition__condition {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  padding: 0 12px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sfc-transition__condition--empty {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* ── Vertical Spacers ── */
+.sfc-step-gap {
+  height: 16px;
+}
+
+.sfc-trans-gap {
+  height: 12px;
+}
+
+/* ── Editor Inline Form ── */
+.sfc-editor__form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sfc-editor__form-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sfc-editor__input {
+  font-size: 12px;
+  font-family: var(--font-body);
+  padding: 3px 8px;
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.sfc-editor__input:focus {
+  outline: none;
+  border-color: var(--color-amber);
+}
+
+.sfc-editor__input--qual {
+  flex: 0;
+  width: 60px;
+}
+
+.sfc-editor__input--body {
+  flex: 1;
+}
+
+.sfc-editor__label {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  min-width: 28px;
+}
+
+.sfc-editor__btn-sm {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: var(--font-body);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+}
+
+.sfc-editor__btn-sm:hover {
+  background: var(--color-surface-2);
+}
+
+.sfc-editor__btn-sm--del {
+  color: var(--color-error);
+}
+
+.sfc-editor__btn-sm--del:hover {
+  background: rgba(229, 62, 62, 0.1);
+}

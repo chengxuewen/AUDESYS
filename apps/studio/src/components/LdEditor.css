@@ -1,0 +1,340 @@
+/* ── LD Editor Layout ── */
+.ld-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Top bar ── */
+.ld-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.ld-editor__toolbar-btn {
+  padding: 3px 10px;
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+}
+
+.ld-editor__toolbar-btn:hover {
+  background: var(--color-surface-4);
+  color: var(--color-text-primary);
+}
+
+.ld-editor__toolbar-btn--compile {
+  margin-left: auto;
+  background: var(--color-amber);
+  color: var(--color-canvas);
+  border-color: var(--color-amber);
+  font-weight: 600;
+}
+
+.ld-editor__toolbar-btn--compile:hover {
+  opacity: 0.9;
+  color: var(--color-canvas);
+}
+
+.ld-editor__toolbar-btn--compile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Workspace (palette + grid) ── */
+.ld-editor__workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Palette ── */
+.ld-editor__palette {
+  width: 110px;
+  background: var(--color-surface-1);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.ld-editor__palette-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 4px 0 2px;
+}
+
+.ld-editor__palette-label:first-child {
+  padding-top: 0;
+}
+
+.ld-editor__palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  cursor: pointer;
+  transition: border-color 100ms, background 100ms;
+  user-select: none;
+}
+
+.ld-editor__palette-item:hover {
+  border-color: var(--color-amber);
+  background: var(--color-surface-3);
+}
+
+.ld-editor__palette-item--selected {
+  border-color: var(--color-amber);
+  background: var(--color-surface-3);
+  box-shadow: 0 0 0 1px var(--color-amber);
+}
+
+.ld-editor__palette-item__icon {
+  width: 28px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.ld-editor__palette-item__name {
+  font-size: 11px;
+  font-family: var(--font-body);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* ── Grid Container ── */
+.ld-editor__grid-wrap {
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
+}
+
+.ld-editor__grid {
+  display: flex;
+  flex-direction: column;
+  min-width: fit-content;
+}
+
+/* ── Rung ── */
+.ld-editor__rung {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.ld-editor__rung:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ld-editor__rung-label {
+  width: 28px;
+  text-align: center;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* ── Power Rails ── */
+.ld-editor__rail {
+  width: 12px;
+  background: var(--color-surface-3);
+  flex-shrink: 0;
+  height: 100%;
+  position: relative;
+}
+
+.ld-editor__rail--left {
+  border-right: 2px solid #00D26A;
+}
+
+.ld-editor__rail--right {
+  border-left: 2px solid #00D26A;
+}
+
+.ld-editor__rail-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 7px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+
+/* ── Contact Slots ── */
+.ld-editor__contacts {
+  display: flex;
+  gap: 4px;
+  padding: 0 6px;
+  align-items: center;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.ld-editor__slot {
+  width: 40px;
+  height: 28px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 100ms;
+  flex-shrink: 0;
+}
+
+.ld-editor__slot:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.ld-editor__slot--filled {
+  border-style: solid;
+  border-color: var(--color-border);
+  cursor: pointer;
+}
+
+.ld-editor__slot--filled:hover {
+  border-color: var(--color-error);
+  background: rgba(255, 68, 68, 0.08);
+}
+
+/* ── Wire between contacts ── */
+.ld-editor__wire {
+  width: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ld-editor__wire::after {
+  content: '';
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--color-text-tertiary);
+}
+
+/* ── Coil Slot (right side before rail) ── */
+.ld-editor__coil-slot {
+  width: 50px;
+  height: 28px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 100ms;
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
+.ld-editor__coil-slot:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.ld-editor__coil-slot--filled {
+  border-color: var(--color-border);
+  cursor: pointer;
+}
+
+.ld-editor__coil-slot--filled:hover {
+  border-color: var(--color-error);
+  background: rgba(255, 68, 68, 0.08);
+}
+
+/* ── Element rendering inside slots ── */
+.ld-element {
+  width: 32px;
+  height: 20px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-canvas);
+  user-select: none;
+}
+
+.ld-element--no {
+  background: #00D26A;
+}
+
+.ld-element--nc {
+  background: #FF4444;
+}
+
+.ld-element--out {
+  background: var(--color-blue);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+}
+
+.ld-element--set {
+  background: var(--color-amber);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+}
+
+.ld-element--reset {
+  background: var(--color-amber);
+  opacity: 0.7;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+}
+
+.ld-element__addr {
+  font-size: 8px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  margin-left: 2px;
+}
+
+/* ── Empty state ── */
+.ld-editor__empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+  font-family: var(--font-body);
+}
