@@ -67,6 +67,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-fbd-compiler"
+version = "0.1.0"
+
+[[package]]
 name = "audesys-hal-binding-gen"
 version = "0.1.0"
 dependencies = [
