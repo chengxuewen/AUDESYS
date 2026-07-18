@@ -403,6 +403,10 @@ impl Engine {
     pub fn metrics(&self) -> Arc<RuntimeMetrics> {
         Arc::clone(&self.metrics)
     }
+    /// Get access to the HAL IR VM executor for debugging.
+    pub fn hal_executor(&self) -> Arc<RwLock<Option<Executor>>> {
+        Arc::clone(&self.hal_executor)
+    }
 }
 
 // ── Tests ──

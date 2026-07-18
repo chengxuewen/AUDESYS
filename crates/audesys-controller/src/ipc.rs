@@ -53,6 +53,14 @@ const METHOD_HEALTH_QUERY: u8 = 0x05;
 const METHOD_SIGNAL_SNAPSHOT: u8 = 0x06;
 const METHOD_LOAD_PROGRAM: u8 = 0x07;
 const METHOD_LOAD_HAL_CONFIG: u8 = 0x08;
+const METHOD_PAUSE: u8 = 0x09;
+const METHOD_RESUME: u8 = 0x0A;
+const METHOD_STEP_CYCLE: u8 = 0x0B;
+const METHOD_SET_BREAKPOINT: u8 = 0x0C;
+const METHOD_CLEAR_BREAKPOINT: u8 = 0x0D;
+const METHOD_LIST_BREAKPOINTS: u8 = 0x0E;
+const METHOD_READ_REGISTERS: u8 = 0x0F;
+const METHOD_DEBUG_STATE: u8 = 0x10;
 
 // ── Response status ──
 
@@ -801,6 +809,165 @@ fn handle_connection(
                     }
                 }
             }
+
+            METHOD_PAUSE => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_PAUSE, "unauthorized"));
+                    continue;
+                }
+                engine.pause();
+                let _ = write_all(&mut stream, &build_ok_response(METHOD_PAUSE, b"paused"));
+            }
+
+            METHOD_RESUME => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_RESUME, "unauthorized"));
+                    continue;
+                }
+                engine.resume();
+                let _ = write_all(&mut stream, &build_ok_response(METHOD_RESUME, b"resumed"));
+            }
+
+            METHOD_STEP_CYCLE => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_STEP_CYCLE, "unauthorized"));
+                    continue;
+                }
+                engine.step_cycle();
+                let _ = write_all(&mut stream, &build_ok_response(METHOD_STEP_CYCLE, b"stepped"));
+            }
+
+            METHOD_SET_BREAKPOINT => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_SET_BREAKPOINT, "unauthorized"));
+                    continue;
+                }
+                if payload.len() < 4 {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_SET_BREAKPOINT, "need 4 bytes IP"));
+                    continue;
+                }
+                let ip = u32::from_be_bytes([payload[0], payload[1], payload[2], payload[3]]) as usize;
+                let hal_exec = engine.hal_executor();
+                let mut guard = hal_exec.write().unwrap();
+                match guard.as_mut() {
+                    Some(executor) => {
+                        executor.add_breakpoint(ip);
+                        drop(guard);
+                        let _ = write_all(&mut stream, &build_ok_response(METHOD_SET_BREAKPOINT, b"ok"));
+                    }
+                    None => {
+                        drop(guard);
+                        let _ = write_all(&mut stream, &build_error_response(METHOD_SET_BREAKPOINT, "no program loaded"));
+                    }
+                }
+            }
+
+            METHOD_CLEAR_BREAKPOINT => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_CLEAR_BREAKPOINT, "unauthorized"));
+                    continue;
+                }
+                if payload.len() < 4 {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_CLEAR_BREAKPOINT, "need 4 bytes IP"));
+                    continue;
+                }
+                let ip = u32::from_be_bytes([payload[0], payload[1], payload[2], payload[3]]) as usize;
+                let hal_exec = engine.hal_executor();
+                let mut guard = hal_exec.write().unwrap();
+                match guard.as_mut() {
+                    Some(executor) => {
+                        executor.remove_breakpoint(ip);
+                        drop(guard);
+                        let _ = write_all(&mut stream, &build_ok_response(METHOD_CLEAR_BREAKPOINT, b"ok"));
+                    }
+                    None => {
+                        drop(guard);
+                        let _ = write_all(&mut stream, &build_error_response(METHOD_CLEAR_BREAKPOINT, "no program loaded"));
+                    }
+                }
+            }
+
+            METHOD_LIST_BREAKPOINTS => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_read(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_LIST_BREAKPOINTS, "unauthorized"));
+                    continue;
+                }
+                let hal_exec = engine.hal_executor();
+                let guard = hal_exec.read().unwrap();
+                let response = match guard.as_ref() {
+                    Some(executor) => {
+                        let bps = executor.list_breakpoints();
+                        bps.iter().map(|ip| ip.to_string()).collect::<Vec<_>>().join(",")
+                    }
+                    None => {
+                        drop(guard);
+                        let _ = write_all(&mut stream, &build_error_response(METHOD_LIST_BREAKPOINTS, "no program loaded"));
+                        continue;
+                    }
+                };
+                drop(guard);
+                let _ = write_all(&mut stream, &build_ok_response(METHOD_LIST_BREAKPOINTS, response.as_bytes()));
+            }
+
+            METHOD_READ_REGISTERS => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_read(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_READ_REGISTERS, "unauthorized"));
+                    continue;
+                }
+                if payload.is_empty() {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_READ_REGISTERS, "need register index"));
+                    continue;
+                }
+                let idx = payload[0];
+                let hal_exec = engine.hal_executor();
+                let guard = hal_exec.read().unwrap();
+                let response = match guard.as_ref() {
+                    Some(executor) => {
+                        let val = executor.vm().read_register(idx);
+                        format!("r{}={:?}", idx, val)
+                    }
+                    None => {
+                        drop(guard);
+                        let _ = write_all(&mut stream, &build_error_response(METHOD_READ_REGISTERS, "no program loaded"));
+                        continue;
+                    }
+                };
+                drop(guard);
+                let _ = write_all(&mut stream, &build_ok_response(METHOD_READ_REGISTERS, response.as_bytes()));
+            }
+
+            METHOD_DEBUG_STATE => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_read(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_DEBUG_STATE, "unauthorized"));
+                    continue;
+                }
+                let hal_exec = engine.hal_executor();
+                let guard = hal_exec.read().unwrap();
+                let (debug_mode, bps, trace_len) = match guard.as_ref() {
+                    Some(executor) => (
+                        executor.is_debug_enabled(),
+                        executor.list_breakpoints(),
+                        executor.trace_buffer().len() as u64,
+                    ),
+                    None => (false, Vec::new(), 0u64),
+                };
+                drop(guard);
+                let paused = engine.is_paused();
+                let json = format!(
+                    r#"{{"debug_mode":{},"paused":{},"breakpoints":{:?},"trace_len":{}}}"#,
+                    debug_mode, paused, bps, trace_len
+                );
+                let _ = write_all(&mut stream, &build_ok_response(METHOD_DEBUG_STATE, json.as_bytes()));
+            }
+
             _ => {
                 let _ = write_all(
                     &mut stream,

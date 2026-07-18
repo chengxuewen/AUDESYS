@@ -32,6 +32,14 @@ const METHOD_HEALTH_QUERY: u8 = 0x05;
 const METHOD_SIGNAL_SNAPSHOT: u8 = 0x06;
 const METHOD_LOAD_PROGRAM: u8 = 0x07;
 const METHOD_LOAD_HAL_CONFIG: u8 = 0x08;
+const METHOD_PAUSE: u8 = 0x09;
+const METHOD_RESUME: u8 = 0x0A;
+const METHOD_STEP_CYCLE: u8 = 0x0B;
+const METHOD_SET_BREAKPOINT: u8 = 0x0C;
+const METHOD_CLEAR_BREAKPOINT: u8 = 0x0D;
+const METHOD_LIST_BREAKPOINTS: u8 = 0x0E;
+const METHOD_READ_REGISTERS: u8 = 0x0F;
+const METHOD_DEBUG_STATE: u8 = 0x10;
 
 const STATUS_OK: u8 = 0x00;
 #[allow(dead_code)]
@@ -352,6 +360,55 @@ impl ControllerClient {
         String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
     }
 
+    // ── Debug control ──
+
+    /// Pause the engine (stops cycle execution).
+    pub fn pause(&mut self) -> Result<String, String> {
+        let resp = self.send_request(METHOD_PAUSE, &[])?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Resume the engine from paused state.
+    pub fn resume(&mut self) -> Result<String, String> {
+        let resp = self.send_request(METHOD_RESUME, &[])?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Single-step one cycle from paused state.
+    pub fn step_cycle(&mut self) -> Result<String, String> {
+        let resp = self.send_request(METHOD_STEP_CYCLE, &[])?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Set a breakpoint at the given instruction pointer.
+    pub fn set_breakpoint(&mut self, ip: u32) -> Result<String, String> {
+        let resp = self.send_request(METHOD_SET_BREAKPOINT, &ip.to_be_bytes())?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Clear a breakpoint at the given instruction pointer.
+    pub fn clear_breakpoint(&mut self, ip: u32) -> Result<String, String> {
+        let resp = self.send_request(METHOD_CLEAR_BREAKPOINT, &ip.to_be_bytes())?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// List all active breakpoints. Returns comma-separated IP addresses.
+    pub fn list_breakpoints(&mut self) -> Result<String, String> {
+        let resp = self.send_request(METHOD_LIST_BREAKPOINTS, &[])?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Read a VM register value. Returns e.g. "r0=42".
+    pub fn read_register(&mut self, reg_idx: u8) -> Result<String, String> {
+        let resp = self.send_request(METHOD_READ_REGISTERS, &[reg_idx])?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Get full debug state as JSON.
+    pub fn debug_state(&mut self) -> Result<String, String> {
+        let resp = self.send_request(METHOD_DEBUG_STATE, &[])?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
     // ── Internal helpers ──
 
     /// Build a wire request frame, send it, read the response, and check status.
