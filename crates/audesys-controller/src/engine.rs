@@ -53,6 +53,10 @@ pub struct Engine {
     metrics: Arc<RuntimeMetrics>,
     /// Lifecycle manager for child process supervision
     lifecycle: Arc<LifecycleManager>,
+    /// Debug: is the engine paused?
+    paused: Arc<AtomicBool>,
+    /// Debug: execute one cycle then pause
+    step_requested: Arc<AtomicBool>,
     /// Loaded HAL IR program (compiled ST → VM instructions)
     hal_program: Arc<RwLock<Option<HalProgram>>>,
     /// HAL IR VM executor for cycle-by-cycle execution
@@ -78,6 +82,8 @@ impl Engine {
             signals: Arc::new(RwLock::new(SignalRegistry::new())),
             metrics: Arc::new(RuntimeMetrics::new()),
             lifecycle,
+            paused: Arc::new(AtomicBool::new(false)),
+            step_requested: Arc::new(AtomicBool::new(false)),
             hal_program: Arc::new(RwLock::new(None)),
             hal_executor: Arc::new(RwLock::new(None)),
         }
@@ -126,12 +132,25 @@ impl Engine {
         let lifecycle = Arc::clone(&self.lifecycle);
         let _hal_program = Arc::clone(&self.hal_program);
         let hal_executor = Arc::clone(&self.hal_executor);
+        let paused = Arc::clone(&self.paused);
+        let step_requested = Arc::clone(&self.step_requested);
+
 
         thread::spawn(move || {
             let interval = Duration::from_millis(cycle_interval_ms);
             let mut next_cycle = Instant::now();
 
             while running.load(Ordering::SeqCst) {
+                // Debug pause: loop-sleep while paused, unless single-step was requested
+                while running.load(Ordering::SeqCst) && paused.load(Ordering::SeqCst) && !step_requested.load(Ordering::SeqCst) {
+                    thread::sleep(Duration::from_millis(1));
+                }
+                if !running.load(Ordering::SeqCst) { break; }
+                while paused.load(Ordering::SeqCst) && !step_requested.load(Ordering::SeqCst) {
+                    thread::sleep(Duration::from_millis(1));
+                }
+                step_requested.store(false, Ordering::SeqCst);
+
                 let cycle_start = Instant::now();
 
                 // 1. Apply pending configuration (Config Barrier)
@@ -244,6 +263,15 @@ impl Engine {
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::SeqCst)
     }
+
+    /// Pause the engine.
+    pub fn pause(&self) { self.paused.store(true, Ordering::SeqCst); }
+    /// Resume the engine.
+    pub fn resume(&self) { self.paused.store(false, Ordering::SeqCst); }
+    /// Step one cycle then pause.
+    pub fn step_cycle(&self) { self.paused.store(true, Ordering::SeqCst); self.step_requested.store(true, Ordering::SeqCst); }
+    /// Check if paused.
+    pub fn is_paused(&self) -> bool { self.paused.load(Ordering::SeqCst) }
 
     /// Get the number of cycles completed.
     pub fn cycle_count(&self) -> u64 {
@@ -732,5 +760,76 @@ mod tests {
         let metrics = engine.metrics();
         let _restarts = metrics.child_restarts.load(Ordering::Relaxed);
         // No assertion on restarts — there are no spawned children in this test
+    }
+
+    // ── Pause / Resume / Step tests ──
+
+    #[test]
+    fn test_engine_pause_resume() {
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
+        assert!(!engine.is_running()); // not started, pause/resume states still trackable
+        assert!(!engine.is_paused());
+
+        engine.pause();
+        assert!(engine.is_paused());
+
+        engine.resume();
+        assert!(!engine.is_paused());
+    }
+
+    #[test]
+    fn test_engine_step_cycle_sets_paused() {
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
+        engine.step_cycle();
+        assert!(engine.is_paused());
+    }
+
+    #[test]
+    fn test_pause_stops_cycle_execution() {
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
+        let handle = engine.start_with_cycle(1);
+        thread::sleep(Duration::from_millis(30));
+
+        engine.pause();
+        thread::sleep(Duration::from_millis(30));
+        let count_after_pause = engine.cycle_count();
+
+        thread::sleep(Duration::from_millis(30));
+        let count_after_wait = engine.cycle_count();
+
+        // Cycle count should not increase while paused
+        assert_eq!(count_after_pause, count_after_wait,
+            "cycle count should freeze while paused");
+
+        engine.resume();
+        thread::sleep(Duration::from_millis(30));
+        engine.stop();
+        handle.join().expect("engine thread should join cleanly");
+    }
+
+    #[test]
+    fn test_step_cycle_advances_by_one() {
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
+        let handle = engine.start_with_cycle(1);
+        thread::sleep(Duration::from_millis(20));
+
+        engine.pause();
+        thread::sleep(Duration::from_millis(10));
+        let count_before = engine.cycle_count();
+
+        engine.step_cycle();
+        thread::sleep(Duration::from_millis(20));
+        let count_after = engine.cycle_count();
+
+        // Exactly one more cycle should have executed
+        assert_eq!(count_after, count_before + 1,
+            "step_cycle should advance exactly one cycle");
+
+        engine.stop();
+        handle.join().expect("engine thread should join cleanly");
     }
 }
