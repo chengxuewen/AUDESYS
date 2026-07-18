@@ -67,3 +67,19 @@
   font-size: 12px;
   padding: 4px 8px;
 }
+
+/* ── Breakpoint dot ── */
+.code-editor .cm-breakpoint-gutter {
+  width: 18px;
+  background: var(--color-surface-1);
+  border-right: 1px solid var(--color-border);
+}
+
+.code-editor .cm-breakpoint-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-error, #e53e3e);
+  margin: 4px auto 0;
+  display: block;
+}
