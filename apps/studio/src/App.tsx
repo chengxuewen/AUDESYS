@@ -4,6 +4,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import CodeEditor, { type CodeEditorHandle, type EditorDiagnostic } from "./components/CodeEditor";
 import FileOperations from "./components/FileOperations";
+import DebugPanel from "./components/DebugPanel";
 import StatusBar, { type CompileStatus } from "./components/StatusBar";
 import ErrorPanel, { type PanelError } from "./components/ErrorPanel";
 import "./App.css";
@@ -261,6 +262,7 @@ export default function App() {
                 : "Compile an ST program to see signal output."}
             </div>
           )}
+          <DebugPanel />
         </div>
       </div>
 
