@@ -5,6 +5,7 @@
 //! in `tests/adapter_signal_test.rs`. The shared `Arc<InprocTransport>`
 //! allows signal injection from outside the engine cycle loop.
 
+use std::sync::Mutex;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -49,6 +50,7 @@ fn build_inproc_stack() -> (Arc<InprocTransport>, InprocMiddleware) {
 pub struct SimulationHarness {
     engine: Engine,
     transport: Arc<InprocTransport>,
+    faults: Mutex<Vec<ActiveFault>>,
     cycle_ms: u64,
     handle: Option<thread::JoinHandle<()>>,
 }
@@ -61,6 +63,7 @@ impl SimulationHarness {
         Self {
             engine,
             transport,
+            faults: Mutex::new(Vec::new()),
             cycle_ms,
             handle: None,
         }
@@ -322,6 +325,78 @@ mod tests {
     }
 }
 
+// ── Fault Injection ──
+
+/// Fault types for simulation testing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FaultKind {
+    /// Signal stops updating (returns last good value)
+    Timeout,
+    /// Signal value set to extreme (e.g., F32::MAX)
+    OutOfRange,
+    /// Device/signal disconnected (returns None/error)
+    Disconnect,
+}
+
+/// An active fault — applies to a signal starting at a specific cycle.
+#[derive(Debug, Clone)]
+pub struct ActiveFault {
+    pub kind: FaultKind,
+    pub signal: String,
+    pub start_cycle: u64,
+    pub duration_cycles: u64,
+}
+
+impl SimulationHarness {
+    /// Inject a fault on a signal. Active from start_cycle for duration cycles.
+    pub fn inject_fault(&self, kind: FaultKind, signal: &str, start_cycle: u64, duration_cycles: u64) {
+        let fault = ActiveFault {
+            kind,
+            signal: signal.to_string(),
+            start_cycle,
+            duration_cycles,
+        };
+        self.faults.lock().unwrap().push(fault);
+    }
+
+    /// Clear all active faults.
+    pub fn clear_faults(&self) {
+        self.faults.lock().unwrap().clear();
+    }
+
+    /// Get list of active faults for the current cycle.
+    pub fn active_faults(&self) -> Vec<ActiveFault> {
+        let current = self.cycle_count();
+        self.faults.lock().unwrap().iter()
+            .filter(|f| current >= f.start_cycle && current < f.start_cycle + f.duration_cycles)
+            .cloned()
+            .collect()
+    }
+    /// Resolve a signal value through active faults. Returns false if value
+    /// should be suppressed (Timeout/Disconnect). Modifies value for OutOfRange.
+    pub fn resolve_fault(&self, signal: &str, value: &mut HalValue) -> bool {
+        let faults = self.active_faults();
+        for fault in faults {
+            if fault.signal != signal { continue; }
+            match fault.kind {
+                FaultKind::Timeout | FaultKind::Disconnect => return false,
+                FaultKind::OutOfRange => {
+                    let maxed = match value {
+                        HalValue::F32(_) => HalValue::F32(f32::MAX),
+                        HalValue::U32(_) => HalValue::U32(u32::MAX),
+                        HalValue::S32(_) => HalValue::S32(i32::MAX),
+                        HalValue::Bool(v) => HalValue::Bool(!*v),
+                        _ => return true,
+                    };
+                    *value = maxed;
+                }
+            }
+        }
+        true
+    }
+}
+
+
 // ── Scene Recording / Playback ──
 
 use serde::{Deserialize, Serialize};
@@ -452,5 +527,53 @@ mod scene_tests {
         assert_eq!(parse_hal_value("U32(42)"), Some(HalValue::U32(42)));
         assert_eq!(parse_hal_value("F32(3.14)"), Some(HalValue::F32(3.14)));
         assert_eq!(parse_hal_value("unknown"), None);
+    }
+}
+
+#[cfg(test)]
+mod fault_tests {
+    use super::*;
+
+    #[test]
+    fn test_inject_fault() {
+        let sim = SimulationHarness::new(1);
+        sim.inject_fault(FaultKind::Timeout, "sensor.x", 0, 5);
+        let faults = sim.active_faults();
+        assert_eq!(faults.len(), 1);
+        assert_eq!(faults[0].kind, FaultKind::Timeout);
+    }
+
+    #[test]
+    fn test_clear_faults() {
+        let sim = SimulationHarness::new(1);
+        sim.inject_fault(FaultKind::Timeout, "sensor.x", 0, 5);
+        sim.clear_faults();
+        assert!(sim.active_faults().is_empty());
+    }
+
+    #[test]
+    fn test_resolve_out_of_range_f32() {
+        let sim = SimulationHarness::new(1);
+        sim.inject_fault(FaultKind::OutOfRange, "sensor.x", 0, 5);
+        let mut val = HalValue::F32(3.14);
+        sim.resolve_fault("sensor.x", &mut val);
+        assert_eq!(val, HalValue::F32(f32::MAX));
+    }
+
+    #[test]
+    fn test_resolve_timeout_suppresses() {
+        let sim = SimulationHarness::new(1);
+        sim.inject_fault(FaultKind::Timeout, "sensor.x", 0, 5);
+        let mut val = HalValue::U32(42);
+        assert!(!sim.resolve_fault("sensor.x", &mut val));
+    }
+
+    #[test]
+    fn test_no_fault_on_other_signal() {
+        let sim = SimulationHarness::new(1);
+        sim.inject_fault(FaultKind::Timeout, "sensor.x", 0, 5);
+        let mut val = HalValue::U32(42);
+        assert!(sim.resolve_fault("sensor.y", &mut val));
+        assert_eq!(val, HalValue::U32(42));
     }
 }
