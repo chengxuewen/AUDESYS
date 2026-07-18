@@ -61,6 +61,9 @@ const METHOD_CLEAR_BREAKPOINT: u8 = 0x0D;
 const METHOD_LIST_BREAKPOINTS: u8 = 0x0E;
 const METHOD_READ_REGISTERS: u8 = 0x0F;
 const METHOD_DEBUG_STATE: u8 = 0x10;
+const METHOD_PREPARE_SWAP: u8 = 0x11;
+const METHOD_COMMIT_SWAP: u8 = 0x12;
+const METHOD_ROLLBACK_SWAP: u8 = 0x13;
 
 // ── Response status ──
 
@@ -966,6 +969,54 @@ fn handle_connection(
                     debug_mode, paused, bps, trace_len
                 );
                 let _ = write_all(&mut stream, &build_ok_response(METHOD_DEBUG_STATE, json.as_bytes()));
+            }
+
+            METHOD_PREPARE_SWAP => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_PREPARE_SWAP, "unauthorized"));
+                    continue;
+                }
+                match engine.prepare_swap(&payload) {
+                    Ok(()) => {
+                        let _ = write_all(&mut stream, &build_ok_response(METHOD_PREPARE_SWAP, b"ready"));
+                    }
+                    Err(e) => {
+                        let _ = write_all(&mut stream, &build_error_response(METHOD_PREPARE_SWAP, &e));
+                    }
+                }
+            }
+
+            METHOD_COMMIT_SWAP => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_COMMIT_SWAP, "unauthorized"));
+                    continue;
+                }
+                match engine.commit_swap() {
+                    Ok(()) => {
+                        let _ = write_all(&mut stream, &build_ok_response(METHOD_COMMIT_SWAP, b"committed"));
+                    }
+                    Err(e) => {
+                        let _ = write_all(&mut stream, &build_error_response(METHOD_COMMIT_SWAP, &e));
+                    }
+                }
+            }
+
+            METHOD_ROLLBACK_SWAP => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(&mut stream, &build_error_response(METHOD_ROLLBACK_SWAP, "unauthorized"));
+                    continue;
+                }
+                match engine.rollback_swap() {
+                    Ok(()) => {
+                        let _ = write_all(&mut stream, &build_ok_response(METHOD_ROLLBACK_SWAP, b"cancelled"));
+                    }
+                    Err(e) => {
+                        let _ = write_all(&mut stream, &build_error_response(METHOD_ROLLBACK_SWAP, &e));
+                    }
+                }
             }
 
             _ => {

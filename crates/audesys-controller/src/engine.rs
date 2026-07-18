@@ -61,6 +61,10 @@ pub struct Engine {
     hal_program: Arc<RwLock<Option<HalProgram>>>,
     /// HAL IR VM executor for cycle-by-cycle execution
     hal_executor: Arc<RwLock<Option<Executor>>>,
+    /// Pending hot-swap program (validated, waiting for commit)
+    pending_swap: Arc<RwLock<Option<HalProgram>>>,
+    /// Whether a swap has been committed and should be applied at next cycle boundary
+    swap_committed: Arc<AtomicBool>,
 }
 
 impl Engine {
@@ -86,6 +90,8 @@ impl Engine {
             step_requested: Arc::new(AtomicBool::new(false)),
             hal_program: Arc::new(RwLock::new(None)),
             hal_executor: Arc::new(RwLock::new(None)),
+            pending_swap: Arc::new(RwLock::new(None)),
+            swap_committed: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -130,7 +136,12 @@ impl Engine {
         let signals = Arc::clone(&self.signals);
         let metrics = Arc::clone(&self.metrics);
         let lifecycle = Arc::clone(&self.lifecycle);
-        let _hal_program = Arc::clone(&self.hal_program);
+        let hal_program = Arc::clone(&self.hal_program);
+        let hal_executor = Arc::clone(&self.hal_executor);
+        let paused = Arc::clone(&self.paused);
+        let step_requested = Arc::clone(&self.step_requested);
+        let pending_swap = Arc::clone(&self.pending_swap);
+        let swap_committed = Arc::clone(&self.swap_committed);
         let hal_executor = Arc::clone(&self.hal_executor);
         let paused = Arc::clone(&self.paused);
         let step_requested = Arc::clone(&self.step_requested);
@@ -164,6 +175,28 @@ impl Engine {
                         }
                         let _ = mw.apply_queued();
                     }
+                }
+
+                // 1.5 Check for committed hot-swap (Config Barrier, D17)
+                if swap_committed.load(Ordering::SeqCst) {
+                    let mut pending = pending_swap.write().unwrap();
+                    if let Some(program) = pending.take() {
+                        let executor = Executor::new(program.clone());
+                        for binding in &program.signals {
+                            if binding.direction == Direction::Write || binding.direction == Direction::ReadWrite {
+                                let def = SignalDef::new(
+                                    &binding.hal_signal_name,
+                                    audesys_hal_core::types::HalPinType::S32,
+                                    HalValue::S32(0),
+                                    WriteStrategy::Own,
+                                );
+                                let _ = signals.write().unwrap().register(def);
+                            }
+                        }
+                        *hal_program.write().unwrap() = Some(program);
+                        *hal_executor.write().unwrap() = Some(executor);
+                    }
+                    swap_committed.store(false, Ordering::SeqCst);
                 }
 
                 let now_ts = Timestamp {
@@ -406,6 +439,45 @@ impl Engine {
     /// Get access to the HAL IR VM executor for debugging.
     pub fn hal_executor(&self) -> Arc<RwLock<Option<Executor>>> {
         Arc::clone(&self.hal_executor)
+    }
+
+    // ── Hot-swap (Prep/Commit/Rollback at cycle boundary) ──
+
+    /// Prepare a hot-swap: validate the new program, store for later commit.
+    pub fn prepare_swap(&self, bytes: &[u8]) -> Result<(), String> {
+        let program: HalProgram = bincode::deserialize(bytes)
+            .map_err(|e| format!("deserialize: {}", e))?;
+        if !program.is_well_formed() {
+            return Err("Program is not well-formed".to_string());
+        }
+        *self.pending_swap.write().unwrap() = Some(program);
+        Ok(())
+    }
+
+    /// Commit the prepared swap. Applied at the next cycle boundary.
+    pub fn commit_swap(&self) -> Result<(), String> {
+        if self.pending_swap.read().unwrap().is_none() {
+            return Err("No pending swap prepared".to_string());
+        }
+        self.swap_committed.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    /// Rollback: discard the pending swap.
+    pub fn rollback_swap(&self) -> Result<(), String> {
+        *self.pending_swap.write().unwrap() = None;
+        self.swap_committed.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+
+    /// Check if a swap is pending or committed.
+    pub fn has_pending_swap(&self) -> bool {
+        self.pending_swap.read().unwrap().is_some()
+    }
+
+    /// Check if a swap has been committed (waiting for cycle boundary).
+    pub fn is_swap_committed(&self) -> bool {
+        self.swap_committed.load(Ordering::SeqCst)
     }
 }
 
@@ -836,4 +908,59 @@ mod tests {
         engine.stop();
         handle.join().expect("engine thread should join cleanly");
     }
+
+    // ── Hot-swap tests ──
+
+    #[test]
+    fn test_prepare_swap_validates_program() {
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
+        // Invalid bincode should fail
+        assert!(engine.prepare_swap(b"not a program").is_err());
+        assert!(!engine.has_pending_swap());
+    }
+
+    #[test]
+    fn test_commit_without_prepare_fails() {
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
+        assert!(engine.commit_swap().is_err());
+    }
+
+    #[test]
+    fn test_rollback_clears_pending() {
+        let engine =
+            Engine::new(Box::new(MockMiddleware::new()), Arc::new(LifecycleManager::new()));
+        engine.rollback_swap().unwrap();
+        assert!(!engine.has_pending_swap());
+        assert!(!engine.is_swap_committed());
+    }
+
+    #[test]
+    fn test_swap_applied_at_cycle_boundary() {
+        let mw = MockMiddleware::new();
+        let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
+
+        // Build a minimal well-formed HalProgram
+        let instructions = vec![audesys_hal_ir::instruction::Instruction::halt()];
+        let program = HalProgram::new("swap_test", instructions);
+        let bytes = bincode::serialize(&program).unwrap();
+
+        engine.prepare_swap(&bytes).unwrap();
+        assert!(engine.has_pending_swap());
+
+        engine.commit_swap().unwrap();
+        assert!(engine.is_swap_committed());
+
+        // Start the engine and let cycles run
+        let handle = engine.start_with_cycle(1);
+        thread::sleep(Duration::from_millis(50));
+        engine.stop();
+        handle.join().unwrap();
+
+        // After cycle boundary, swap should be applied (no longer pending/committed)
+        assert!(!engine.has_pending_swap());
+        assert!(!engine.is_swap_committed());
+    }
+
 }

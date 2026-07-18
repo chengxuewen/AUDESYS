@@ -40,6 +40,9 @@ const METHOD_CLEAR_BREAKPOINT: u8 = 0x0D;
 const METHOD_LIST_BREAKPOINTS: u8 = 0x0E;
 const METHOD_READ_REGISTERS: u8 = 0x0F;
 const METHOD_DEBUG_STATE: u8 = 0x10;
+const METHOD_PREPARE_SWAP: u8 = 0x11;
+const METHOD_COMMIT_SWAP: u8 = 0x12;
+const METHOD_ROLLBACK_SWAP: u8 = 0x13;
 
 const STATUS_OK: u8 = 0x00;
 #[allow(dead_code)]
@@ -409,6 +412,27 @@ impl ControllerClient {
         let resp = self.send_request(METHOD_DEBUG_STATE, &[])?;
         String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
     }
+
+    // ── Hot-swap ──
+
+    /// Prepare a hot-swap program for deployment at cycle boundary.
+    pub fn prepare_swap(&mut self, program_bytes: &[u8]) -> Result<String, String> {
+        let resp = self.send_request(METHOD_PREPARE_SWAP, program_bytes)?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Commit the prepared swap. Applied at the next cycle boundary.
+    pub fn commit_swap(&mut self) -> Result<String, String> {
+        let resp = self.send_request(METHOD_COMMIT_SWAP, &[])?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Rollback: discard the pending swap.
+    pub fn rollback_swap(&mut self) -> Result<String, String> {
+        let resp = self.send_request(METHOD_ROLLBACK_SWAP, &[])?;
+        String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
     // ── Internal helpers ──
 
     /// Build a wire request frame, send it, read the response, and check status.
