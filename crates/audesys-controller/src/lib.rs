@@ -24,6 +24,7 @@ pub mod lifecycle;
 pub mod metrics;
 
 pub mod signals;
+pub mod simulation;
 pub use adapter_manager::AdapterManager;
 pub use config::ConfigWatcher;
 pub use config::RuntimeConfig;
