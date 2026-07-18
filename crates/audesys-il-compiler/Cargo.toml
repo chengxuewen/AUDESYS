@@ -1,0 +1,11 @@
+[package]
+name = "audesys-il-compiler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "AUDESYS IEC 61131-3 IL (Instruction List) compiler targeting HAL IR"
+
+[dependencies]
+audesys-hal-ir = { path = "../audesys-hal-ir" }
+audesys-hal-core = { path = "../audesys-hal-core" }
