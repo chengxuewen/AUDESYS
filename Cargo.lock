@@ -124,6 +124,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-ld-compiler"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-ir",
+ "audesys-il-compiler",
+]
+
+[[package]]
 name = "audesys-modbus"
 version = "0.1.0"
 dependencies = [
