@@ -1,48 +1,80 @@
 # AUDESYS 项目状态
 
 ## 当前阶段
-- **MVP 原型完成** — 2026-07-17，ST 编译器满栈管道（词法→解析→类型检查→代码生成）、HAL IR/VM（30 操作码+定时器+计数器+函数调用栈）、Runtime Engine（5 步周期引擎+Config Barrier+信号注册表）、Supervisor（子进程编排+重启）、IPC Server（6 方法 UDS 协议+HMAC 认证）、Studio IDE（CodeMirror 6+Tauri 桌面应用）
-- **Studio ↔ Controller 集成规划中** — 两层项目模型设计完成（Firmware Project + Engineering Project），联调/调试/可观测性/部署/仿真五维度分析完毕，详见 `docs/plans/p0-mvp-status.md`
-- **HAL 详细设计扩展** — 2026-07-15，19 份独立子文档 + 4 份 Runtime 设计文档 + 121 项 SDD 规范
+- **MVP 原型完成** — 2026-07-17，6 语言 IEC 61131-3 编译器（ST/IL/LD/FBD/SFC）、HAL IR/VM（34 操作码+定时器+计数器+触发器+函数调用栈）、Runtime Engine（5 步周期引擎+Config Barrier+Hot-swap+信号注册表）、Supervisor（子进程编排+指数退避+重启）、IPC Server（9 方法 UDS 协议+HMAC 认证+5 角色 RBAC）、Studio IDE（Tauri+CodeMirror 6+React+TypeScript，8 面板+15 Tauri 命令+5 种可视化编辑器）
+- **Studio ↔ Controller 集成完成** — ControllerClient 库（UDS IPC 客户端，6 方法+认证）、Studio Tauri 命令（deploy_program/load_hal_config/read_controller_signal）
+- **协议适配器就绪** — Modbus RTU/TCP（8 测试）、HART（6 测试）
+- **仿真器就绪** — SimulationHarness + 故障注入引擎 + 场景录制/回放 + VirtualModbusTcpDevice + VirtualHARTDevice
+- **可观测性就绪** — Prometheus metrics + DAP 调试适配器（12 命令）+ JSON 日志
+- **CNC 设计完成** — 2026-07-19，`docs/modules/cnc/` 4 份设计文档（G-code 编译器、运动规划器、轴组管理、竞品参考模型）+ 37 项 CNC SDD 规范 + architecture.md §七 CNC 章节
 
-## 当前阶段
-- **HAL 详细设计扩展** — 2026-07-15，D14/D15 逆转：hal-detailed-design.md（3386行）拆分为 docs/modules/hal/ 下 19 份独立子文档，architecture.md §一 精简为行引用
-- **参考文档库扩展** — 2026-07-15，参考库从 22 篇扩至 41 篇（docs/reference/），新增 5 个类别，总计 19 篇新文档
-- **SDD 规范生成** — 2026-07-15，从 4 份 HAL 设计文档提取 121 项规范（openspec/specs/）：类型系统(30)、HalQoS(30)、Config Barrier(24)、协议(37)
-- **Runtime 设计文档** — 2026-07-15，新建 4 份文档：IPC 安全设计(494行)、可观测性设计(567行)、硬件需求(402行)、升级策略(281行)
-- **文档架构审计完成** — 2026-07-15，50 项发现经交互审核（11 CRITICAL + 13 HIGH + 19 MEDIUM + 7 LOW），45 项修复应用，5 项延后。新建 doc-audit 技能支持持续审计
-- **P0 基础设施就绪** — 2026-07-15，Cargo workspace 虚拟清单 + audesys-hal-core crate + CI/CD 三层 QA + rust-toolchain/clippy/deny/fmt 工具链，qa-fast 5 门禁全绿
-- **技能库增强** (2026-07-15) — 2026-07-14/15：book-to-skill (文档→技能转换)、doc-audit (文档审计)、test-harness (多语言测试工具架)、skill-creator (从 webrtc-kit 移植) + 7 篇 Studio 参考技能 (ref-codesys/ref-beckhoff/ref-qtouch/ref-ignition/ref-fuxa/ref-intouch/ref-labview)。7 项 openspec 技能从 webrtc-kit 移植增强（propose/apply/verify/explore + test-harness Mode 7 + doc-audit 3项增强 + skill-creator 新建）
-## 实施规划新增决策
-- D31-D41 已记录于 `.agents/memorys/decisions.md`（D33 经团队审查修订：Ludwig→直接 TDD）
-- D42-D43 已记录（MCP工具链策略，AI辅助工具集成）
-- D44-D49 已记录（HAL拆分逆转，Runtime设计，错误模型，doc-audit技能，SDD规范生成，审计修复流程）
-- D50-D54 已记录（test-harness、skill-creator+参考技能、参考模式缺口、Phase 0定义修订、webrtc-kit技能移植）
 ## 仓库状态
-- **最新提交**: `ddc0a72` — `chore: migrate flat skill files to subdirectory form for consistency`
-- **提交历史**: 16 commits on main (2026-07-15)，总计 +6,989 / -3,615 行
-- **源代码**: cargo workspace 就绪（`Cargo.toml` 虚拟清单 + `crates/audesys-hal-core/` + `crates/amw_inproc/` + `crates/hal-flatbuffers/`），含 `.fbs` FlatBuffers schema 骨架
-- **测试**: 121 项 SDD 规范就绪（openspec/specs/）+ 1 项编译链接验证测试 (health.rs) + amw_inproc/hal-flatbuffers stub（Phase 1 M0.3 待实现）
+- **最新提交**: `0249d9b` — `feat(controller): add VirtualHARTDevice with HART universal commands 0-3`
+- **提交历史**: 184 commits on main (2026-07-08 至 2026-07-19)
+- **源代码**: 17 crates（crates/）+ Tauri Studio 应用（apps/studio/）
+- **测试**: 614 `#[test]` 标注 + 12 个前端 vitest 组件测试文件
+- **SDD 规范**: 162 项（openspec/specs/）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(37) + 健康检查(4)
 - **CI**: qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ GitHub Actions macOS+Linux 矩阵
 - **依赖**: `@colbymchenry/codegraph` (devDependency) + Rust toolchain stable
+
+## 模块状态
+
 | 模块 | 状态 | 备注 |
 |------|:----:|------|
-| ST 编译器 + HAL IR/VM | ✅ 完成 | 30 操作码，7 控制流，62 测试通过 |
-| Runtime Engine | ✅ 完成 | 5 步周期引擎，信号注册表，atomic 度量 |
+| ST 编译器 + HAL IR/VM | ✅ 完成 | 34 操作码，7 控制流，函数调用栈 |
+| IL 编译器 | ✅ 完成 | 21 IL 助记符 → HalProgram |
+| LD 编译器 | ✅ 完成 | LD 图形 → IL 文本 → HalProgram |
+| FBD 编译器 | ✅ 完成 | 功能块图 → HalProgram |
+| SFC 编译器 | ✅ 完成 | 19 步进 → HalProgram |
+| Runtime Engine | ✅ 完成 | 5 步周期，Config Barrier，Hot-swap，信号注册表 |
 | Supervisor | ✅ 完成 | 子进程编排，指数退避，3 重试 |
-| IPC Server | ✅ 完成 | UDS 6 方法，HMAC 认证，5 角色 RBAC |
-| Studio IDE | ✅ 完成 | CodeMirror 6+Tauri，编译+本地执行 |
-| HAL 设计文档 | ✅ 完成 | `docs/modules/hal/` 19 份子文档 |
-| Runtime 设计文档 | ✅ 完成 | 4 份：IPC 安全+可观测+硬件+升级 |
-| Studio ↔ Controller 联调 | 🔲 规划中 | 两层项目模型已设计，IPC 方法待实现 |
-| 调试功能 | 🔲 规划中 | 架构 §5 设计完成，零代码实现 |
+| IPC Server | ✅ 完成 | UDS 9 方法，HMAC 认证，5 角色 RBAC |
+| Studio IDE | ✅ 完成 | Tauri + CodeMirror 6 + 15 命令 + 8 面板 |
+| ControllerClient | ✅ 完成 | UDS IPC 客户端（6 方法+认证） |
+| Studio ↔ Controller 联调 | ✅ 完成 | deploy_program + load_hal_config + read_controller_signal |
+| Modbus RTU/TCP | ✅ 完成 | libmodbus FFI，8 测试 |
+| HART 适配器 | ✅ 完成 | 通道多 Signal 模式，6 测试 |
+| DAP 调试适配器 | ✅ 完成 | 12 命令，断点/步进/寄存器/变量 |
+| Studio 调试面板 | ✅ 完成 | 9 Tauri 调试命令 + DebugPanel 组件 |
+| Prometheus Metrics | ✅ 完成 | /healthz + /metrics 端点，6 计数器 |
+| JSON 日志 | ✅ 完成 | 结构化日志，按级别/模块过滤 |
+| SimulationHarness | ✅ 完成 | 进程内测试工具架，场景录制/回放 |
+| 故障注入引擎 | ✅ 完成 | Timeout/OutOfRange/Disconnect，5 测试 |
+| VirtualModbusTcpDevice | ✅ 完成 | 8 FC 处理，寄存器↔信号映射，12 测试 |
+| VirtualHARTDevice | ✅ 完成 | 通用命令 0-3 模拟，13 测试 |
+| IEC 功能块 | ✅ 完成 | SR/RS/R_TRIG/F_TRIG，266 测试全通过 |
 | 仿真 | 🟡 Inproc | InprocMiddleware 已是 MVP 仿真层，AVD Phase 3+ |
 | Simulator (AVD) | 🔮 Phase 3/4 | 7 种虚拟设备，设计完成 |
 | 工业调试桥 | 🔲 规划中 | architecture.md §5 设计完成 |
+| CNC 系统 | 🟡 设计完成 | `docs/modules/cnc/` 4 份设计文档（5,575 行） |
+| G-code 编译器 | 🔲 计划中 | `.sisyphus/plans/add-gcode-compiler/` 提案就绪（17 任务） |
 
-| 实施规划 | ✅ P0 团队审查完成（27项）+ 第一次审计修复（45项）+ 第二次审计修复（32项） | D31-D54 已记录，Phase 0→1 过渡定义清晰（D53） |
-| 文档审计 | ✅ 两次审计完成：50项（45修复/5延后）+ 32项（全部修复） | 持续审计管道建立，支持 /doc-audit full/quick-fix/phase 命令 |
-| 技能库 | ✅ 13 项目技能 + 7 参考技能 | 覆盖审计、测试、设计系统、文档转换、变更管理、Studio 参考 |
-| skill-creator | ✅ 从 webrtc-kit 移植，适配 HAL/FlatBuffers | 技能创建与维护工具 |
+## 文档与规范
 
-| 技能移植 | ✅ 7 项 openspec 技能从 webrtc-kit 移植增强 | propose/apply/verify/explore + test-harness Mode 7 + doc-audit 3项 |
+| 类别 | 状态 | 备注 |
+|------|:----:|------|
+| HAL 设计文档 | ✅ 完成 | `docs/modules/hal/` 19 份子文档 |
+| Runtime 设计文档 | ✅ 完成 | 4 份：IPC 安全+可观测+硬件+升级 |
+| CNC 设计文档 | ✅ 完成 | `docs/modules/cnc/` 4 份子文档 + SDD 规范 |
+| 竞品参考文档 | ✅ 完成 | `docs/reference/` 41 篇（12 大类） |
+| SDD 规范 | ✅ 完成 | `openspec/specs/` 5 份规范，162 项 |
+| 架构文档 | ✅ 完成 | `docs/architecture.md` 1,822 行，七章 |
+| 文档审计 | ✅ 完成 | 两次审计：50+32 项发现，77 项修复 |
+| 实施规划 | ✅ 完成 | D31-D55 已记录，P0 团队审查通过 |
+
+## 技能库
+
+| 技能 | 状态 | 用途 |
+|------|:----:|------|
+| design-system | ✅ | AUDESYS 工业 UI 设计系统 |
+| book-to-skill | ✅ | 文档→技能转换 |
+| doc-audit | ✅ | 6 维度文档架构审计 |
+| test-harness | ✅ | 多语言自动化测试工具架（6 模式） |
+| skill-creator | ✅ | 从 HAL/SDD/FlatBuffers/Cargo 生成技能 |
+| openspec-propose | ✅ | 结构化变更提案 |
+| openspec-apply | ✅ | 变更实施（TDD + 7 门禁） |
+| openspec-verify | ✅ | 交叉层规范验证 |
+| openspec-explore | ✅ | 4 源知识探索 |
+| openspec-archive | ✅ | 变更归档 |
+| openspec-sync-specs | ✅ | 增量规范同步 |
+| ref-codesys/ref-beckhoff/ref-qtouch | ✅ | Studio 参考技能（7 项） |

@@ -318,4 +318,10 @@
 - **日期**: 2026-07-15
 - **决定**: 从 webrtc-kit 项目对比分析移植 7 项增强：skill-creator 新建（HAL trait/SDD spec/FlatBuffers/Cargo crate 四种输入源），test-harness 新增 Mode 7 选择性测试运行（git diff → cargo test -p），openspec-propose 结构化升级（强制名称确认+上下文收集+layer/backend 评估+结构化模板），openspec-apply TDD 支持（test-first 执行+7 门禁验证+spec 交叉引用+规则层级），doc-audit 三项增强（孤立测试检测+决策新鲜度+CROSS-CHECK.md），openspec-verify 交叉层验证（spec 一致性检查+孤立测试检测），openspec-explore 4-source 知识源模型（Specs/Design Docs/Project Memory/Codebase）
 - **理由**: webrtc-kit 技能在结构化程度、验证严密性和知识组织方面优于 AUDESYS 原有版本。并行移植 7 项实现技能库同步升级。
-- **参考**: .agents/skills/ 下 7 个 openspec 技能文件，webrtc-kit/.agents/skills/ 对比分析
+  - **参考**: .agents/skills/ 下 7 个 openspec 技能文件，webrtc-kit/.agents/skills/ 对比分析
+
+## D55: CNC 系统策略 = G-code→HAL IR 编译器 + 运动规划器 + 轴组
+- **日期**: 2026-07-19
+- **决定**: AUDESYS CNC 系统分为三个构件：G-code 编译器（第 6 种源码语言，与 ST/IL/LD/FBD/SFC 并列）、运动规划器（梯形/S曲线速度剖面，Phase 1 逐周期步进，Phase 2 Runtime 协处理器）、轴组（坐标系统、回零、软限位、反向间隙）。采用 LinuxCNC 4 层模型作为主参考架构（UI→Task→Motion→HAL），GRBL 逐周期步进作为 Phase 1 运动实现参考，Klipper 分布式 Host/MCU 模型作为 Phase 2+ 架构参考，TwinCAT CNC PLC+CNC 统一作为产品愿景参考。
+- **理由**: CNC 是 AUDESYS tier-1 应用场景，HAL 已预留 motion.axis.N.pos Signal 约定。以最低架构开销建立 G-code 编译管道，后续运动规划器、插补引擎、运动学模型渐进叠加。G-code 编译器作为第 6 种源码语言与现有 5 种 IEC 61131-3 编译器共享 HalProgram 后端，零 VM 变更。
+- **参考**: `docs/modules/cnc/` 4 份设计文档，`docs/modules/cnc/cnc-reference-models.md`，`.sisyphus/plans/add-gcode-compiler/`

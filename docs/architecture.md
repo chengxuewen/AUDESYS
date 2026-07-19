@@ -1736,3 +1736,88 @@ Web 版架构:
   Browser (React) ←WebSocket-> Supervisor (Node.js) ←Zenoh-> Controller (Rust) ←Serial-> 设备
   Browser (React) ←WebSocket-> Supervisor (Node.js) ←Docker API-> Simulator (Container)
 ```
+
+
+---
+
+## 七、CNC 系统
+
+AUDESYS 以 G-code（RS274/NGC）编译器作为第 6 种源码语言，与现有 5 种 IEC 61131-3 语言
+（ST/IL/LD/FBD/SFC）共享 HalProgram 后端，实现 CNC 运动控制能力。新增 `docs/modules/cnc/`
+子文档模块，覆盖 G-code 编译管道、运动规划器、轴组管理三构件。
+
+### CNC 构件
+
+| 构件 | 文档 | 状态 |
+|------|------|:---:|
+| G-code 编译器 | `docs/modules/cnc/gcode-compiler-design.md` | 🟡 设计完成 |
+| 运动规划器 | `docs/modules/cnc/motion-planner-design.md` | 🔲 规划中 |
+| 轴组管理 | `docs/modules/cnc/axis-group-design.md` | 🔲 规划中 |
+| 竞品参考 | `docs/modules/cnc/cnc-reference-models.md` | 🔲 规划中 |
+
+### 架构概览
+
+```
+  G-code 文本 (String)
+        │
+        ▼
+┌───────────────────────────────────────┐
+│  G-code Compiler                      │
+│  crates/audesys-gcode-compiler/       │
+│  Lexer → Two-Pass Parser → IR Gen     │
+└──────────────────┬────────────────────┘
+                   │
+                   ▼
+          HalProgram { name, signals, instructions }
+                   │
+                   ▼
+      HAL VM / Executor (复用现有 34 操作码)
+                   │
+        ┌──────────┼──────────┐
+        ▼          ▼          ▼
+   axis.N.pos  spindle.rpm  motion.state
+   (F64)       (F64)        (U8)
+```
+
+### 核心设计决策
+
+- **D55**: G-code→HAL IR 编译策略 — 编译器作为独立管道，输入 G-code 文本，输出 HalProgram，
+  零 VM 变更。Phase 1 覆盖 G0/G1/G2/G3 运动指令 + M3/M4/M5/M30 辅助指令。
+- **参考模型**: LinuxCNC 4 层架构（UI→Task→Motion→HAL）映射到 AUDESYS
+  （Studio↔UI, Controller↔Task, Runtime Engine↔Motion, HAL Transport↔HAL pins）。
+- **运动规划器**: Phase 1 使用逐周期步进逼近（步长 = 进给率 × 周期时间），
+  Phase 2 迁移至 Runtime 协处理器实现梯形/S 曲线速度剖面。
+- **轴组**: 逻辑轴组（X,Y,Z）通过 G17/G18/G19 关联平面选择，回零/软限位/反向间隙
+  作为 Signal 驱动状态机。
+
+### 与 IEC 61131-3 编译器的统一
+
+| 源语言 | 编译器 Crate | 输出类型 |
+|--------|-------------|----------|
+| ST | `audesys-hal-binding-gen` | HalProgram |
+| IL | `audesys-il-compiler` | HalProgram |
+| LD | `audesys-ld-compiler` | HalProgram |
+| FBD | `audesys-fbd-compiler` | HalProgram |
+| SFC | `audesys-sfc-compiler` | HalProgram |
+| **G-code** | **`audesys-gcode-compiler`** | **HalProgram** |
+
+所有 6 种编译器输出相同的 `HalProgram` 类型，VM 不感知源码语言。
+
+### 阶段路线
+
+| 阶段 | 覆盖 | 关键能力 |
+|:---:|------|----------|
+| Phase 1 | G0/G1/M3/M5/M30 | G-code 解析 + 逐周期步进 + SimulationHarness 验证 |
+| Phase 2 | G2/G3 弧线 + 完整模态 | 运动规划器（梯形剖面）+ Runtime 协处理器 |
+| Phase 3 | 多轴插补 + 运动学 | S 曲线 + 前瞻 + CoreXY/Delta/SCARA 运动学模型 |
+
+### 参考
+
+- `docs/modules/cnc/gcode-compiler-design.md` — G-code 编译管道详细设计
+- `docs/modules/cnc/motion-planner-design.md` — 运动规划器设计（规划中）
+- `docs/modules/cnc/axis-group-design.md` — 轴组/坐标系统设计（规划中）
+- `docs/modules/cnc/cnc-reference-models.md` — CNC 竞品架构评估（规划中）
+- `.sisyphus/plans/add-gcode-compiler/` — 变更提案
+- `openspec/specs/cnc-spec.md` — SDD 规范（规划中）
+- D55 in `.agents/memorys/decisions.md`
+- D10/D11/D17/D19 in `.agents/memorys/decisions.md`
