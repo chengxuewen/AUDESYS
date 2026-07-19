@@ -190,7 +190,7 @@ export function useHmiLayout(initialLayout?: HmiLayout) {
     },
     [clone],
   );
-
+  return {
     layout,
     selectedWidgetId,
     selectedWidget,
@@ -206,5 +206,5 @@ export function useHmiLayout(initialLayout?: HmiLayout) {
     setCanvasSize,
     exportYaml,
     importYaml,
-
+  };
 }
