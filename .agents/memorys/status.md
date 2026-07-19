@@ -9,8 +9,8 @@
 - **CNC 设计完成** — 2026-07-19，`docs/modules/cnc/` 4 份设计文档（G-code 编译器、运动规划器、轴组管理、竞品参考模型）+ 37 项 CNC SDD 规范 + architecture.md §七 CNC 章节
 
 ## 仓库状态
-- **最新提交**: `29f0295` — `feat(gcode): add trapezoidal velocity profile motion planner`
-- **提交历史**: 187 commits on main (2026-07-08 至 2026-07-19)
+- **最新提交**: `f923088` — `perf(runtime): add criterion benchmarks for signal throughput, RPC, and registry ops`
+- **提交历史**: 189 commits on main (2026-07-08 至 2026-07-19)
 - **源代码**: 19 crates（crates/）+ Tauri Studio 应用（apps/studio/）
 - **测试**: 614 `#[test]` 标注 + 12 个前端 vitest 组件测试文件
 - **SDD 规范**: 162 项（openspec/specs/）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(37) + 健康检查(4)
