@@ -241,7 +241,7 @@ impl DebugAdapter {
         for (i, name) in reg_names.iter().enumerate() {
             let val = client.read_register(i as u8).unwrap_or_else(|_| "?".into());
             // parse "rN=VALUE" format
-            let val_str = val.splitn(2, '=').nth(1).unwrap_or(&val).to_string();
+            let val_str = val.split_once('=').map_or_else(|| val.to_string(), |(_, v)| v.to_string());
             vars.push(Variable { name: name.to_string(), value: val_str, variables_ref: 0 });
         }
 

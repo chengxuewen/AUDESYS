@@ -37,7 +37,10 @@
     "react-rnd": "^10.5.3"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
+    "@playwright/test": "^1.62.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16",
+    "@testing-library/user-event": "^14",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/js-yaml": "^4.0.9",
     "@types/react": "^19",
