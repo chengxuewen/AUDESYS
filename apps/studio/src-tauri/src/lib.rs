@@ -382,6 +382,19 @@ fn list_project_files(project_path: String) -> Result<Vec<String>, String> {
     }
     Ok(files)
 }
+/// Save HMI layout YAML to a file.
+#[tauri::command]
+fn save_hmi_layout(path: String, yaml: String) -> Result<String, String> {
+    std::fs::write(&path, &yaml).map_err(|e| format!("write: {e}"))?;
+    Ok("saved".into())
+}
+
+/// Load HMI layout YAML from a file.
+#[tauri::command]
+fn load_hmi_layout(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| format!("read: {e}"))
+}
+
 
 /// Read a project source file.
 #[tauri::command]
@@ -429,6 +442,8 @@ pub fn run() {
             sim_get_signals,
             sim_step,
             sim_run,
+            save_hmi_layout,
+            load_hmi_layout,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

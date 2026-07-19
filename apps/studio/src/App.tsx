@@ -11,8 +11,14 @@ import ObservablePanel from "./components/ObservablePanel";
 import ProjectTree from "./components/ProjectTree";
 import StatusBar, { type CompileStatus } from "./components/StatusBar";
 import ErrorPanel, { type PanelError } from "./components/ErrorPanel";
-import "./App.css";
 import FbdEditor from "./components/FbdEditor";
+import SfcEditor from "./components/SfcEditor";
+import SimulatorPanel from "./components/SimulatorPanel";
+import HmiCanvas from "./components/HmiBuilder/HmiCanvas";
+import PropertyPanel from "./components/HmiBuilder/PropertyPanel";
+import { useHmiLayout } from "./hooks/useHmiLayout";
+import { HmiWidgetType } from "./types/hmi";
+import "./App.css";
 import SfcEditor from "./components/SfcEditor";
 import SimulatorPanel from "./components/SimulatorPanel";
 
@@ -85,11 +91,49 @@ export default function App() {
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorCol, setCursorCol] = useState(1);
-  const [langMode, setLangMode] = useState<"st" | "il" | "ld" | "fbd" | "sfc">("st");
+  const [langMode, setLangMode] = useState<"st" | "il" | "ld" | "fbd" | "sfc" | "hmi">("st");
   const [fbdText, setFbdText] = useState("");
   const editorRef = useRef<CodeEditorHandle>(null);
 
+  const hmi = useHmiLayout();
   const handleCompileRun = useCallback(async () => {
+  const handleHmiSave = useCallback(async () => {
+    try {
+      const yaml = hmi.exportYaml();
+      const selected = await save({
+        title: "Save HMI Layout",
+        filters: [{ name: "YAML", extensions: ["yaml", "yml"] }],
+      });
+      if (selected) {
+        await invoke("save_hmi_layout", { path: selected, yaml });
+      }
+    } catch (e) {
+      const msg = String(e);
+      if (!msg.includes("cancelled") && !msg.includes("canceled")) {
+        setErrors([{ line: 1, col: 1, message: `Failed to save HMI: ${msg}`, severity: "error" }]);
+      }
+    }
+  }, [hmi]);
+
+  const handleHmiLoad = useCallback(async () => {
+    try {
+      const selected = await open({
+        title: "Load HMI Layout",
+        filters: [{ name: "YAML", extensions: ["yaml", "yml"] }],
+        multiple: false,
+      });
+      if (selected && typeof selected === "string") {
+        const yaml: string = await invoke("load_hmi_layout", { path: selected });
+        hmi.importYaml(yaml);
+      }
+    } catch (e) {
+      const msg = String(e);
+      if (!msg.includes("cancelled") && !msg.includes("canceled")) {
+        setErrors([{ line: 1, col: 1, message: `Failed to load HMI: ${msg}`, severity: "error" }]);
+      }
+    }
+  }, [hmi]);
+
     setCompileStatus("compiling");
     setErrors([]);
     setSignals([]);
@@ -225,22 +269,42 @@ export default function App() {
           </button>
           <button
             className="app-btn"
-            onClick={() => setLangMode((l) => (l === "st" ? "il" : l === "il" ? "ld" : l === "ld" ? "fbd" : l === "fbd" ? "sfc" : "st"))}
+            onClick={() => setLangMode((l) => (l === "st" ? "il" : l === "il" ? "ld" : l === "ld" ? "fbd" : l === "fbd" ? "sfc" : l === "sfc" ? "hmi" : "st"))}
             style={{ marginLeft: "8px", fontSize: "12px", fontFamily: "monospace" }}
           >
             {langMode.toUpperCase()}
           </button>
-        </div>
       </div>
 
-      <ProjectTree
+      {langMode !== "hmi" && <ProjectTree
         onFileOpen={(f) => { setSource(f.content); setCurrentFile(f.path); }}
         activeFile={currentFile}
-      />
+      />}
 
-      {/* Main split pane */}
-      <div className="app-main">
-        {langMode === "sfc" ? (
+      {langMode === "hmi" ? (
+        <div className="app-main" style={{ flex: 1, overflow: "hidden" }}>
+          <HmiCanvas
+            canvasWidth={1200}
+            canvasHeight={800}
+            widgets={hmi.layout.widgets}
+            selectedWidgetId={hmi.selectedWidgetId}
+            onSelectWidget={hmi.selectWidget}
+            onUpdateWidget={hmi.updateWidget}
+            onRemoveWidget={hmi.removeWidget}
+            onAddWidget={(type: HmiWidgetType, label: string) => {
+              hmi.addWidget(type, { x: 100 + hmi.layout.widgets.length * 20, y: 100 + hmi.layout.widgets.length * 20 }, { width: 200, height: 160 }, label);
+            }}
+            onSave={handleHmiSave}
+            onLoad={handleHmiLoad}
+          />
+          <PropertyPanel
+            widget={hmi.selectedWidget}
+            onUpdateWidget={hmi.updateWidget}
+            onRemoveWidget={hmi.removeWidget}
+          />
+        </div>
+      ) : (
+        <>
           <div className="app-panel app-panel--editor">
             <div className="app-panel__header">SFC Editor</div>
             <SfcEditor />
@@ -309,6 +373,9 @@ export default function App() {
           <ObservablePanel />
           <SimulatorPanel />
         </div>
+        </>
+      )}
+
       </div>
 
       {/* Error Panel */}
