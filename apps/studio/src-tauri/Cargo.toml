@@ -27,3 +27,4 @@ audesys-il-compiler = { path = "../../../crates/audesys-il-compiler" }
 audesys-ld-compiler = { path = "../../../crates/audesys-ld-compiler" }
 audesys-controller = { path = "../../../crates/audesys-controller" }
 audesys-hal-core = { path = "../../../crates/audesys-hal-core" }
+audesys-gcode-compiler = { path = "../../../crates/audesys-gcode-compiler" }

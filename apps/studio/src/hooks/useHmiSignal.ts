@@ -4,8 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 /**
  * React hook that polls a single HAL signal value via Tauri IPC.
  *
- * Follows the same polling pattern as SignalWatchPanel:
- * - Uses setInterval at 500ms to invoke `read_controller_signal`
+ * Requires the Controller to be connected via the Debug Panel (managed state).
+ * Follows the same pattern as controller_read_signal:
+ * - Uses setInterval at 500ms to invoke `controller_read_signal`
  * - Cleans up the interval on unmount or signal name change
  * - Returns null when signalName is undefined, unbound, or unavailable
  *
@@ -17,32 +18,24 @@ export function useHmiSignal(signalName?: string): string | null {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Clear any previous value when signal name changes
     setValue(null);
-
-    if (!signalName) {
-      return;
-    }
+    if (!signalName) return;
 
     const tick = async () => {
       try {
-        // ponytail: read_controller_signal returns unknown — cast to string
-        const result = await invoke("read_controller_signal", {
+        // ponytail: use state-based controller_read_signal (persistent connection)
+        const result = await invoke("controller_read_signal", {
           signalName,
         });
         setValue(String(result ?? null));
       } catch (_e) {
-        // Signal unavailable or controller not responding — gracefully show null
         setValue(null);
       }
     };
 
-    // Initial fetch
     tick();
-
     const id = setInterval(tick, 500);
     intervalRef.current = id;
-
     return () => {
       clearInterval(id);
       intervalRef.current = null;

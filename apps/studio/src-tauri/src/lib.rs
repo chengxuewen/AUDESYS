@@ -11,6 +11,7 @@
 //! - `controller_add_breakpoint` / `controller_remove_breakpoint` / `controller_get_breakpoints`: Breakpoint CRUD
 //! - `controller_get_registers` / `controller_get_debug_state`: Debug inspection
 use audesys_controller_client::ControllerClient;
+use audesys_gcode_compiler::gcode_compile;
 use audesys_hal_binding_gen::compile;
 use audesys_il_compiler::il_compile;
 use audesys_ld_compiler::ld_compile;
@@ -60,6 +61,13 @@ fn compile_il(source: String) -> Result<String, String> {
 fn compile_ld(source: String) -> Result<String, String> {
     let il = ld_compile(&source).map_err(|e| e.to_string())?;
     let program = il_compile(&il).map_err(|e| e.to_string())?;
+    serde_json::to_string(&program).map_err(|e| e.to_string())
+}
+
+/// Compile G-code (RS274/NGC) source into a HAL IR program (JSON).
+#[tauri::command]
+fn compile_gcode(source: String) -> Result<String, String> {
+    let program = gcode_compile(&source).map_err(|e| e.to_string())?;
     serde_json::to_string(&program).map_err(|e| e.to_string())
 }
 
@@ -118,7 +126,7 @@ fn load_hal_config(socket_path: String, secret: String, yaml_bytes: Vec<u8>) -> 
         .map_err(|e| format!("config: {e}"))
 }
 
-/// Read a signal value from a running Controller via IPC.
+/// Read a signal value from a running Controller via IPC (one-shot connection).
 #[tauri::command]
 fn read_controller_signal(socket_path: String, secret: String, signal_name: String) -> Result<String, String> {
     let mut client = ControllerClient::connect(&socket_path, secret.as_bytes())
@@ -128,6 +136,19 @@ fn read_controller_signal(socket_path: String, secret: String, signal_name: Stri
     let value = client.read_signal(&signal_name)
         .map_err(|e| format!("read: {e}"))?;
     serde_json::to_string(&value).map_err(|e| e.to_string())
+}
+
+/// Read a signal value from the persistent Controller connection (debug panel).
+/// Returns the raw HalValue Debug-format string.
+#[tauri::command]
+fn controller_read_signal(
+    state: tauri::State<'_, ControllerState>,
+    signal_name: String,
+) -> Result<String, String> {
+    let mut guard = state.client.lock().map_err(|e| format!("lock: {e}"))?;
+    let client = guard.as_mut().ok_or("not connected")?;
+    let value = client.read_signal(&signal_name).map_err(|e| format!("read: {e}"))?;
+    Ok(format!("{value:?}"))
 }
 
 /// Connect to a running Controller and authenticate as Engineer.
@@ -416,6 +437,7 @@ pub fn run() {
             compile_st,
             compile_il,
             compile_ld,
+            compile_gcode,
             run_program,
             deploy_program,
             load_hal_config,
@@ -431,6 +453,7 @@ pub fn run() {
             controller_get_registers,
             controller_get_debug_state,
             controller_signal_snapshot,
+            controller_read_signal,
             fetch_controller_metrics,
             open_project,
             create_project,

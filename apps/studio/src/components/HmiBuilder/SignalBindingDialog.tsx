@@ -14,7 +14,7 @@ export default function SignalBindingDialog({ isOpen, onClose, onSelect }: Signa
   useEffect(() => {
     if (!isOpen) return;
     invoke<[string, string][]>("controller_signal_snapshot", {
-      socketPath: "", secret: "", pattern: "*"
+      pattern: "*"
     }).then(snapshot => {
       setSignals(snapshot.map(([name]) => name));
     }).catch(() => {

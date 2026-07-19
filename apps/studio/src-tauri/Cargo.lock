@@ -125,6 +125,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-gcode-compiler"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-core",
+ "audesys-hal-ir",
+]
+
+[[package]]
 name = "audesys-hal-binding-gen"
 version = "0.1.0"
 dependencies = [
@@ -201,6 +209,7 @@ version = "0.1.0"
 dependencies = [
  "audesys-controller",
  "audesys-controller-client",
+ "audesys-gcode-compiler",
  "audesys-hal-binding-gen",
  "audesys-hal-core",
  "audesys-hal-ir",
