@@ -87,3 +87,12 @@ fn test_g1_basic() {
     let val = executor.vm().read_signal("axis.0.pos");
     assert!(val.is_some());
 }
+
+
+#[test]
+fn test_trapezoidal_generates_mul_ops() {
+    use audesys_hal_ir::instruction::Opcode;
+    let program = gcode_compile("G1 X100.0 F300\nM30").expect("compile G1");
+    let has_mul = program.instructions.iter().any(|i| i.opcode == Opcode::Mul);
+    assert!(has_mul, "Trapezoidal profile should generate Mul for velocity computation");
+}
