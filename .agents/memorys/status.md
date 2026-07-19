@@ -9,9 +9,9 @@
 - **CNC 设计完成** — 2026-07-19，`docs/modules/cnc/` 4 份设计文档（G-code 编译器、运动规划器、轴组管理、竞品参考模型）+ 37 项 CNC SDD 规范 + architecture.md §七 CNC 章节
 
 ## 仓库状态
-- **最新提交**: `0249d9b` — `feat(controller): add VirtualHARTDevice with HART universal commands 0-3`
-- **提交历史**: 184 commits on main (2026-07-08 至 2026-07-19)
-- **源代码**: 17 crates（crates/）+ Tauri Studio 应用（apps/studio/）
+- **最新提交**: `29f0295` — `feat(gcode): add trapezoidal velocity profile motion planner`
+- **提交历史**: 187 commits on main (2026-07-08 至 2026-07-19)
+- **源代码**: 19 crates（crates/）+ Tauri Studio 应用（apps/studio/）
 - **测试**: 614 `#[test]` 标注 + 12 个前端 vitest 组件测试文件
 - **SDD 规范**: 162 项（openspec/specs/）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(37) + 健康检查(4)
 - **CI**: qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ GitHub Actions macOS+Linux 矩阵
@@ -47,7 +47,9 @@
 | Simulator (AVD) | 🔮 Phase 3/4 | 7 种虚拟设备，设计完成 |
 | 工业调试桥 | 🔲 规划中 | architecture.md §5 设计完成 |
 | CNC 系统 | 🟡 设计完成 | `docs/modules/cnc/` 4 份设计文档（5,575 行） |
-| G-code 编译器 | 🔲 计划中 | `.sisyphus/plans/add-gcode-compiler/` 提案就绪（17 任务） |
+| G-code 编译器 | ✅ 完成 | RS274 子集→HalProgram，梯形速度剖面，69 测试 |
+| amw-zenoh | 🟡 骨架就绪 | HalTransport + HalDiscovery 骨架（8 测试），Zenoh 集成延后 |
+| CNC 系统 | 🟡 编译器+运动完成 | G-code+梯形剖面完成，轴组+插补延后 |
 
 ## 文档与规范
 

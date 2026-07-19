@@ -1,0 +1,11 @@
+[package]
+name = "audesys-amw-zenoh"
+version.workspace = true
+edition.workspace = true
+description = "AUDESYS HAL network transport via Zenoh — skeleton for Phase 2 network HAL"
+
+[dependencies]
+audesys-hal-core = { path = "../audesys-hal-core" }
+
+
+
