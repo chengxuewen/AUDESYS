@@ -11,6 +11,7 @@ use audesys_hal_core::types::HalPinType;
 use audesys_hal_ir::instruction::{Instruction, Opcode};
 use audesys_hal_ir::program::HalProgram;
 use audesys_hal_ir::types::{Direction, SignalBinding};
+use audesys_cnc_motion::{TrapezoidalProfile, generate_trapezoidal_program};
 
 /// Modal state tracker — accumulates persistent G-code context across lines.
 ///
@@ -150,18 +151,14 @@ impl Default for ModalState {
 
 // Register allocation convention (ponytail: fixed, single-thread VM)
 const REG_STEP: u8 = 0; // r0 = step size (scratch)
-const REG_COUNTER: u8 = 1; // r1 = cycle counter
+#[allow(dead_code)]
+const REG_COUNTER: u8 = 1; // r1 = cycle counter (used by audesys-cnc-motion)
 const REG_POS_X: u8 = 2; // r2 = axis X position
 const REG_POS_Y: u8 = 3; // r3 = axis Y position
 const REG_POS_Z: u8 = 4; // r4 = axis Z position
 const REG_ZERO: u8 = 5; // r5 = constant 0.0
 const REG_ONE: u8 = 6; // r6 = constant 1.0
-const REG_VEL: u8 = 7; // r7 = current velocity (mm/s)
-const REG_VSTEP: u8 = 8; // r8 = velocity step per cycle = acceleration*dt
-const REG_TSTEP: u8 = 9; // r9 = total step this cycle = vel*dt (computed via Mul)
-const REG_RATIO: u8 = 10; // r10 = per-axis distance ratio (pre-computed, scalar)
-const REG_AXIS_STEP: u8 = 11; // r11 = per-axis step (scratch for Mul)
-const REG_DT: u8 = 12; // r12 = scan cycle time dt (0.01s, loaded once)
+// REG_VEL(7) through REG_DT(12) moved to audesys-cnc-motion
 
 /// Compile a sequence of G-code commands into a [HalProgram].
 ///
@@ -182,8 +179,7 @@ pub fn compile_commands(
     // ponytail: r5 = 0.0, r6 = 1.0 — loaded once at program start
     instructions.push(Instruction::load_imm(REG_ZERO, HalValue::F64(0.0)));
     instructions.push(Instruction::load_imm(REG_ONE, HalValue::F64(1.0)));
-    // ponytail: scan cycle = 10ms (0.01s), loaded once for motion planner
-    instructions.push(Instruction::load_imm(REG_DT, HalValue::F64(0.01)));
+    // ponytail: dt is loaded per motion by audesys-cnc-motion crate
 
     for cmd in commands {
         match cmd.kind {
@@ -231,14 +227,35 @@ fn emit_motion(
     cmd: &GCodeCommand,
     state: &ModalState,
     instructions: &mut Vec<Instruction>,
-    _signals: &mut Vec<SignalBinding>,
+    signals: &mut Vec<SignalBinding>,
 ) -> Result<(), GCodeError> {
     let prev = state.clone();
     let next = state.advance(cmd);
 
     match cmd.g_code.unwrap_or(state.motion_mode) {
         0 => emit_g0(&next, instructions),
-        1 => emit_g1(&prev, &next, instructions),
+        1 => {
+            let dx = next.current_x - prev.current_x;
+            let dy = next.current_y - prev.current_y;
+            let dz = next.current_z - prev.current_z;
+            let distance = (dx * dx + dy * dy + dz * dz).sqrt();
+            if distance >= 1e-9 {
+                let profile = TrapezoidalProfile {
+                    dx,
+                    dy,
+                    dz,
+                    feedrate: next.feedrate,
+                    acceleration: next.acceleration,
+                    dt: 0.01,
+                    start_x: prev.current_x,
+                    start_y: prev.current_y,
+                    start_z: prev.current_z,
+                };
+                let program = generate_trapezoidal_program(&profile);
+                instructions.extend(program.instructions);
+                signals.extend(program.signals);
+            }
+        }
         2 | 3 => {
             let g_code = cmd.g_code.unwrap();
             emit_arc(g_code, &prev, &next, cmd, instructions)?;
@@ -560,241 +577,8 @@ fn emit_g0(state: &ModalState, instructions: &mut Vec<Instruction>) {
         ));
     }
 }
-
-/// G1 linear interpolation with trapezoidal velocity profile.
-///
-/// Three-phase motion: acceleration ramp → cruise → deceleration ramp.
-/// Uses register-based velocity computation with VM Mul/Add/Sub/Cmp/JumpIf.
-fn emit_g1(prev: &ModalState, next: &ModalState, instructions: &mut Vec<Instruction>) {
-    let dx = next.current_x - prev.current_x;
-    let dy = next.current_y - prev.current_y;
-    let dz = next.current_z - prev.current_z;
-    let distance = (dx * dx + dy * dy + dz * dz).sqrt();
-    if distance < 1e-9 {
-        return;
-    }
-
-    let feedrate = if next.feedrate > 0.0 { next.feedrate } else { 100.0 };
-    let dt = 0.01; // ponytail: 10ms scan cycle
-    let v_target = feedrate / 60.0; // mm/s
-    let a = next.acceleration;
-
-    // Trapezoidal profile phases
-    let t_accel = v_target / a;
-    let cycles_accel = (t_accel / dt).ceil() as u32;
-    let dist_accel = 0.5 * a * t_accel * t_accel;
-    let dist_cruise = distance - 2.0 * dist_accel;
-
-    let cycles_cruise = if dist_cruise > 0.0 {
-        (dist_cruise / v_target / dt).ceil() as u32
-    } else {
-        // Triangular profile (too short for cruise phase)
-        let v_peak = (distance * a).sqrt();
-        let t_peak = v_peak / a;
-        let cycles_half = (t_peak / dt).ceil().max(1.0) as u32;
-        let dv_adj = v_peak / cycles_half as f64;
-        instructions.push(Instruction::load_imm(REG_VEL, HalValue::F64(0.0)));
-        instructions.push(Instruction::load_imm(REG_VSTEP, HalValue::F64(dv_adj)));
-        instructions.push(Instruction::load_imm(REG_POS_X, HalValue::F64(prev.current_x)));
-        emit_triangular_motion(instructions, dx, dy, dz, distance, cycles_half, prev);
-        return;
-    };
-
-    let cycles_decel = cycles_accel; // symmetric
-
-    // Initialize position registers
-    instructions.push(Instruction::load_imm(REG_POS_X, HalValue::F64(prev.current_x)));
-    if dy.abs() > 1e-9 {
-        instructions.push(Instruction::load_imm(REG_POS_Y, HalValue::F64(prev.current_y)));
-    }
-    if dz.abs() > 1e-9 {
-        instructions.push(Instruction::load_imm(REG_POS_Z, HalValue::F64(prev.current_z)));
-    }
-
-    // Phase 1: Acceleration
-    if cycles_accel > 0 {
-        emit_profile_phase(
-            instructions,
-            dx,
-            dy,
-            dz,
-            distance,
-            cycles_accel,
-            v_target,
-            a,
-            dt,
-            true,
-            false,
-        );
-    }
-    // Phase 2: Cruise
-    if cycles_cruise > 0 {
-        emit_profile_phase(
-            instructions,
-            dx,
-            dy,
-            dz,
-            distance,
-            cycles_cruise,
-            v_target,
-            a,
-            dt,
-            false,
-            false,
-        );
-    }
-    // Phase 3: Deceleration
-    if cycles_decel > 0 {
-        emit_profile_phase(
-            instructions,
-            dx,
-            dy,
-            dz,
-            distance,
-            cycles_decel,
-            v_target,
-            a,
-            dt,
-            false,
-            true,
-        );
-    }
-}
-
-/// Emit one phase (accel/cruise/decel) of the trapezoidal profile.
-fn emit_profile_phase(
-    instructions: &mut Vec<Instruction>,
-    dx: f64,
-    dy: f64,
-    dz: f64,
-    distance: f64,
-    phase_cycles: u32,
-    v_target: f64,
-    a: f64,
-    dt: f64,
-    is_accel: bool,
-    is_decel: bool,
-) {
-    if phase_cycles == 0 {
-        return;
-    }
-
-    // Load velocity step dv = a * dt
-    let dv = a * dt;
-    instructions.push(Instruction::load_imm(REG_VSTEP, HalValue::F64(dv)));
-
-    // Set initial velocity: 0 for first accel, v_target for cruise/decel
-    let v_start = if is_accel { 0.0 } else { v_target };
-    instructions.push(Instruction::load_imm(REG_VEL, HalValue::F64(v_start)));
-
-    // Load counter
-    instructions.push(Instruction::load_imm(REG_COUNTER, HalValue::F64(phase_cycles as f64)));
-
-    let loop_start = instructions.len() as u32;
-
-    // tstep = vel * dt  (Mul)
-    instructions.push(Instruction::arith(Opcode::Mul, REG_VEL, REG_DT, REG_TSTEP));
-
-    // X axis (always)
-    emit_axis_step(instructions, dx / distance, REG_POS_X, "axis.0.pos");
-    // Y axis (if moving)
-    if dy.abs() > 1e-9 {
-        emit_axis_step(instructions, dy / distance, REG_POS_Y, "axis.1.pos");
-    }
-    // Z axis (if moving)
-    if dz.abs() > 1e-9 {
-        emit_axis_step(instructions, dz / distance, REG_POS_Z, "axis.2.pos");
-    }
-
-    // Velocity update: accel += dv, decel -= dv, cruise = no change
-    if is_accel {
-        instructions.push(Instruction::arith(Opcode::Add, REG_VEL, REG_VSTEP, REG_VEL));
-    } else if is_decel {
-        instructions.push(Instruction::arith(Opcode::Sub, REG_VEL, REG_VSTEP, REG_VEL));
-    }
-
-    // Decrement counter and loop
-    instructions.push(Instruction::arith(Opcode::Sub, REG_COUNTER, REG_ONE, REG_COUNTER));
-    instructions.push(Instruction::cmp(Opcode::Gt, REG_COUNTER, REG_ZERO));
-    instructions.push(Instruction::jump_if(loop_start));
-}
-
-/// Emit per-axis step computation: axis_step = tstep * ratio, then pos += axis_step.
-fn emit_axis_step(instructions: &mut Vec<Instruction>, ratio: f64, pos_reg: u8, signal: &str) {
-    // r10 = ratio, r11 = r9 * r10 (axis_step)
-    instructions.push(Instruction::load_imm(REG_RATIO, HalValue::F64(ratio)));
-    instructions.push(Instruction::arith(Opcode::Mul, REG_TSTEP, REG_RATIO, REG_AXIS_STEP));
-    // pos += axis_step
-    instructions.push(Instruction::arith(Opcode::Add, pos_reg, REG_AXIS_STEP, pos_reg));
-    // Store signal
-    instructions.push(Instruction::new(
-        Opcode::Store,
-        vec![
-            audesys_hal_ir::types::Operand::SignalName(signal.into()),
-            audesys_hal_ir::types::Operand::Register(pos_reg),
-        ],
-    ));
-}
-
-/// Triangular velocity profile (accel then immediate decel, no cruise).
-fn emit_triangular_motion(
-    instructions: &mut Vec<Instruction>,
-    dx: f64,
-    dy: f64,
-    dz: f64,
-    distance: f64,
-    cycles_half: u32,
-    prev: &ModalState,
-) {
-    if dy.abs() > 1e-9 {
-        instructions.push(Instruction::load_imm(REG_POS_Y, HalValue::F64(prev.current_y)));
-    }
-    if dz.abs() > 1e-9 {
-        instructions.push(Instruction::load_imm(REG_POS_Z, HalValue::F64(prev.current_z)));
-    }
-
-    let total = cycles_half * 2;
-    instructions.push(Instruction::load_imm(REG_COUNTER, HalValue::F64(total as f64)));
-
-    // Store half-cycles marker for phase switch
-    instructions.push(Instruction::load_imm(REG_RATIO, HalValue::F64(cycles_half as f64)));
-
-    let loop_start = instructions.len() as u32;
-
-    // Compute tstep = vel * dt  (Mul)
-    instructions.push(Instruction::arith(Opcode::Mul, REG_VEL, REG_DT, REG_TSTEP));
-
-    // Axis steps
-    emit_axis_step(instructions, dx / distance, REG_POS_X, "axis.0.pos");
-    if dy.abs() > 1e-9 {
-        emit_axis_step(instructions, dy / distance, REG_POS_Y, "axis.1.pos");
-    }
-    if dz.abs() > 1e-9 {
-        emit_axis_step(instructions, dz / distance, REG_POS_Z, "axis.2.pos");
-    }
-
-    // Phase switch: if counter > half → accel, else → decel
-    instructions.push(Instruction::cmp(Opcode::Gt, REG_COUNTER, REG_RATIO));
-    let jif_idx = instructions.len();
-    instructions.push(Instruction::nop()); // placeholder
-    // Accel path: vel += dv
-    instructions.push(Instruction::arith(Opcode::Add, REG_VEL, REG_VSTEP, REG_VEL));
-    let jump_idx = instructions.len();
-    instructions.push(Instruction::nop()); // placeholder
-    // Decel path: vel -= dv
-    let decel_start = instructions.len() as u32;
-    instructions.push(Instruction::arith(Opcode::Sub, REG_VEL, REG_VSTEP, REG_VEL));
-
-    // Patch placeholders
-    instructions[jif_idx] = Instruction::jump_if(decel_start);
-    instructions[jump_idx] = Instruction::jump((decel_start + 1) as u32);
-
-    // Loop control
-    instructions.push(Instruction::arith(Opcode::Sub, REG_COUNTER, REG_ONE, REG_COUNTER));
-    instructions.push(Instruction::cmp(Opcode::Gt, REG_COUNTER, REG_ZERO));
-    instructions.push(Instruction::jump_if(loop_start));
-}
-
+// emit_g1 / emit_profile_phase / emit_axis_step / emit_triangular_motion
+// moved to audesys-cnc-motion crate
 /// Emit spindle commands: M3/M4 set direction, S sets speed, M5 stops.
 fn emit_spindle(
     cmd: &GCodeCommand,

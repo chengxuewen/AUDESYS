@@ -9,3 +9,4 @@ description = "AUDESYS G-code (ISO 6983 / RS274) compiler targeting HAL IR"
 [dependencies]
 audesys-hal-ir = { path = "../audesys-hal-ir" }
 audesys-hal-core = { path = "../audesys-hal-core" }
+audesys-cnc-motion = { path = "../audesys-cnc-motion" }

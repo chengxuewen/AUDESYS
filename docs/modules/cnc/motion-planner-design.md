@@ -64,6 +64,25 @@ LinuxCNC 的 EMCMOT 是整个系统的计算核心，承担轨迹规划（trapez
 | **Phase 2 升级** | Runtime co-processor 模式：运动规划器独立于扫描周期，以更高频率（如 1ms）输出位置 |
 | **Config Barrier** | 所有运动参数（加速度、最大速度、前瞻深度）在 RT 周期边界应用（D17） |
 
+### 1.4 Phase 1 实现策略：HalProgram 生成器模式
+
+Phase 1 的运动规划器不以独立 Runtime Component 形式存在，而是作为 **HalProgram 生成器 crate** (`audesys-cnc-motion`) 提供给各类编译器使用。
+
+**数据流**: G-code/ST/FBD Compiler → audesys-cnc-motion::generate_trapezoidal_program() → HalProgram (IR 指令 + Signal 绑定) → HAL VM → axis.N.pos Signal
+
+**选择理由**：
+
+- Phase 1 编译器已通过 HalProgram 生成模式实现了 6 种源码语言。运动规划器沿用此模式，零架构变更
+- 梯形剖面通过 VM 寄存器算术（Mul/Add/Sub/Cmp/JumpIf）执行，Engine 无需感知运动语义
+- 独立 crate 使运动逻辑与编译器语言解耦。ST/FBD 编译器（用于 IEC 61131-3 运动功能块如 MC_MoveAbsolute）可直接复用 `generate_trapezoidal_program()`
+- Phase 2 升级时，新增 Runtime Component 可直接替换 crate 的 HalProgram 生成器——接口不变，实现层切换
+
+**已知限制**（Phase 1 刻意接受）：
+
+- 无前瞻（look-ahead）：每个 G1 段独立计算梯形剖面，段间速度从 0 加速至 0
+- 无路径混合：G61/G64 不生效，拐角处完全停止
+- dt 默认为 10ms（可通过 TrapezoidalProfile.dt 覆盖）
+- 梯形剖面逻辑仍由 VM 解释执行，非原生 Rust。高速 CNC (>1000mm/s) 精度不足
 ---
 
 ## 2. 梯形速度剖面 (Trapezoidal Velocity Profile)
@@ -641,3 +660,4 @@ Phase 2 将 Motion Planner 从 RT 线程的 `update()` 函数升级为独立 co-
 | **转角速度使用 square_corner_velocity 简化** | Klipper 验证的实用模型。Phase 2 升级到完整转弯半径计算 |
 | **不引入第 4 种通信原语** | 现有 Signal/StreamChannel/RPC 三原语正交覆盖 (D10)。运动块参数通过 Signal 传递 |
 | **6 轴协调后移至 Phase 2** | Phase 1 集中验证梯形剖面 + 前瞻在 AUDESYS 架构中的正确性。多轴运动学增加正交复杂度 |
+| **Phase 1 HalProgram 生成器模式** | 与现有 6 种编译器架构一致。梯形剖面参数预计算为 IR 指令，零架构变更。独立 crate 供 ST/FBD 编译器复用 (2026-07-19 新增) |

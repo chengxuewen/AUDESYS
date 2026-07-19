@@ -46,7 +46,7 @@
 | 仿真 | 🟡 Inproc | InprocMiddleware 已是 MVP 仿真层，AVD Phase 3+ |
 | Simulator (AVD) | 🔮 Phase 3/4 | 7 种虚拟设备，设计完成 |
 | 工业调试桥 | 🔲 规划中 | architecture.md §5 设计完成 |
-| CNC 系统 | 🟡 编译器+运动完成 | G-code 编译器（69 测试）+梯形速度剖面完成，轴组+插补延后 |
+| CNC 系统 | 🟡 编译器+轴组完成 | G-code (75 测试含 G2/G3)、轴组 crate (32 测试)、运动规划器提取中、插补设计文档完成 |
 | amw-zenoh | 🟡 骨架就绪 | HalTransport + HalDiscovery 骨架（8 测试），Zenoh 集成延后 |
 
 ## 文档与规范
