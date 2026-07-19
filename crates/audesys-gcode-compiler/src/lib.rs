@@ -209,16 +209,15 @@ M30       ; end";
     }
 
     #[test]
-    fn test_g2_g3_parse_only() {
+    fn test_g2_g3_arc_compilation() {
         let src = "G2 X10 Y0 I5 J0\nG3 X0 Y10 I5 J5";
         let program = gcode_compile(src).unwrap();
-        // Both should contain Nop for the parse-only arcs
-        let nop_count = program
+        // G2/G3 now emit Store instructions (chord-based interpolation), not Nop
+        let has_store = program
             .instructions
             .iter()
-            .filter(|inst| inst.opcode == audesys_hal_ir::instruction::Opcode::Nop)
-            .count();
-        assert_eq!(nop_count, 2);
+            .any(|inst| inst.opcode == audesys_hal_ir::instruction::Opcode::Store);
+        assert!(has_store, "G2/G3 arcs should emit Store instructions");
     }
 
     #[test]

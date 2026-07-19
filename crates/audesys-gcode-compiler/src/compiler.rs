@@ -240,8 +240,8 @@ fn emit_motion(
         0 => emit_g0(&next, instructions),
         1 => emit_g1(&prev, &next, instructions),
         2 | 3 => {
-            // ponytail: G2/G3 Phase 1 parse-only — emit Nop + comment
-            instructions.push(Instruction::nop());
+            let g_code = cmd.g_code.unwrap();
+            emit_arc(g_code, &prev, &next, cmd, instructions)?;
         }
         _ => {
             return Err(GCodeError::UnsupportedCommand {
@@ -252,6 +252,251 @@ fn emit_motion(
     }
 
     Ok(())
+}
+
+/// Chord tolerance for arc subdivision (mm).
+/// ponytail: 0.005mm = 5µm, typical CNC precision.
+const CHORD_TOLERANCE: f64 = 0.005;
+
+/// Maximum angular step per chord segment (30° = π/6).
+const MAX_ANGULAR_STEP: f64 = std::f64::consts::PI / 6.0;
+
+/// Emit arc IR for G2 (CW) / G3 (CCW) circular interpolation.
+///
+/// Supports I/J/K center-offset format and R radius format.
+/// Handles G17 (XY), G18 (ZX), G19 (YZ) planes.
+/// Helical: third axis interpolated linearly alongside arc.
+fn emit_arc(
+    g_code: u32,
+    prev: &ModalState,
+    next: &ModalState,
+    cmd: &GCodeCommand,
+    instructions: &mut Vec<Instruction>,
+) -> Result<(), GCodeError> {
+    let plane = prev.plane;
+
+    // Map plane axes to coordinate fields and signal names.
+    // For each plane we identify (arc_axis_a, arc_axis_b, linear_axis).
+    let (start_a, start_b, start_linear): (f64, f64, f64);
+    let (end_a, end_b, end_linear): (f64, f64, f64);
+    let (a_signal, b_signal, linear_signal): (&str, &str, &str);
+    let (enable_a, enable_b, enable_linear): (&str, &str, &str);
+
+    match plane {
+        17 => {
+            start_a = prev.current_x; start_b = prev.current_y; start_linear = prev.current_z;
+            end_a = next.current_x; end_b = next.current_y; end_linear = next.current_z;
+            a_signal = "axis.0.pos"; b_signal = "axis.1.pos"; linear_signal = "axis.2.pos";
+            enable_a = "axis.0.enable"; enable_b = "axis.1.enable"; enable_linear = "axis.2.enable";
+        }
+        18 => {
+            start_a = prev.current_z; start_b = prev.current_x; start_linear = prev.current_y;
+            end_a = next.current_z; end_b = next.current_x; end_linear = next.current_y;
+            a_signal = "axis.2.pos"; b_signal = "axis.0.pos"; linear_signal = "axis.1.pos";
+            enable_a = "axis.2.enable"; enable_b = "axis.0.enable"; enable_linear = "axis.1.enable";
+        }
+        19 => {
+            start_a = prev.current_y; start_b = prev.current_z; start_linear = prev.current_x;
+            end_a = next.current_y; end_b = next.current_z; end_linear = next.current_x;
+            a_signal = "axis.1.pos"; b_signal = "axis.2.pos"; linear_signal = "axis.0.pos";
+            enable_a = "axis.1.enable"; enable_b = "axis.2.enable"; enable_linear = "axis.0.enable";
+        }
+        _ => {
+            return Err(GCodeError::UnsupportedCommand {
+                line: cmd.line,
+                code: format!("G{}", g_code),
+            });
+        }
+    }
+
+    // Calculate arc center
+    let (center_a, center_b) = calculate_arc_center(
+        start_a, start_b, end_a, end_b,
+        cmd.i, cmd.j, cmd.k, cmd.r,
+        plane, cmd.line,
+    )?;
+
+    let radius = ((start_a - center_a).powi(2) + (start_b - center_b).powi(2)).sqrt();
+    if radius < 1e-9 {
+        return Err(GCodeError::UnsupportedCommand {
+            line: cmd.line,
+            code: "zero-radius arc".into(),
+        });
+    }
+
+    // Calculate start and end angles
+    let start_angle = (start_b - center_b).atan2(start_a - center_a);
+    let end_angle = (end_b - center_b).atan2(end_a - center_a);
+
+    // Handle full circle: start ≈ end with non-zero radius → sweep = ±2π
+    let is_full_circle = (end_a - start_a).hypot(end_b - start_b) < 1e-6;
+
+    let sweep = if is_full_circle {
+        if g_code == 2 { -2.0 * std::f64::consts::PI } else { 2.0 * std::f64::consts::PI }
+    } else if g_code == 2 {
+        // G2 CW: sweep is always negative or zero
+        let mut s = end_angle - start_angle;
+        if s > 0.0 { s -= 2.0 * std::f64::consts::PI; }
+        s
+    } else {
+        // G3 CCW: sweep is always positive or zero
+        let mut s = end_angle - start_angle;
+        if s < 0.0 { s += 2.0 * std::f64::consts::PI; }
+        s
+    };
+
+    if sweep.abs() < 1e-9 {
+        return Ok(());
+    }
+
+    // Chord subdivision
+    let angular_step = if radius > CHORD_TOLERANCE {
+        (2.0 * (1.0 - CHORD_TOLERANCE / radius).acos()).min(MAX_ANGULAR_STEP)
+    } else {
+        MAX_ANGULAR_STEP
+    };
+    let num_segments = ((sweep.abs() / angular_step).ceil() as u32).max(1);
+    let angle_per_segment = sweep / num_segments as f64;
+
+    let linear_delta = end_linear - start_linear;
+    let linear_per_segment = linear_delta / num_segments as f64;
+
+    // Load enable=true into r0 — reused for all Store instructions
+    instructions.push(Instruction::load_imm(REG_STEP, HalValue::Bool(true)));
+
+    // Emit chord segments (iterate 1..=num_segments to skip start, include end)
+    for i in 1..=num_segments {
+        let angle = start_angle + i as f64 * angle_per_segment;
+        let a = center_a + radius * angle.cos();
+        let b = center_b + radius * angle.sin();
+        let l = start_linear + i as f64 * linear_per_segment;
+
+        // Store axis A position
+        instructions.push(Instruction::load_imm(REG_POS_X, HalValue::F64(a)));
+        instructions.push(Instruction::new(
+            Opcode::Store,
+            vec![
+                audesys_hal_ir::types::Operand::SignalName(a_signal.into()),
+                audesys_hal_ir::types::Operand::Register(REG_POS_X),
+            ],
+        ));
+        instructions.push(Instruction::new(
+            Opcode::Store,
+            vec![
+                audesys_hal_ir::types::Operand::SignalName(enable_a.into()),
+                audesys_hal_ir::types::Operand::Register(REG_STEP),
+            ],
+        ));
+
+        // Store axis B position
+        instructions.push(Instruction::load_imm(REG_POS_X, HalValue::F64(b)));
+        instructions.push(Instruction::new(
+            Opcode::Store,
+            vec![
+                audesys_hal_ir::types::Operand::SignalName(b_signal.into()),
+                audesys_hal_ir::types::Operand::Register(REG_POS_X),
+            ],
+        ));
+        instructions.push(Instruction::new(
+            Opcode::Store,
+            vec![
+                audesys_hal_ir::types::Operand::SignalName(enable_b.into()),
+                audesys_hal_ir::types::Operand::Register(REG_STEP),
+            ],
+        ));
+
+        // Store linear axis position
+        instructions.push(Instruction::load_imm(REG_POS_X, HalValue::F64(l)));
+        instructions.push(Instruction::new(
+            Opcode::Store,
+            vec![
+                audesys_hal_ir::types::Operand::SignalName(linear_signal.into()),
+                audesys_hal_ir::types::Operand::Register(REG_POS_X),
+            ],
+        ));
+        instructions.push(Instruction::new(
+            Opcode::Store,
+            vec![
+                audesys_hal_ir::types::Operand::SignalName(enable_linear.into()),
+                audesys_hal_ir::types::Operand::Register(REG_STEP),
+            ],
+        ));
+    }
+
+    Ok(())
+}
+
+/// Calculate arc center from I/J/K offsets or R radius.
+fn calculate_arc_center(
+    start_a: f64,
+    start_b: f64,
+    end_a: f64,
+    end_b: f64,
+    i: Option<f64>,
+    j: Option<f64>,
+    k: Option<f64>,
+    r: Option<f64>,
+    plane: u32,
+    line: u32,
+) -> Result<(f64, f64), GCodeError> {
+    // I/J/K offset method (incremental from start)
+    if i.is_some() || j.is_some() || k.is_some() {
+        let (io, jo) = match plane {
+            17 => (i.unwrap_or(0.0), j.unwrap_or(0.0)),
+            18 => (k.unwrap_or(0.0), i.unwrap_or(0.0)),
+            19 => (j.unwrap_or(0.0), k.unwrap_or(0.0)),
+            _ => {
+                return Err(GCodeError::UnsupportedCommand {
+                    line,
+                    code: format!("plane G{}", plane),
+                });
+            }
+        };
+        return Ok((start_a + io, start_b + jo));
+    }
+
+    // R radius method
+    if let Some(radius) = r {
+        let dx = end_a - start_a;
+        let dy = end_b - start_b;
+        let chord_len = (dx * dx + dy * dy).sqrt();
+        if chord_len < 1e-9 {
+            return Err(GCodeError::UnsupportedCommand {
+                line,
+                code: "zero-length arc with R".into(),
+            });
+        }
+
+        let r_abs = radius.abs();
+        if r_abs < chord_len / 2.0 - 1e-9 {
+            return Err(GCodeError::UnsupportedCommand {
+                line,
+                code: format!("radius {} too small for chord length {}", r_abs, chord_len),
+            });
+        }
+
+        let half_chord = chord_len / 2.0;
+        // ponytail: max(0.0) guards f64 rounding producing tiny negative
+        let center_offset = (r_abs * r_abs - half_chord * half_chord).max(0.0).sqrt();
+        let mid_a = (start_a + end_a) / 2.0;
+        let mid_b = (start_b + end_b) / 2.0;
+
+        // Perpendicular to chord (left side = standard orientation)
+        let perp_a = -dy / chord_len;
+        let perp_b = dx / chord_len;
+
+        // R > 0 → short arc (≤ 180°), R < 0 → long arc (> 180°)
+        let sign = if radius > 0.0 { 1.0 } else { -1.0 };
+        Ok((
+            mid_a + sign * perp_a * center_offset,
+            mid_b + sign * perp_b * center_offset,
+        ))
+    } else {
+        Err(GCodeError::UnsupportedCommand {
+            line,
+            code: "arc missing I/J/K or R".into(),
+        })
+    }
 }
 
 /// G0 rapid: store target positions to axis signals directly.
@@ -356,7 +601,6 @@ fn emit_g1(prev: &ModalState, next: &ModalState, instructions: &mut Vec<Instruct
     };
 
     let cycles_decel = cycles_accel; // symmetric
-    let total_cycles = cycles_accel + cycles_cruise + cycles_decel;
 
     // Initialize position registers
     instructions.push(Instruction::load_imm(REG_POS_X, HalValue::F64(prev.current_x)));
@@ -721,6 +965,22 @@ mod tests {
         }
     }
 
+    fn make_arc_cmd(
+        g: u32,
+        x: f64,
+        y: f64,
+        i: Option<f64>,
+        j: Option<f64>,
+        r: Option<f64>,
+    ) -> GCodeCommand {
+        let mut cmd = make_cmd(Some(g), None, Some(x), Some(y), None);
+        cmd.kind = CommandKind::Motion;
+        cmd.i = i;
+        cmd.j = j;
+        cmd.r = r;
+        cmd
+    }
+
     #[test]
     fn test_modal_defaults() {
         let m = ModalState::new();
@@ -848,35 +1108,127 @@ mod tests {
     }
 
     #[test]
-    fn test_g2_parse_only() {
+    fn test_g2_quadrant_arc() {
+        // G2 CW arc: start (10,0), end (0,10), center (0,0) via I-10 J0
         let m = ModalState::new();
-        let cmd = GCodeCommand {
-            kind: CommandKind::Motion,
-            g_code: Some(2),
-            x: Some(10.0),
-            y: Some(0.0),
-            i: Some(5.0),
-            j: Some(0.0),
-            ..make_cmd(Some(2), None, Some(10.0), Some(0.0), None)
-        };
+        let cmd = make_arc_cmd(2, 0.0, 10.0, Some(-10.0), Some(0.0), None);
         let program = compile_commands(&[cmd], &m).unwrap();
-        // Should contain Nop for G2 (parse-only)
-        assert!(program.instructions.iter().any(|inst| inst.opcode == Opcode::Nop));
+        // Should emit Store opcodes (no Nop)
+        let has_store = program.instructions.iter().any(|inst| inst.opcode == Opcode::Store);
+        let has_nop = program.instructions.iter().any(|inst| inst.opcode == Opcode::Nop);
+        assert!(has_store, "G2 quadrant arc should emit Store instructions");
+        // Nop from init only (REG_ONE load has no Nop), not from motion emission
+        assert!(!has_nop || {
+            program.instructions.iter().filter(|i| i.opcode == Opcode::Nop).count() == 0
+            // if any Nop exists, fail with details
+        });
+        // Verify stores to axis signals exist
+        let has_x = program.instructions.iter().any(|inst| {
+            inst.opcode == Opcode::Store
+                && inst.operands.first()
+                    == Some(&audesys_hal_ir::types::Operand::SignalName("axis.0.pos".into()))
+        });
+        assert!(has_x, "G2 arc should store axis.0.pos");
     }
 
     #[test]
-    fn test_g3_parse_only() {
+    fn test_g3_quadrant_arc() {
+        // G3 CCW arc: start (10,0), end (0,10), center (0,0) via I-10 J0
         let m = ModalState::new();
-        let cmd = GCodeCommand {
-            kind: CommandKind::Motion,
-            g_code: Some(3),
-            x: Some(-10.0),
-            y: Some(0.0),
-            i: Some(5.0),
-            ..make_cmd(Some(3), None, Some(-10.0), Some(0.0), None)
-        };
+        let cmd = make_arc_cmd(3, 0.0, 10.0, Some(-10.0), Some(0.0), None);
         let program = compile_commands(&[cmd], &m).unwrap();
-        assert!(program.instructions.iter().any(|inst| inst.opcode == Opcode::Nop));
+        let has_store = program.instructions.iter().any(|inst| inst.opcode == Opcode::Store);
+        assert!(has_store, "G3 quadrant arc should emit Store instructions");
+    }
+
+    #[test]
+    fn test_g2_full_circle() {
+        // G2 CW full circle: start (0,0), end (0,0), center (5,0) via I5 J0
+        let m = ModalState::new();
+        let cmd = make_arc_cmd(2, 0.0, 0.0, Some(5.0), Some(0.0), None);
+        let program = compile_commands(&[cmd], &m).unwrap();
+        let has_store = program.instructions.iter().any(|inst| inst.opcode == Opcode::Store);
+        assert!(has_store, "G2 full circle should emit Store instructions");
+        // Full circle should have many chord segments
+        let store_count = program.instructions.iter().filter(|inst| inst.opcode == Opcode::Store).count();
+        assert!(store_count >= 18, "Full circle should have many chord segments, got {}", store_count);
+    }
+
+    #[test]
+    fn test_g2_helical() {
+        // G2 CW helical: arc in XY with Z rise
+        let m = ModalState::new();
+        let mut cmd = make_arc_cmd(2, 0.0, 10.0, Some(-10.0), Some(0.0), None);
+        cmd.z = Some(5.0);
+        let program = compile_commands(&[cmd], &m).unwrap();
+        let has_z = program.instructions.iter().any(|inst| {
+            inst.opcode == Opcode::Store
+                && inst.operands.first()
+                    == Some(&audesys_hal_ir::types::Operand::SignalName("axis.2.pos".into()))
+        });
+        assert!(has_z, "G2 helical should store Z axis");
+    }
+
+    #[test]
+    fn test_g2_r_format() {
+        // G2 CW arc via R: start (0,0), end (10,10), radius R=10
+        let m = ModalState::new();
+        let cmd = make_arc_cmd(2, 10.0, 10.0, None, None, Some(10.0));
+        let program = compile_commands(&[cmd], &m).unwrap();
+        let has_store = program.instructions.iter().any(|inst| inst.opcode == Opcode::Store);
+        assert!(has_store, "G2 R-format arc should emit Store instructions");
+    }
+
+    #[test]
+    fn test_g18_plane_arc() {
+        // G18 ZX plane: G3 CCW arc from (Z=10,X=0) to (Z=0,X=10) with center (0,0)
+        let mut m = ModalState::new();
+        // Set G18 plane
+        let g18 = GCodeCommand {
+            kind: CommandKind::Modal,
+            g_code: Some(18),
+            ..make_cmd(Some(18), None, None, None, None)
+        };
+        m = m.advance(&g18);
+        // Move to start position Z=10, X=0
+        let move_start = GCodeCommand {
+            kind: CommandKind::Motion,
+            g_code: Some(0),
+            z: Some(10.0),
+            x: Some(0.0),
+            ..make_cmd(Some(0), None, None, None, Some(10.0))
+        };
+        // ponytail: mock command with x=0 for start pos
+        let mut move_start = move_start;
+        move_start.x = Some(0.0);
+        m = m.advance(&move_start);
+
+        let mut cmd = make_cmd(Some(3), None, Some(10.0), Some(0.0), Some(0.0));
+        cmd.kind = CommandKind::Motion;
+        cmd.z = Some(0.0);
+        cmd.k = Some(-10.0);
+        cmd.i = Some(0.0);
+        let program = compile_commands(&[cmd], &m).unwrap();
+        let has_store = program.instructions.iter().any(|inst| inst.opcode == Opcode::Store);
+        assert!(has_store, "G18 arc should emit Store instructions");
+    }
+
+    #[test]
+    fn test_zero_radius_error() {
+        // I=0 J=0 with start ≠ end should be valid (center = start, radius = 0)
+        // ponytail: radius < 1e-9 from center = start is an error
+        let m = ModalState::new();
+        let cmd = make_arc_cmd(2, 10.0, 0.0, Some(0.0), Some(0.0), None);
+        let result = compile_commands(&[cmd], &m);
+        assert!(result.is_err(), "Zero-radius arc should error");
+    }
+
+    #[test]
+    fn test_arc_missing_ijk_r() {
+        let m = ModalState::new();
+        let cmd = make_arc_cmd(2, 10.0, 10.0, None, None, None);
+        let result = compile_commands(&[cmd], &m);
+        assert!(result.is_err(), "Arc missing I/J/K or R should error");
     }
 
     #[test]

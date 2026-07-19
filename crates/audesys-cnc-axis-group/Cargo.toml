@@ -1,0 +1,11 @@
+[package]
+name = "audesys-cnc-axis-group"
+version = "0.1.0"
+edition = "2021"
+description = "AUDESYS CNC axis group — homing, soft limits, backlash, alarm management via HalProgram"
+
+[dependencies]
+audesys-hal-core = { path = "../audesys-hal-core" }
+audesys-hal-ir = { path = "../audesys-hal-ir" }
+
+[dev-dependencies]
