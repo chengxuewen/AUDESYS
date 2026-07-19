@@ -18,11 +18,23 @@ use std::time::Duration;
 fn prometheus_text(m: &RuntimeMetrics) -> String {
     use std::sync::atomic::Ordering;
     let mut out = String::new();
-    out.push_str(&format!("audesys_cycles_completed {}\n", m.cycles_completed.load(Ordering::Relaxed)));
-    out.push_str(&format!("audesys_signals_published {}\n", m.signals_published.load(Ordering::Relaxed)));
-    out.push_str(&format!("audesys_config_changes_applied {}\n", m.config_changes_applied.load(Ordering::Relaxed)));
+    out.push_str(&format!(
+        "audesys_cycles_completed {}\n",
+        m.cycles_completed.load(Ordering::Relaxed)
+    ));
+    out.push_str(&format!(
+        "audesys_signals_published {}\n",
+        m.signals_published.load(Ordering::Relaxed)
+    ));
+    out.push_str(&format!(
+        "audesys_config_changes_applied {}\n",
+        m.config_changes_applied.load(Ordering::Relaxed)
+    ));
     out.push_str(&format!("audesys_child_restarts {}\n", m.child_restarts.load(Ordering::Relaxed)));
-    out.push_str(&format!("audesys_health_check_failures {}\n", m.health_check_failures.load(Ordering::Relaxed)));
+    out.push_str(&format!(
+        "audesys_health_check_failures {}\n",
+        m.health_check_failures.load(Ordering::Relaxed)
+    ));
     let jitter = m.cycle_jitter_us.read();
     for (i, v) in jitter.iter().enumerate() {
         if *v > 0 {
@@ -54,7 +66,10 @@ impl HealthServer {
         Self { running: Arc::new(AtomicBool::new(false)), health_registry, metrics: None }
     }
 
-    pub fn with_metrics(health_registry: Arc<RwLock<HealthCheckRegistry>>, metrics: Arc<RuntimeMetrics>) -> Self {
+    pub fn with_metrics(
+        health_registry: Arc<RwLock<HealthCheckRegistry>>,
+        metrics: Arc<RuntimeMetrics>,
+    ) -> Self {
         Self { running: Arc::new(AtomicBool::new(false)), health_registry, metrics: Some(metrics) }
     }
 
@@ -83,7 +98,9 @@ impl HealthServer {
                             let mut reader = BufReader::new(&mut stream);
                             let mut line = String::new();
                             match reader.read_line(&mut line) {
-                                Ok(n) if n > 0 => line.split_whitespace().nth(1).unwrap_or("/").to_string(),
+                                Ok(n) if n > 0 => {
+                                    line.split_whitespace().nth(1).unwrap_or("/").to_string()
+                                }
                                 _ => "/".to_string(),
                             }
                         };
@@ -99,7 +116,8 @@ impl HealthServer {
                                          Content-Length: {}\r\n\
                                          \r\n\
                                         {}",
-                                        body.len(), body
+                                        body.len(),
+                                        body
                                     );
                                     let _ = stream.write_all(response.as_bytes());
                                 } else {
@@ -107,9 +125,13 @@ impl HealthServer {
                                 }
                             }
                             _ => {
-                                let status = registry.read().expect("health RwLock poisoned").aggregate();
+                                let status =
+                                    registry.read().expect("health RwLock poisoned").aggregate();
                                 let status_str = health_status_str(&status);
-                                let json = format!("{{\"status\":\"{}\",\"module\":\"audesys-controller\"}}", status_str);
+                                let json = format!(
+                                    "{{\"status\":\"{}\",\"module\":\"audesys-controller\"}}",
+                                    status_str
+                                );
                                 let response = format!(
                                     "HTTP/1.1 200 OK\r\n\
                                      Content-Type: application/json\r\n\
@@ -117,7 +139,8 @@ impl HealthServer {
                                      Content-Length: {}\r\n\
                                      \r\n\
                                     {}",
-                                    json.len(), json
+                                    json.len(),
+                                    json
                                 );
                                 let _ = stream.write_all(response.as_bytes());
                             }

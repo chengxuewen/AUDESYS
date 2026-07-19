@@ -653,7 +653,10 @@ fn test_ton_timer_advances_with_cycle_time() {
     assert!(program.is_well_formed());
 
     // Verify TimerRun instruction exists
-    let has_timer_run = program.instructions.iter().any(|i| matches!(i.opcode, audesys_hal_ir::instruction::Opcode::TimerRun));
+    let has_timer_run = program
+        .instructions
+        .iter()
+        .any(|i| matches!(i.opcode, audesys_hal_ir::instruction::Opcode::TimerRun));
     assert!(has_timer_run, "Program must contain TimerRun instruction");
 
     let mut executor = Executor::new(program);
@@ -696,21 +699,33 @@ fn test_tof_timer() {
     executor.vm_mut().set_cycle_time(100);
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "TOF Q should be true immediately on IN=true");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(true),
+        "TOF Q should be true immediately on IN=true"
+    );
 
     // Cycle 2: IN=false → start timing, Q still true
     executor.vm_mut().write_register(1, HalValue::Bool(false));
     executor.vm_mut().set_cycle_time(100);
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "TOF Q should stay true while ET<PT");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(true),
+        "TOF Q should stay true while ET<PT"
+    );
 
     // Cycle 3: IN=false, +450ms → ET=550 >= 500 → Q=false
     executor.vm_mut().write_register(1, HalValue::Bool(false));
     executor.vm_mut().set_cycle_time(450);
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "TOF Q should be false after ET>=PT");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(false),
+        "TOF Q should be false after ET>=PT"
+    );
 }
 
 // ── Test 51: TP timer (pulse) ──
@@ -728,7 +743,11 @@ fn test_tp_timer() {
     executor.vm_mut().set_cycle_time(100);
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "TP Q should be true on rising edge");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(true),
+        "TP Q should be true on rising edge"
+    );
 
     // Cycle 2: IN stays true → Q stays true, ET=300
     executor.vm_mut().write_register(1, HalValue::Bool(true));
@@ -742,7 +761,11 @@ fn test_tp_timer() {
     executor.vm_mut().set_cycle_time(50);
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "TP Q should be false when IN falls");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(false),
+        "TP Q should be false when IN falls"
+    );
 }
 
 // ── Test 52: Demo — TON + IF + counter (full pipeline) ──
@@ -764,7 +787,7 @@ fn test_demo_timer_with_counter_and_if() {
     let mut executor = Executor::new(program);
 
     // Cycle 1: IN=true, 100ms → ET=100 < 500 → Q=false, count unchanged
-    executor.vm_mut().write_register(1, HalValue::Bool(true));  // trigger = true
+    executor.vm_mut().write_register(1, HalValue::Bool(true)); // trigger = true
     executor.vm_mut().set_cycle_time(100);
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(2), HalValue::S32(0), "Cycle 1: Q=false, count=0");
@@ -788,7 +811,11 @@ fn test_demo_timer_with_counter_and_if() {
     executor.vm_mut().write_register(1, HalValue::Bool(false));
     executor.vm_mut().set_cycle_time(100);
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::S32(2), "Cycle 4: Q=false, count unchanged");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::S32(2),
+        "Cycle 4: Q=false, count unchanged"
+    );
     assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "Cycle 4: done=false");
 }
 
@@ -840,13 +867,16 @@ fn test_sr_sets_q1_on_s1() {
     let program = compile(src).expect("compilation failed");
     assert!(program.is_well_formed());
 
-    let has_sr_run = program.instructions.iter().any(|i| matches!(i.opcode, audesys_hal_ir::instruction::Opcode::SrRun));
+    let has_sr_run = program
+        .instructions
+        .iter()
+        .any(|i| matches!(i.opcode, audesys_hal_ir::instruction::Opcode::SrRun));
     assert!(has_sr_run, "Program must contain SrRun instruction");
 
     let mut executor = Executor::new(program);
 
     // Cycle 1: S1=true, R=false → Q1=true, Q2=false
-    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
+    executor.vm_mut().write_register(1, HalValue::Bool(true)); // s
     executor.vm_mut().write_register(2, HalValue::Bool(false)); // r
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "SR: S1=true should set Q1");
@@ -865,14 +895,18 @@ fn test_sr_reset() {
     let mut executor = Executor::new(program);
 
     // Set it first
-    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
+    executor.vm_mut().write_register(1, HalValue::Bool(true)); // s
     executor.vm_mut().write_register(2, HalValue::Bool(false)); // r
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "SR: Q1 should be true after set");
+    assert_eq!(
+        executor.vm().read_register(3),
+        HalValue::Bool(true),
+        "SR: Q1 should be true after set"
+    );
 
     // Then reset
     executor.vm_mut().write_register(1, HalValue::Bool(false)); // s
-    executor.vm_mut().write_register(2, HalValue::Bool(true));  // r
+    executor.vm_mut().write_register(2, HalValue::Bool(true)); // r
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "SR: R=true should clear Q1");
@@ -890,8 +924,8 @@ fn test_sr_both_true_s_sets() {
     let program = compile(src).expect("compilation failed");
     let mut executor = Executor::new(program);
 
-    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
-    executor.vm_mut().write_register(2, HalValue::Bool(true));  // r
+    executor.vm_mut().write_register(1, HalValue::Bool(true)); // s
+    executor.vm_mut().write_register(2, HalValue::Bool(true)); // r
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(3), HalValue::Bool(true), "SR: S1 wins when both true");
 }
@@ -912,7 +946,7 @@ fn test_rs_reset_dominant() {
     let mut executor = Executor::new(program);
 
     // Set
-    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
+    executor.vm_mut().write_register(1, HalValue::Bool(true)); // s
     executor.vm_mut().write_register(2, HalValue::Bool(false)); // r
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
@@ -920,14 +954,14 @@ fn test_rs_reset_dominant() {
 
     // Reset
     executor.vm_mut().write_register(1, HalValue::Bool(false)); // s
-    executor.vm_mut().write_register(2, HalValue::Bool(true));  // r
+    executor.vm_mut().write_register(2, HalValue::Bool(true)); // r
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "RS: R=true should clear Q1");
 
     // Both true → R wins (reset-dominant)
-    executor.vm_mut().write_register(1, HalValue::Bool(true));  // s
-    executor.vm_mut().write_register(2, HalValue::Bool(true));  // r
+    executor.vm_mut().write_register(1, HalValue::Bool(true)); // s
+    executor.vm_mut().write_register(2, HalValue::Bool(true)); // r
     executor.vm_mut().reset_ip();
     executor.run_to_halt();
     assert_eq!(executor.vm().read_register(3), HalValue::Bool(false), "RS: R wins when both true");
@@ -951,31 +985,51 @@ fn test_rtrig_rising_edge() {
     // Cycle 1: CLK=false → Q stays false (no edge)
     executor.vm_mut().write_register(1, HalValue::Bool(false));
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "R_TRIG: Q=false when CLK stays low");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(false),
+        "R_TRIG: Q=false when CLK stays low"
+    );
 
     // Cycle 2: CLK=true (rising edge) → Q=true
     executor.vm_mut().reset_ip();
     executor.vm_mut().write_register(1, HalValue::Bool(true));
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "R_TRIG: Q=true on rising edge");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(true),
+        "R_TRIG: Q=true on rising edge"
+    );
 
     // Cycle 3: CLK stays true → Q goes false (only one-cycle pulse)
     executor.vm_mut().reset_ip();
     executor.vm_mut().write_register(1, HalValue::Bool(true));
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "R_TRIG: Q=false after rising edge pulse");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(false),
+        "R_TRIG: Q=false after rising edge pulse"
+    );
 
     // Cycle 4: CLK=false (falling edge) → Q false (no trigger)
     executor.vm_mut().reset_ip();
     executor.vm_mut().write_register(1, HalValue::Bool(false));
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "R_TRIG: Q ignored falling edge");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(false),
+        "R_TRIG: Q ignored falling edge"
+    );
 
     // Cycle 5: CLK=true (another rising edge) → Q=true again
     executor.vm_mut().reset_ip();
     executor.vm_mut().write_register(1, HalValue::Bool(true));
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "R_TRIG: second rising edge triggered");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(true),
+        "R_TRIG: second rising edge triggered"
+    );
 }
 
 // ── Test 56: F_TRIG (falling edge detector) ──
@@ -995,19 +1049,29 @@ fn test_ftrig_falling_edge() {
     // Cycle 1: CLK=true → no edge yet, last_clk stored as true
     executor.vm_mut().write_register(1, HalValue::Bool(true));
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "F_TRIG: Q=false when CLK starts high");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(false),
+        "F_TRIG: Q=false when CLK starts high"
+    );
 
     // Cycle 2: CLK=false (falling edge) → Q=true
     executor.vm_mut().reset_ip();
     executor.vm_mut().write_register(1, HalValue::Bool(false));
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(true), "F_TRIG: Q=true on falling edge");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(true),
+        "F_TRIG: Q=true on falling edge"
+    );
 
     // Cycle 3: CLK stays false → Q=false
     executor.vm_mut().reset_ip();
     executor.vm_mut().write_register(1, HalValue::Bool(false));
     executor.run_to_halt();
-    assert_eq!(executor.vm().read_register(2), HalValue::Bool(false), "F_TRIG: Q=false after falling edge pulse");
+    assert_eq!(
+        executor.vm().read_register(2),
+        HalValue::Bool(false),
+        "F_TRIG: Q=false after falling edge pulse"
+    );
 }
-
-

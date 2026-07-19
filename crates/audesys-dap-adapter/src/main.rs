@@ -61,11 +61,7 @@ fn main() {
 
 fn parse_content_length(line: &str) -> Option<usize> {
     let prefix = "Content-Length: ";
-    if line.starts_with(prefix) {
-        line[prefix.len()..].trim().parse().ok()
-    } else {
-        None
-    }
+    if line.starts_with(prefix) { line[prefix.len()..].trim().parse().ok() } else { None }
 }
 
 fn send_packet(data: &str) {

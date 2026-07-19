@@ -46,11 +46,7 @@ pub struct DebugState {
 
 impl DebugState {
     pub fn new() -> Self {
-        DebugState {
-            debug_mode: false,
-            breakpoints: HashSet::new(),
-            trace_buffer: Vec::new(),
-        }
+        DebugState { debug_mode: false, breakpoints: HashSet::new(), trace_buffer: Vec::new() }
     }
 }
 
@@ -250,7 +246,6 @@ impl Executor {
             Opcode::Call => self.exec_call(&inst.operands),
             Opcode::Ret => self.exec_ret(&inst.operands),
 
-
             Opcode::TimerRun => self.exec_timer_run(&inst.operands),
             Opcode::ReadTimer => self.exec_read_timer(&inst.operands),
             Opcode::CounterRun => self.exec_counter_run(&inst.operands),
@@ -345,7 +340,6 @@ impl Executor {
             _ => 0,
         }
     }
-
 
     fn exec_arith_binop<F>(&mut self, operands: &[Operand], f: F) -> ExecutorResult
     where
@@ -757,12 +751,22 @@ impl Executor {
         state.kind = if kind_raw == 1 { crate::vm::SrKind::Rs } else { crate::vm::SrKind::Sr };
         match state.kind {
             crate::vm::SrKind::Sr => {
-                if s1 { state.q1 = true; state.q2 = false; }
-                else if r { state.q1 = false; state.q2 = true; }
+                if s1 {
+                    state.q1 = true;
+                    state.q2 = false;
+                } else if r {
+                    state.q1 = false;
+                    state.q2 = true;
+                }
             }
             crate::vm::SrKind::Rs => {
-                if r { state.q1 = false; state.q2 = true; }
-                else if s1 { state.q1 = true; state.q2 = false; }
+                if r {
+                    state.q1 = false;
+                    state.q2 = true;
+                } else if s1 {
+                    state.q1 = true;
+                    state.q2 = false;
+                }
             }
         }
         state.s1 = s1;
@@ -825,8 +829,8 @@ impl Executor {
         let state = self.vm.edge_mut(idx);
         state.kind = kind;
         state.q = match kind {
-            0 => clk && !state.last_clk,   // R_TRIG: rising edge (CLK ∧ ¬last_CLK)
-            1 => !clk && state.last_clk,   // F_TRIG: falling edge (¬CLK ∧ last_CLK)
+            0 => clk && !state.last_clk, // R_TRIG: rising edge (CLK ∧ ¬last_CLK)
+            1 => !clk && state.last_clk, // F_TRIG: falling edge (¬CLK ∧ last_CLK)
             _ => false,
         };
         state.last_clk = clk;
@@ -853,7 +857,6 @@ impl Executor {
         self.vm.write_register(q_dest, HalValue::Bool(state.q));
         ExecutorResult::Continue
     }
-
 }
 // ── Tests ──
 
@@ -1226,17 +1229,14 @@ mod tests {
 
         assert_eq!(executor.step(), ExecutorResult::Continue); // load_imm r0
         assert_eq!(executor.step(), ExecutorResult::Continue); // load_imm r1
-        assert_eq!(executor.step(), ExecutorResult::Breaked);  // breakpoint!
+        assert_eq!(executor.step(), ExecutorResult::Breaked); // breakpoint!
     }
 
     #[test]
     fn test_debug_no_breakpoint_without_debug_mode() {
         let program = HalProgram::new(
             "test_no_bp",
-            vec![
-                Instruction::load_imm(0, HalValue::S32(1)),
-                Instruction::halt(),
-            ],
+            vec![Instruction::load_imm(0, HalValue::S32(1)), Instruction::halt()],
         );
         let mut executor = Executor::new(program);
         executor.add_breakpoint(0);
@@ -1248,10 +1248,7 @@ mod tests {
 
     #[test]
     fn test_debug_add_remove_breakpoint() {
-        let mut executor = Executor::new(HalProgram::new(
-            "test_bp_ops",
-            vec![Instruction::halt()],
-        ));
+        let mut executor = Executor::new(HalProgram::new("test_bp_ops", vec![Instruction::halt()]));
 
         assert!(executor.add_breakpoint(0));
         assert!(!executor.add_breakpoint(0)); // duplicate
@@ -1264,10 +1261,8 @@ mod tests {
 
     #[test]
     fn test_debug_clear_breakpoints() {
-        let mut executor = Executor::new(HalProgram::new(
-            "test_bp_clear",
-            vec![Instruction::halt()],
-        ));
+        let mut executor =
+            Executor::new(HalProgram::new("test_bp_clear", vec![Instruction::halt()]));
 
         executor.add_breakpoint(0);
         executor.add_breakpoint(3);
@@ -1305,10 +1300,7 @@ mod tests {
     fn test_debug_trace_not_recorded_when_disabled() {
         let program = HalProgram::new(
             "test_trace_off",
-            vec![
-                Instruction::load_imm(0, HalValue::S32(1)),
-                Instruction::halt(),
-            ],
+            vec![Instruction::load_imm(0, HalValue::S32(1)), Instruction::halt()],
         );
         let mut executor = Executor::new(program);
         executor.run_to_halt();
@@ -1320,10 +1312,7 @@ mod tests {
     fn test_debug_clear_trace() {
         let program = HalProgram::new(
             "test_trace_clear",
-            vec![
-                Instruction::load_imm(0, HalValue::S32(1)),
-                Instruction::halt(),
-            ],
+            vec![Instruction::load_imm(0, HalValue::S32(1)), Instruction::halt()],
         );
         let mut executor = Executor::new(program);
         executor.enable_debug();
@@ -1336,10 +1325,7 @@ mod tests {
 
     #[test]
     fn test_debug_disable_reenable() {
-        let mut executor = Executor::new(HalProgram::new(
-            "test_enable",
-            vec![Instruction::halt()],
-        ));
+        let mut executor = Executor::new(HalProgram::new("test_enable", vec![Instruction::halt()]));
 
         assert!(!executor.is_debug_enabled());
         executor.enable_debug();
@@ -1364,7 +1350,7 @@ mod tests {
         executor.add_breakpoint(1);
 
         assert_eq!(executor.step(), ExecutorResult::Continue); // load_imm r0
-        assert_eq!(executor.step(), ExecutorResult::Breaked);  // break at IP=1
+        assert_eq!(executor.step(), ExecutorResult::Breaked); // break at IP=1
         assert_eq!(executor.resume(), ExecutorResult::Continue); // execute load_imm r1
         executor.run_to_halt();
 
@@ -1375,10 +1361,7 @@ mod tests {
     fn test_debug_trace_content() {
         let program = HalProgram::new(
             "test_trace_content",
-            vec![
-                Instruction::load_imm(0, HalValue::S32(42)),
-                Instruction::halt(),
-            ],
+            vec![Instruction::load_imm(0, HalValue::S32(42)), Instruction::halt()],
         );
         let mut executor = Executor::new(program);
         executor.enable_debug();
@@ -1397,10 +1380,7 @@ mod tests {
     fn test_debug_state_survives_reset() {
         let program = HalProgram::new(
             "test_reset_debug",
-            vec![
-                Instruction::load_imm(0, HalValue::S32(1)),
-                Instruction::halt(),
-            ],
+            vec![Instruction::load_imm(0, HalValue::S32(1)), Instruction::halt()],
         );
         let mut executor = Executor::new(program);
         executor.enable_debug();

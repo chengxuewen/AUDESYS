@@ -5,12 +5,14 @@
 //! in `tests/adapter_signal_test.rs`. The shared `Arc<InprocTransport>`
 //! allows signal injection from outside the engine cycle loop.
 
-use std::sync::Mutex;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
-use audesys_amw_inproc::{InprocAuditLog, InprocMiddleware, InprocQoS, InprocTransport, StaticDiscovery};
+use audesys_amw_inproc::{
+    InprocAuditLog, InprocMiddleware, InprocQoS, InprocTransport, StaticDiscovery,
+};
 use audesys_hal_core::{HalPinType, HalTransport, HalValue, Timestamp};
 
 use crate::engine::Engine;
@@ -60,13 +62,7 @@ impl SimulationHarness {
     pub fn new(cycle_ms: u64) -> Self {
         let (transport, mw) = build_inproc_stack();
         let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
-        Self {
-            engine,
-            transport,
-            faults: Mutex::new(Vec::new()),
-            cycle_ms,
-            handle: None,
-        }
+        Self { engine, transport, faults: Mutex::new(Vec::new()), cycle_ms, handle: None }
     }
 
     // ── Signal Management ──
@@ -79,8 +75,7 @@ impl SimulationHarness {
         value: HalValue,
         strategy: WriteStrategy,
     ) -> Result<(), String> {
-        self.engine
-            .register_signal(SignalDef::new(name, pin_type, value, strategy))
+        self.engine.register_signal(SignalDef::new(name, pin_type, value, strategy))
     }
 
     /// Inject a signal value — publish directly to the shared transport.
@@ -95,11 +90,7 @@ impl SimulationHarness {
 
     /// Read a signal value directly from the transport (bypasses engine snapshot).
     pub fn get_signal(&self, name: &str) -> Option<HalValue> {
-        self.transport
-            .read_signal(name)
-            .ok()
-            .flatten()
-            .map(|(v, _)| v)
+        self.transport.read_signal(name).ok().flatten().map(|(v, _)| v)
     }
 
     /// Take a signal snapshot from the engine's signal registry.
@@ -166,9 +157,7 @@ impl SimulationHarness {
 
     /// Get the number of signals published (across all cycles).
     pub fn signals_published(&self) -> u64 {
-        self.engine.metrics()
-            .signals_published
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.engine.metrics().signals_published.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Check if the engine is currently running.
@@ -251,14 +240,8 @@ mod tests {
         sim.run_cycles(3);
 
         let snapshot = sim.signal_snapshot();
-        let temp = snapshot
-            .iter()
-            .find(|(name, _)| name == "sensor.temp")
-            .unwrap();
-        let pressure = snapshot
-            .iter()
-            .find(|(name, _)| name == "sensor.pressure")
-            .unwrap();
+        let temp = snapshot.iter().find(|(name, _)| name == "sensor.temp").unwrap();
+        let pressure = snapshot.iter().find(|(name, _)| name == "sensor.pressure").unwrap();
         assert_eq!(temp.1, HalValue::F32(25.5));
         assert_eq!(pressure.1, HalValue::F32(1013.25));
     }
@@ -279,20 +262,14 @@ mod tests {
         sim.set_signal("sensor.val", HalValue::U32(10));
         sim.run_cycles(3);
         let snap1 = sim.signal_snapshot();
-        let v1 = snap1
-            .iter()
-            .find(|(name, _)| name == "sensor.val")
-            .unwrap();
+        let v1 = snap1.iter().find(|(name, _)| name == "sensor.val").unwrap();
         assert_eq!(v1.1, HalValue::U32(10));
 
         // Second run — inject a new value
         sim.set_signal("sensor.val", HalValue::U32(20));
         sim.run_cycles(3);
         let snap2 = sim.signal_snapshot();
-        let v2 = snap2
-            .iter()
-            .find(|(name, _)| name == "sensor.val")
-            .unwrap();
+        let v2 = snap2.iter().find(|(name, _)| name == "sensor.val").unwrap();
         assert_eq!(v2.1, HalValue::U32(20));
     }
 
@@ -349,13 +326,14 @@ pub struct ActiveFault {
 
 impl SimulationHarness {
     /// Inject a fault on a signal. Active from start_cycle for duration cycles.
-    pub fn inject_fault(&self, kind: FaultKind, signal: &str, start_cycle: u64, duration_cycles: u64) {
-        let fault = ActiveFault {
-            kind,
-            signal: signal.to_string(),
-            start_cycle,
-            duration_cycles,
-        };
+    pub fn inject_fault(
+        &self,
+        kind: FaultKind,
+        signal: &str,
+        start_cycle: u64,
+        duration_cycles: u64,
+    ) {
+        let fault = ActiveFault { kind, signal: signal.to_string(), start_cycle, duration_cycles };
         self.faults.lock().unwrap().push(fault);
     }
 
@@ -367,7 +345,10 @@ impl SimulationHarness {
     /// Get list of active faults for the current cycle.
     pub fn active_faults(&self) -> Vec<ActiveFault> {
         let current = self.cycle_count();
-        self.faults.lock().unwrap().iter()
+        self.faults
+            .lock()
+            .unwrap()
+            .iter()
             .filter(|f| current >= f.start_cycle && current < f.start_cycle + f.duration_cycles)
             .cloned()
             .collect()
@@ -377,7 +358,9 @@ impl SimulationHarness {
     pub fn resolve_fault(&self, signal: &str, value: &mut HalValue) -> bool {
         let faults = self.active_faults();
         for fault in faults {
-            if fault.signal != signal { continue; }
+            if fault.signal != signal {
+                continue;
+            }
             match fault.kind {
                 FaultKind::Timeout | FaultKind::Disconnect => return false,
                 FaultKind::OutOfRange => {
@@ -395,7 +378,6 @@ impl SimulationHarness {
         true
     }
 }
-
 
 // ── Scene Recording / Playback ──
 
@@ -415,30 +397,20 @@ pub struct Scene {
 impl SimulationHarness {
     /// Record signal snapshots for N cycles, returning a Scene.
     pub fn record(&mut self, name: &str, cycles: u64) -> Scene {
-        let signal_names: Vec<String> = self.engine
-            .signal_snapshot()
-            .iter()
-            .map(|(n, _)| n.clone())
-            .collect();
+        let signal_names: Vec<String> =
+            self.engine.signal_snapshot().iter().map(|(n, _)| n.clone()).collect();
 
         let mut frames = Vec::new();
         for _ in 0..cycles {
             self.step_cycle();
             std::thread::sleep(std::time::Duration::from_millis(self.cycle_ms + 5));
             let snap = self.engine.signal_snapshot();
-            let frame: HashMap<String, String> = snap
-                .iter()
-                .map(|(n, v)| (n.clone(), format!("{v:?}")))
-                .collect();
+            let frame: HashMap<String, String> =
+                snap.iter().map(|(n, v)| (n.clone(), format!("{v:?}"))).collect();
             frames.push(frame);
         }
 
-        Scene {
-            name: name.to_string(),
-            cycle_ms: self.cycle_ms,
-            signal_names,
-            frames,
-        }
+        Scene { name: name.to_string(), cycle_ms: self.cycle_ms, signal_names, frames }
     }
 
     /// Play back a recorded scene, injecting signals cycle by cycle.
@@ -497,7 +469,13 @@ mod scene_tests {
     #[test]
     fn test_record_and_play() {
         let mut sim = SimulationHarness::new(1);
-        sim.register_signal("sensor.x", HalPinType::U32, HalValue::U32(0), WriteStrategy::Monitored).unwrap();
+        sim.register_signal(
+            "sensor.x",
+            HalPinType::U32,
+            HalValue::U32(0),
+            WriteStrategy::Monitored,
+        )
+        .unwrap();
 
         sim.set_signal("sensor.x", HalValue::U32(10));
         let scene = sim.record("test", 3);
@@ -510,7 +488,13 @@ mod scene_tests {
     #[test]
     fn test_save_and_load() {
         let mut sim = SimulationHarness::new(1);
-        sim.register_signal("sensor.x", HalPinType::U32, HalValue::U32(0), WriteStrategy::Monitored).unwrap();
+        sim.register_signal(
+            "sensor.x",
+            HalPinType::U32,
+            HalValue::U32(0),
+            WriteStrategy::Monitored,
+        )
+        .unwrap();
         sim.set_signal("sensor.x", HalValue::U32(42));
         let scene = sim.record("save_test", 2);
 

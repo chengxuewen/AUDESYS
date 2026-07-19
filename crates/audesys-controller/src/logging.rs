@@ -53,8 +53,7 @@ static LOGGER: LazyLock<Mutex<Box<dyn Write + Send>>> =
 
 /// Initialize the logger. Reads AUDESYS_LOG_LEVEL from env.
 pub fn init() {
-    let level = std::env::var("AUDESYS_LOG_LEVEL")
-        .unwrap_or_else(|_| "info".to_string());
+    let level = std::env::var("AUDESYS_LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
     set_level(LogLevel::from_str(&level));
 }
 
@@ -62,7 +61,6 @@ pub fn init() {
 pub fn set_level(level: LogLevel) {
     LOG_LEVEL.store(level as u8, Ordering::Relaxed);
 }
-
 
 /// Log a message at the given level if the level is enabled.
 pub fn log(level: LogLevel, module: &str, msg: &str, fields: &[(&str, &dyn std::fmt::Display)]) {
@@ -140,7 +138,10 @@ fn emit(level: LogLevel, module: &str, msg: &str, fields: &[(&str, &dyn std::fmt
 
     let mut output = format!(
         "{{\"ts\":\"{}\",\"level\":\"{}\",\"module\":\"{}\",\"msg\":\"{}\"",
-        ts, level_str, escape(module), escape(msg)
+        ts,
+        level_str,
+        escape(module),
+        escape(msg)
     );
 
     for (key, val) in fields {
@@ -156,19 +157,14 @@ fn emit(level: LogLevel, module: &str, msg: &str, fields: &[(&str, &dyn std::fmt
 }
 
 fn timestamp() -> String {
-    let dur = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
+    let dur = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
     let secs = dur.as_secs();
     let millis = dur.subsec_millis();
     format!("{secs}.{millis:03}")
 }
 
 fn escape(s: &str) -> String {
-    s.replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\t', "\\t")
+    s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n").replace('\t', "\\t")
 }
 
 // ── Tests ──

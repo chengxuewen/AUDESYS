@@ -28,7 +28,6 @@ struct Codegen {
     label_refs: Vec<(usize, String)>,
 }
 
-
 impl Codegen {
     fn new() -> Self {
         Self {
@@ -89,19 +88,12 @@ impl Codegen {
     fn emit_arith(&mut self, opcode: Opcode, a: u8, b: u8, out: u8) {
         self.emit(Instruction::new(
             opcode,
-            vec![
-                Operand::Register(a),
-                Operand::Register(b),
-                Operand::Register(out),
-            ],
+            vec![Operand::Register(a), Operand::Register(b), Operand::Register(out)],
         ));
     }
 
     fn emit_cmp(&mut self, opcode: Opcode, a: u8, b: u8) {
-        self.emit(Instruction::new(
-            opcode,
-            vec![Operand::Register(a), Operand::Register(b)],
-        ));
+        self.emit(Instruction::new(opcode, vec![Operand::Register(a), Operand::Register(b)]));
     }
 
     fn emit_jump(&mut self, target: u32) {

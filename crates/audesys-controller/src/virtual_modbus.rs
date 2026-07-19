@@ -22,8 +22,8 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 
 use audesys_hal_core::{HalTransport, HalValue, Timestamp};
@@ -59,11 +59,8 @@ impl VirtualModbusTcpDevice {
     /// Create an unbound device listening on the given address.
     /// If address does not contain ':', port 1502 is appended.
     pub fn new(addr: &str) -> Self {
-        let addr = if addr.contains(':') {
-            addr.to_string()
-        } else {
-            format!("{addr}:{MODBUS_TCP_PORT}")
-        };
+        let addr =
+            if addr.contains(':') { addr.to_string() } else { format!("{addr}:{MODBUS_TCP_PORT}") };
         Self {
             addr,
             transport: None,
@@ -148,7 +145,12 @@ impl VirtualModbusTcpDevice {
         }
     }
 
-    fn write_register_signal(&self, map: &HashMap<u16, String>, addr: u16, value: u16) -> Result<(), u8> {
+    fn write_register_signal(
+        &self,
+        map: &HashMap<u16, String>,
+        addr: u16,
+        value: u16,
+    ) -> Result<(), u8> {
         let name = map.get(&addr).ok_or(exception::ILLEGAL_DATA_ADDRESS)?;
         let transport = self.transport.as_ref().expect("transport not bound");
         let ts = Timestamp { secs: 0, micros: 0 };
@@ -395,9 +397,7 @@ impl VirtualModbusTcpDevice {
     // ── Connection handler ──
 
     fn handle_client(&self, mut stream: TcpStream) {
-        stream
-            .set_read_timeout(Some(std::time::Duration::from_millis(100)))
-            .ok();
+        stream.set_read_timeout(Some(std::time::Duration::from_millis(100))).ok();
 
         let mut mbap_buf = vec![0u8; MBAP_HEADER_LEN];
 
@@ -466,18 +466,11 @@ impl VirtualModbusTcpDevice {
                     return;
                 }
             };
-            listener
-                .set_nonblocking(false)
-                .expect("set_nonblocking failed");
+            listener.set_nonblocking(false).expect("set_nonblocking failed");
 
             // Wrap in a local self-like struct for handle_client
-            let device = ThreadDevice {
-                transport,
-                coils,
-                holding_regs,
-                input_regs,
-                discrete_inputs,
-            };
+            let device =
+                ThreadDevice { transport, coils, holding_regs, input_regs, discrete_inputs };
 
             for stream in listener.incoming() {
                 if !running.load(Ordering::Relaxed) {
@@ -523,9 +516,7 @@ struct ThreadDevice {
 
 impl ThreadDevice {
     fn handle_client(&self, mut stream: TcpStream, running: &AtomicBool) {
-        stream
-            .set_read_timeout(Some(std::time::Duration::from_millis(100)))
-            .ok();
+        stream.set_read_timeout(Some(std::time::Duration::from_millis(100))).ok();
 
         let mut mbap_buf = vec![0u8; MBAP_HEADER_LEN];
 
@@ -616,7 +607,12 @@ impl ThreadDevice {
         }
     }
 
-    fn write_register_signal(&self, map: &HashMap<u16, String>, addr: u16, value: u16) -> Result<(), u8> {
+    fn write_register_signal(
+        &self,
+        map: &HashMap<u16, String>,
+        addr: u16,
+        value: u16,
+    ) -> Result<(), u8> {
         let name = map.get(&addr).ok_or(exception::ILLEGAL_DATA_ADDRESS)?;
         let ts = Timestamp { secs: 0, micros: 0 };
         self.transport
@@ -890,9 +886,7 @@ mod tests {
 
         let mut dev = VirtualModbusTcpDevice::new("127.0.0.1:19999");
         let transport = Arc::new(InprocTransport::new());
-        transport
-            .publish_signal("coil.0", HalValue::Bool(true), dummy_ts())
-            .unwrap();
+        transport.publish_signal("coil.0", HalValue::Bool(true), dummy_ts()).unwrap();
         dev.bind(transport);
         dev.map_coil(0, "coil.0");
 
@@ -942,16 +936,11 @@ mod tests {
         let transport = Arc::new(InprocTransport::new());
         let mut dev = VirtualModbusTcpDevice::new("127.0.0.1:19999");
         dev.bind(Arc::clone(&transport) as Arc<dyn HalTransport>);
-        dev.map_coil(0, "motor.run")
-            .map_holding_register(100, "motor.speed");
+        dev.map_coil(0, "motor.run").map_holding_register(100, "motor.speed");
 
         // Set initial signal values via transport
-        transport
-            .publish_signal("motor.run", HalValue::Bool(true), dummy_ts())
-            .unwrap();
-        transport
-            .publish_signal("motor.speed", HalValue::U16(1200), dummy_ts())
-            .unwrap();
+        transport.publish_signal("motor.run", HalValue::Bool(true), dummy_ts()).unwrap();
+        transport.publish_signal("motor.speed", HalValue::U16(1200), dummy_ts()).unwrap();
 
         // Read coil 0
         let mbap: [u8; 7] = [0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01];
@@ -1001,10 +990,7 @@ mod tests {
         let transport = Arc::new(InprocTransport::new());
         let mut dev = VirtualModbusTcpDevice::new("127.0.0.1:19999");
         dev.bind(Arc::clone(&transport) as Arc<dyn HalTransport>);
-        dev.map_coil(0, "coil.0")
-            .map_coil(1, "coil.1")
-            .map_coil(7, "coil.7")
-            .map_coil(8, "coil.8");
+        dev.map_coil(0, "coil.0").map_coil(1, "coil.1").map_coil(7, "coil.7").map_coil(8, "coil.8");
 
         transport.publish_signal("coil.0", HalValue::Bool(true), dummy_ts()).unwrap();
         transport.publish_signal("coil.1", HalValue::Bool(false), dummy_ts()).unwrap();
@@ -1055,10 +1041,8 @@ mod tests {
 
         let mbap: [u8; 7] = [0x00, 0x01, 0x00, 0x00, 0x00, 0x0B, 0x01];
         // Write multiple regs: addr=200, count=2, byte_count=4, data=0x1234, 0x5678
-        let resp = dev.handle_request(
-            &mbap,
-            &[0x10, 0x00, 0xC8, 0x00, 0x02, 0x04, 0x12, 0x34, 0x56, 0x78],
-        );
+        let resp = dev
+            .handle_request(&mbap, &[0x10, 0x00, 0xC8, 0x00, 0x02, 0x04, 0x12, 0x34, 0x56, 0x78]);
         assert_eq!(resp[7], 0x10); // echo FC
 
         // ponytail: only first register written

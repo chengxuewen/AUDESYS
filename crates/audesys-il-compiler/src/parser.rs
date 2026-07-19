@@ -13,62 +13,25 @@ pub enum CompareOp {
 
 #[derive(Debug)]
 pub enum ILStatement {
-    Load {
-        var: String,
-    },
-    LoadNot {
-        var: String,
-    },
-    Store {
-        var: String,
-    },
-    And {
-        var: String,
-    },
-    AndNot {
-        var: String,
-    },
-    Or {
-        var: String,
-    },
-    OrNot {
-        var: String,
-    },
-    Xor {
-        var: String,
-    },
-    Add {
-        var: String,
-    },
-    Sub {
-        var: String,
-    },
-    Mul {
-        var: String,
-    },
-    Div {
-        var: String,
-    },
-    Cmp {
-        op: CompareOp,
-        var: String,
-    },
-    Jump {
-        label: String,
-    },
-    JumpIf {
-        label: String,
-    },
-    JumpIfNot {
-        label: String,
-    },
-    Call {
-        fb: String,
-    },
+    Load { var: String },
+    LoadNot { var: String },
+    Store { var: String },
+    And { var: String },
+    AndNot { var: String },
+    Or { var: String },
+    OrNot { var: String },
+    Xor { var: String },
+    Add { var: String },
+    Sub { var: String },
+    Mul { var: String },
+    Div { var: String },
+    Cmp { op: CompareOp, var: String },
+    Jump { label: String },
+    JumpIf { label: String },
+    JumpIfNot { label: String },
+    Call { fb: String },
     Return,
-    Label {
-        name: String,
-    },
+    Label { name: String },
 }
 
 pub fn parse(tokens: &[Token]) -> Vec<ILStatement> {

@@ -86,7 +86,7 @@ impl HalTransport for ZenohTransport {
         Ok(results)
     }
 
-    fn rpc_call(&self, method: &str, params: &[u8], timeout_ms: u64) -> HalResult<Vec<u8>> {
+    fn rpc_call(&self, method: &str, params: &[u8], _timeout_ms: u64) -> HalResult<Vec<u8>> {
         self.rpc_calls.fetch_add(1, Ordering::Relaxed);
         let handlers =
             self.rpc_handlers.read().map_err(|e| HalError::Internal(format!("lock: {e}")))?;

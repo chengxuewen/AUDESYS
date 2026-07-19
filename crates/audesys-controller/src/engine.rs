@@ -146,17 +146,21 @@ impl Engine {
         let paused = Arc::clone(&self.paused);
         let step_requested = Arc::clone(&self.step_requested);
 
-
         thread::spawn(move || {
             let interval = Duration::from_millis(cycle_interval_ms);
             let mut next_cycle = Instant::now();
 
             while running.load(Ordering::SeqCst) {
                 // Debug pause: loop-sleep while paused, unless single-step was requested
-                while running.load(Ordering::SeqCst) && paused.load(Ordering::SeqCst) && !step_requested.load(Ordering::SeqCst) {
+                while running.load(Ordering::SeqCst)
+                    && paused.load(Ordering::SeqCst)
+                    && !step_requested.load(Ordering::SeqCst)
+                {
                     thread::sleep(Duration::from_millis(1));
                 }
-                if !running.load(Ordering::SeqCst) { break; }
+                if !running.load(Ordering::SeqCst) {
+                    break;
+                }
                 while paused.load(Ordering::SeqCst) && !step_requested.load(Ordering::SeqCst) {
                     thread::sleep(Duration::from_millis(1));
                 }
@@ -183,7 +187,9 @@ impl Engine {
                     if let Some(program) = pending.take() {
                         let executor = Executor::new(program.clone());
                         for binding in &program.signals {
-                            if binding.direction == Direction::Write || binding.direction == Direction::ReadWrite {
+                            if binding.direction == Direction::Write
+                                || binding.direction == Direction::ReadWrite
+                            {
                                 let def = SignalDef::new(
                                     &binding.hal_signal_name,
                                     binding.hal_pin_type,
@@ -262,7 +268,6 @@ impl Engine {
                 let cycle_elapsed = cycle_start.elapsed().as_micros() as u64;
                 metrics.record_cycle_jitter(cycle_elapsed);
 
-
                 // Lifecycle health check — detect and restart dead children
                 let dead = lifecycle.health_check();
                 for _name in &dead {
@@ -298,13 +303,22 @@ impl Engine {
     }
 
     /// Pause the engine.
-    pub fn pause(&self) { self.paused.store(true, Ordering::SeqCst); }
+    pub fn pause(&self) {
+        self.paused.store(true, Ordering::SeqCst);
+    }
     /// Resume the engine.
-    pub fn resume(&self) { self.paused.store(false, Ordering::SeqCst); }
+    pub fn resume(&self) {
+        self.paused.store(false, Ordering::SeqCst);
+    }
     /// Step one cycle then pause.
-    pub fn step_cycle(&self) { self.paused.store(true, Ordering::SeqCst); self.step_requested.store(true, Ordering::SeqCst); }
+    pub fn step_cycle(&self) {
+        self.paused.store(true, Ordering::SeqCst);
+        self.step_requested.store(true, Ordering::SeqCst);
+    }
     /// Check if paused.
-    pub fn is_paused(&self) -> bool { self.paused.load(Ordering::SeqCst) }
+    pub fn is_paused(&self) -> bool {
+        self.paused.load(Ordering::SeqCst)
+    }
 
     /// Get the number of cycles completed.
     pub fn cycle_count(&self) -> u64 {
@@ -443,8 +457,8 @@ impl Engine {
 
     /// Prepare a hot-swap: validate the new program, store for later commit.
     pub fn prepare_swap(&self, bytes: &[u8]) -> Result<(), String> {
-        let program: HalProgram = bincode::deserialize(bytes)
-            .map_err(|e| format!("deserialize: {}", e))?;
+        let program: HalProgram =
+            bincode::deserialize(bytes).map_err(|e| format!("deserialize: {}", e))?;
         if !program.is_well_formed() {
             return Err("Program is not well-formed".to_string());
         }
@@ -875,8 +889,7 @@ mod tests {
         let count_after_wait = engine.cycle_count();
 
         // Cycle count should not increase while paused
-        assert_eq!(count_after_pause, count_after_wait,
-            "cycle count should freeze while paused");
+        assert_eq!(count_after_pause, count_after_wait, "cycle count should freeze while paused");
 
         engine.resume();
         thread::sleep(Duration::from_millis(30));
@@ -900,8 +913,7 @@ mod tests {
         let count_after = engine.cycle_count();
 
         // Exactly one more cycle should have executed
-        assert_eq!(count_after, count_before + 1,
-            "step_cycle should advance exactly one cycle");
+        assert_eq!(count_after, count_before + 1, "step_cycle should advance exactly one cycle");
 
         engine.stop();
         handle.join().expect("engine thread should join cleanly");
@@ -960,5 +972,4 @@ mod tests {
         assert!(!engine.has_pending_swap());
         assert!(!engine.is_swap_committed());
     }
-
 }

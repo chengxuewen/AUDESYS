@@ -36,7 +36,6 @@ pub enum VarType {
     Rs,     // IEC 61131-3 RS (reset-dominant)
     RTrig,  // IEC 61131-3 R_TRIG (rising edge)
     FTrig,  // IEC 61131-3 F_TRIG (falling edge)
-
 }
 
 /// Binary operator.
@@ -144,7 +143,6 @@ pub enum Statement {
         index: Expr,
         value: Expr,
     },
-
 }
 
 /// A variable declaration.
@@ -304,7 +302,11 @@ fn parse_var_block(p: &mut Parser) -> Result<Vec<Variable>, ParseError> {
 }
 
 /// Parse a param block: VAR_INPUT ... END_VAR; or VAR_OUTPUT ... END_VAR; or VAR_IN_OUT ... END_VAR;
-fn parse_param_block(p: &mut Parser, start: Token, end: Token) -> Result<Vec<Variable>, ParseError> {
+fn parse_param_block(
+    p: &mut Parser,
+    start: Token,
+    end: Token,
+) -> Result<Vec<Variable>, ParseError> {
     p.expect(start)?;
     let mut vars = Vec::new();
     while p.peek_token() != Some(&end) {
@@ -360,7 +362,15 @@ fn parse_function_def(p: &mut Parser) -> Result<FunctionDef, ParseError> {
     p.expect(Token::EndFunction)?;
     p.expect(Token::Semicolon)?;
 
-    Ok(FunctionDef { name, return_type, variables, input_params, output_params, inout_params, body })
+    Ok(FunctionDef {
+        name,
+        return_type,
+        variables,
+        input_params,
+        output_params,
+        inout_params,
+        body,
+    })
 }
 
 fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
@@ -391,7 +401,9 @@ fn parse_var_type(p: &mut Parser) -> Result<VarType, ParseError> {
                             if let Token::IntegerLiteral(n) = ti.token {
                                 p.expect(Token::RParen)?;
                                 Some(n as usize)
-                            } else { unreachable!() }
+                            } else {
+                                unreachable!()
+                            }
                         }
                         _ => return Err(ParseError::UnexpectedEof),
                     }
@@ -903,6 +915,8 @@ mod tests {
         assert!(matches!(&p.functions[0].body[1], Statement::Assign { name, .. } if name == "add"));
         // Main body: add(1, 2);
         assert_eq!(p.body.len(), 1);
-        assert!(matches!(&p.body[0], Statement::FunCall { name, args } if name == "add" && args.len() == 2));
+        assert!(
+            matches!(&p.body[0], Statement::FunCall { name, args } if name == "add" && args.len() == 2)
+        );
     }
 }

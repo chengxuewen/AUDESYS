@@ -56,9 +56,7 @@ impl HalProgram {
     /// Check if the program has a Halt instruction as its last instruction.
     /// Note: with multi-function programs, Halt marks the end of the main body.
     pub fn is_well_formed(&self) -> bool {
-        self.instructions
-            .iter()
-            .any(|inst| inst.opcode == crate::instruction::Opcode::Halt)
+        self.instructions.iter().any(|inst| inst.opcode == crate::instruction::Opcode::Halt)
     }
 
     /// Add a function entry to the function table.
@@ -73,9 +71,8 @@ impl HalProgram {
 mod tests {
     use super::*;
     use crate::instruction::Instruction;
-    use crate::types::SignalBinding;
     use crate::types::Direction;
-
+    use crate::types::SignalBinding;
 
     use audesys_hal_core::HalValue;
 

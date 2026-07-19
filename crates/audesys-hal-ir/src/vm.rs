@@ -243,13 +243,7 @@ impl Vm {
     /// Add a new timer with given kind and preset (returns timer index).
     pub fn add_timer(&mut self, kind: TimerKind, preset_ms: u64) -> usize {
         let idx = self.timers.len();
-        self.timers.push(TimerState {
-            kind,
-            in_val: false,
-            elapsed_ms: 0,
-            q: false,
-            preset_ms,
-        });
+        self.timers.push(TimerState { kind, in_val: false, elapsed_ms: 0, q: false, preset_ms });
         idx
     }
 
@@ -302,13 +296,7 @@ impl Vm {
     /// Add a new SR/RS flip-flop (returns index).
     pub fn add_sr(&mut self, kind: SrKind) -> usize {
         let idx = self.srs.len();
-        self.srs.push(SrState {
-            kind,
-            s1: false,
-            r: false,
-            q1: false,
-            q2: false,
-        });
+        self.srs.push(SrState { kind, s1: false, r: false, q1: false, q2: false });
         idx
     }
 
@@ -330,11 +318,7 @@ impl Vm {
     /// Add a new edge detector (returns index).
     pub fn add_edge(&mut self) -> usize {
         let idx = self.edges.len();
-        self.edges.push(EdgeState {
-            kind: 0,
-            last_clk: false,
-            q: false,
-        });
+        self.edges.push(EdgeState { kind: 0, last_clk: false, q: false });
         idx
     }
 

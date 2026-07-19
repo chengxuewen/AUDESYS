@@ -124,7 +124,8 @@ impl HalValue {
                 // ponytail: own the Array and mutate the data in-place
                 if let HalValue::Array { data, .. } = &mut self {
                     let bytes = value.to_bytes();
-                    data[offset..offset + elem_size as usize].copy_from_slice(&bytes[..elem_size as usize]);
+                    data[offset..offset + elem_size as usize]
+                        .copy_from_slice(&bytes[..elem_size as usize]);
                 }
                 self
             }
@@ -173,14 +174,19 @@ impl HalValue {
             U16 => HalValue::U16(u16::from_le_bytes([bytes[0], bytes[1]])),
             S32 => HalValue::S32(i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])),
             U32 => HalValue::U32(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])),
-            S64 => HalValue::S64(i64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]])),
-            U64 => HalValue::U64(u64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]])),
+            S64 => HalValue::S64(i64::from_le_bytes([
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            ])),
+            U64 => HalValue::U64(u64::from_le_bytes([
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            ])),
             F32 => HalValue::F32(f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])),
-            F64 => HalValue::F64(f64::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]])),
+            F64 => HalValue::F64(f64::from_le_bytes([
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            ])),
             Blob | String => HalValue::S32(0), // ponytail: not stored in arrays
         }
     }
-
 }
 
 // ── Arithmetic trait implementations for IR VM ──

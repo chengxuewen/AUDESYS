@@ -39,7 +39,12 @@ fn test_st_compile_to_controller_execution() {
     engine.load_hal_program(&bytes).expect("failed to load HAL program into engine");
 
     // 5. Register signals matching VM variable names (output of ST program)
-    let _ = engine.register_signal(SignalDef::new("x", HalPinType::S32, HalValue::S32(0), WriteStrategy::Own));
+    let _ = engine.register_signal(SignalDef::new(
+        "x",
+        HalPinType::S32,
+        HalValue::S32(0),
+        WriteStrategy::Own,
+    ));
     // ponytail: may already be registered by load_hal_program auto-binding
 
     // 6. Run engine cycles

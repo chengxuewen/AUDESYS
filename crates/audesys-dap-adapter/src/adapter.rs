@@ -1,6 +1,6 @@
+use crate::protocol::*;
 use audesys_controller_client::ControllerClient;
 use audesys_runtime_common::types::Role;
-use crate::protocol::*;
 
 pub struct DebugAdapter {
     client: Option<ControllerClient>,
@@ -48,17 +48,17 @@ impl DebugAdapter {
             supports_step_targets: false,
             supports_step_back: false,
             supports_goto_targets: false,
-        }).unwrap();
+        })
+        .unwrap();
         vec![self.ok(&_req, body)]
     }
 
     fn handle_attach(&mut self, req: DapRequest) -> Vec<String> {
-        let args: LaunchArguments = match req.arguments.as_ref()
-            .and_then(|a| serde_json::from_value(a.clone()).ok())
-        {
-            Some(a) => a,
-            None => return vec![self.err(&req, "invalid launch arguments")],
-        };
+        let args: LaunchArguments =
+            match req.arguments.as_ref().and_then(|a| serde_json::from_value(a.clone()).ok()) {
+                Some(a) => a,
+                None => return vec![self.err(&req, "invalid launch arguments")],
+            };
 
         match ControllerClient::connect(&args.socket_path, args.secret.as_bytes()) {
             Ok(mut client) => {
@@ -86,12 +86,11 @@ impl DebugAdapter {
             None => return vec![self.err(&req, "not connected")],
         };
 
-        let args: SetBreakpointsArguments = match req.arguments.as_ref()
-            .and_then(|a| serde_json::from_value(a.clone()).ok())
-        {
-            Some(a) => a,
-            None => return vec![self.err(&req, "invalid breakpoint arguments")],
-        };
+        let args: SetBreakpointsArguments =
+            match req.arguments.as_ref().and_then(|a| serde_json::from_value(a.clone()).ok()) {
+                Some(a) => a,
+                None => return vec![self.err(&req, "invalid breakpoint arguments")],
+            };
 
         // Clear existing breakpoints then set new ones
         let existing = client.list_breakpoints().unwrap_or_default();
@@ -107,8 +106,18 @@ impl DebugAdapter {
         for (i, bp_arg) in args.breakpoints.iter().enumerate() {
             let ip = bp_arg.line as u32;
             match client.set_breakpoint(ip) {
-                Ok(_) => bps.push(Breakpoint { id: i + 1, verified: true, line: Some(bp_arg.line), message: None }),
-                Err(e) => bps.push(Breakpoint { id: i + 1, verified: false, line: Some(bp_arg.line), message: Some(e) }),
+                Ok(_) => bps.push(Breakpoint {
+                    id: i + 1,
+                    verified: true,
+                    line: Some(bp_arg.line),
+                    message: None,
+                }),
+                Err(e) => bps.push(Breakpoint {
+                    id: i + 1,
+                    verified: false,
+                    line: Some(bp_arg.line),
+                    message: Some(e),
+                }),
             }
         }
 
@@ -176,7 +185,8 @@ impl DebugAdapter {
     fn handle_threads(&mut self, req: DapRequest) -> Vec<String> {
         let body = serde_json::to_value(ThreadsResponse {
             threads: vec![Thread { id: 1, name: "main".into() }],
-        }).unwrap();
+        })
+        .unwrap();
         vec![self.ok(&req, body)]
     }
 
@@ -188,7 +198,8 @@ impl DebugAdapter {
         // Get debug state to show current IP
         let state = client.debug_state().unwrap_or_default();
         let debug: serde_json::Value = serde_json::from_str(&state).unwrap_or_default();
-        let ip: usize = debug["breakpoints"].as_array()
+        let ip: usize = debug["breakpoints"]
+            .as_array()
             .and_then(|a| a.first())
             .and_then(|v| v.as_u64())
             .map(|v| v as usize)
@@ -202,14 +213,17 @@ impl DebugAdapter {
             source: Some(Source { name: "main.st".into(), path: None }),
             ip_reference: format!("0x{ip:X}"),
         };
-        let body = serde_json::to_value(StackTraceResponse { frames: vec![frame], total_frames: 1 }).unwrap();
+        let body =
+            serde_json::to_value(StackTraceResponse { frames: vec![frame], total_frames: 1 })
+                .unwrap();
         vec![self.ok(&req, body)]
     }
 
     fn handle_scopes(&mut self, req: DapRequest) -> Vec<String> {
         let body = serde_json::to_value(ScopesResponse {
             scopes: vec![Scope { name: "Registers".into(), variables_ref: 1, expensive: false }],
-        }).unwrap();
+        })
+        .unwrap();
         vec![self.ok(&req, body)]
     }
 
@@ -220,7 +234,9 @@ impl DebugAdapter {
         };
 
         // Read all 14 VM registers
-        let reg_names = ["r0","r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11","r12","r13"];
+        let reg_names = [
+            "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13",
+        ];
         let mut vars = Vec::new();
         for (i, name) in reg_names.iter().enumerate() {
             let val = client.read_register(i as u8).unwrap_or_else(|_| "?".into());

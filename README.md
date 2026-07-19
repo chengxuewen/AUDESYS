@@ -1,19 +1,16 @@
 # AUDESYS
 
-AUDESYS - Studio Runtime Simulator for industrial control systems,
-providing runtime execution, simulation, hardware abstraction, and
-debug infrastructure.
-
-## Overview
-
-AUDESYS (AUDio/industrial Embedded SYSTEM) is a platform for building,
-simulating, and debugging industrial control applications. It provides
-a studio environment for development, a runtime engine for execution,
-a hardware abstraction layer (HAL) for platform portability, and an
-industrial debug bridge for real-time diagnostics.
+AUDESYS — Automation Development Embedded System. Industrial control runtime
+simulation platform: Studio IDE, Runtime Engine, Hardware Abstraction Layer (HAL),
+Simulator, and CNC control system.
 
 ## Status
 
-This project is in early-stage development. No source code has been
-published yet. The architecture and design are being actively defined.
-Contributions and feedback are welcome as the project takes shape.
+MVP prototype complete (2026-07-19). 19 Rust crates, 6 IEC 61131-3 compilers
+(ST/IL/LD/FBD/SFC), G-code compiler, Runtime Engine (5-step cycle + hot-swap),
+Supervisor, IPC Server, Modbus/HART protocol adapters, Tauri Studio IDE (33 commands,
+8 panels), SimulationHarness, Prometheus metrics, DAP debug adapter.
+618+ `#[test]` annotations. 162 SDD specification items.
+
+Active development: CNC axis group + interpolation, Studio HMI visual designer,
+amw-zenoh network transport.

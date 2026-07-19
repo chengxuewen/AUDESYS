@@ -183,8 +183,8 @@ fn decode_hal_value(data: &[u8]) -> Result<(HalValue, usize), String> {
             need(rest, 4)?;
             let len = u32::from_le_bytes([rest[0], rest[1], rest[2], rest[3]]) as usize;
             need(rest, 4 + len)?;
-            let s = String::from_utf8(rest[4..4 + len].to_vec())
-                .map_err(|e| format!("utf8: {}", e))?;
+            let s =
+                String::from_utf8(rest[4..4 + len].to_vec()).map_err(|e| format!("utf8: {}", e))?;
             Ok((HalValue::String(s), 5 + len))
         }
         0xFE => {
@@ -199,11 +199,7 @@ fn decode_hal_value(data: &[u8]) -> Result<(HalValue, usize), String> {
 }
 
 fn need(data: &[u8], n: usize) -> Result<(), String> {
-    if data.len() < n {
-        Err(format!("need {} bytes, have {}", n, data.len()))
-    } else {
-        Ok(())
-    }
+    if data.len() < n { Err(format!("need {} bytes, have {}", n, data.len())) } else { Ok(()) }
 }
 
 fn read4(data: &[u8]) -> Result<[u8; 4], String> {
@@ -281,10 +277,7 @@ impl ControllerClient {
         }
 
         if resp_payload.len() < TOKEN_WIRE_SIZE {
-            return Err(format!(
-                "auth token too short: {} bytes",
-                resp_payload.len()
-            ));
+            return Err(format!("auth token too short: {} bytes", resp_payload.len()));
         }
 
         self.session_token = Some(resp_payload[..TOKEN_WIRE_SIZE].to_vec());
@@ -437,13 +430,9 @@ impl ControllerClient {
 
     /// Build a wire request frame, send it, read the response, and check status.
     fn send_request(&mut self, method_id: u8, payload: &[u8]) -> Result<Vec<u8>, String> {
-        let token = self
-            .session_token
-            .as_deref()
-            .unwrap_or(&[0u8; TOKEN_WIRE_SIZE]);
+        let token = self.session_token.as_deref().unwrap_or(&[0u8; TOKEN_WIRE_SIZE]);
         let frame = build_request(token, method_id, payload);
-        write_all(&mut self.stream, &frame)
-            .map_err(|e| format!("send {}: {}", method_id, e))?;
+        write_all(&mut self.stream, &frame).map_err(|e| format!("send {}: {}", method_id, e))?;
         let (_, _, payload) = read_response(&mut self.stream)?;
         Ok(payload)
     }
@@ -480,8 +469,7 @@ fn read_exact(stream: &mut UnixStream, n: usize) -> io::Result<Vec<u8>> {
 
 /// Read a response frame: returns (method_id, status, payload).
 fn read_response(stream: &mut UnixStream) -> Result<(u8, u8, Vec<u8>), String> {
-    let len_bytes =
-        read_exact(stream, 4).map_err(|e| format!("read length: {}", e))?;
+    let len_bytes = read_exact(stream, 4).map_err(|e| format!("read length: {}", e))?;
     let frame_len =
         u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
 
@@ -491,10 +479,8 @@ fn read_response(stream: &mut UnixStream) -> Result<(u8, u8, Vec<u8>), String> {
     }
     let payload_len = frame_len - 6;
 
-    let method_id =
-        read_exact(stream, 1).map_err(|e| format!("read method_id: {}", e))?[0];
-    let status =
-        read_exact(stream, 1).map_err(|e| format!("read status: {}", e))?[0];
+    let method_id = read_exact(stream, 1).map_err(|e| format!("read method_id: {}", e))?[0];
+    let status = read_exact(stream, 1).map_err(|e| format!("read status: {}", e))?[0];
     let payload = if payload_len > 0 {
         read_exact(stream, payload_len).map_err(|e| format!("read payload: {}", e))?
     } else {
@@ -503,10 +489,7 @@ fn read_response(stream: &mut UnixStream) -> Result<(u8, u8, Vec<u8>), String> {
 
     if status != STATUS_OK {
         let msg = String::from_utf8_lossy(&payload);
-        return Err(format!(
-            "server error (method={:#04x}): {}",
-            method_id, msg
-        ));
+        return Err(format!("server error (method={:#04x}): {}", method_id, msg));
     }
 
     Ok((method_id, status, payload))
@@ -610,10 +593,7 @@ mod tests {
             HalValue::F64(std::f64::consts::E),
             HalValue::Blob(vec![1, 2, 3, 4, 5]),
             HalValue::String("unicode: 你好".into()),
-            HalValue::Array {
-                element_type: HalPinType::U32,
-                data: vec![0x01, 0x00, 0x00, 0x00],
-            },
+            HalValue::Array { element_type: HalPinType::U32, data: vec![0x01, 0x00, 0x00, 0x00] },
         ];
         for v in &values {
             let enc = encode_hal_value(v);
@@ -646,8 +626,7 @@ mod tests {
         let frame = build_request(&[0u8; TOKEN_WIRE_SIZE], METHOD_AUTH_REQUEST, &payload);
 
         // Verify total_len (4 bytes LE)
-        let total_len =
-            u32::from_le_bytes([frame[0], frame[1], frame[2], frame[3]]) as usize;
+        let total_len = u32::from_le_bytes([frame[0], frame[1], frame[2], frame[3]]) as usize;
         assert_eq!(total_len, HEADER_SIZE + payload.len());
 
         // Token field: 64 zero bytes

@@ -148,18 +148,12 @@ fn parse_steps(tokens: &[Token]) -> Result<Vec<Step>, String> {
                 if let Some(step) = current_step.take() {
                     steps.push(step);
                 }
-                current_step = Some(Step {
-                    name: name.clone(),
-                    actions: Vec::new(),
-                    transition: None,
-                });
+                current_step =
+                    Some(Step { name: name.clone(), actions: Vec::new(), transition: None });
             }
             Token::Action { qualifier, body } => {
                 if let Some(ref mut step) = current_step {
-                    step.actions.push(Action {
-                        qualifier: *qualifier,
-                        body: body.clone(),
-                    });
+                    step.actions.push(Action { qualifier: *qualifier, body: body.clone() });
                 }
             }
             Token::EndStep => {
@@ -207,17 +201,11 @@ fn link_transitions(steps: &mut [Step], transitions: &[Transition]) -> Result<()
         let to_exists = steps.iter().any(|s| s.name == tr.to);
 
         let Some(idx) = from_idx else {
-            return Err(format!(
-                "step '{}' not found for transition FROM",
-                tr.from
-            ));
+            return Err(format!("step '{}' not found for transition FROM", tr.from));
         };
 
         if !to_exists {
-            return Err(format!(
-                "step '{}' not found for transition TO",
-                tr.to
-            ));
+            return Err(format!("step '{}' not found for transition TO", tr.to));
         }
 
         if steps[idx].transition.is_some() {
@@ -240,10 +228,9 @@ fn action_body_to_il(body: &str) -> String {
 
     // ponytail: if body starts with a known IL opcode, pass through as-is
     let il_opcodes = [
-        "LD ", "LDN ", "ST ", "S ", "R ", "AND ", "ANDN ", "OR ", "ORN ",
-        "XOR ", "XORN ", "ADD ", "SUB ", "MUL ", "DIV ", "GT ", "GE ",
-        "EQ ", "NE ", "LT ", "LE ", "JMP ", "JMPC ", "JMPCN ", "CAL ",
-        "RET ", "NOT ", "NOP ",
+        "LD ", "LDN ", "ST ", "S ", "R ", "AND ", "ANDN ", "OR ", "ORN ", "XOR ", "XORN ", "ADD ",
+        "SUB ", "MUL ", "DIV ", "GT ", "GE ", "EQ ", "NE ", "LT ", "LE ", "JMP ", "JMPC ",
+        "JMPCN ", "CAL ", "RET ", "NOT ", "NOP ",
     ];
     if il_opcodes.iter().any(|prefix| b.to_uppercase().starts_with(prefix)) {
         return b.to_string();

@@ -36,34 +36,19 @@ pub fn parse_networks(tokens: &[super::lexer::Token]) -> Vec<Vec<LdElement>> {
                 }
             }
             super::lexer::Token::No(var) => {
-                current.push(LdElement::Contact {
-                    normally_open: true,
-                    var: var.clone(),
-                });
+                current.push(LdElement::Contact { normally_open: true, var: var.clone() });
             }
             super::lexer::Token::Nc(var) => {
-                current.push(LdElement::Contact {
-                    normally_open: false,
-                    var: var.clone(),
-                });
+                current.push(LdElement::Contact { normally_open: false, var: var.clone() });
             }
             super::lexer::Token::Out(var) => {
-                current.push(LdElement::Coil {
-                    kind: CoilKind::Out,
-                    var: var.clone(),
-                });
+                current.push(LdElement::Coil { kind: CoilKind::Out, var: var.clone() });
             }
             super::lexer::Token::Set(var) => {
-                current.push(LdElement::Coil {
-                    kind: CoilKind::Set,
-                    var: var.clone(),
-                });
+                current.push(LdElement::Coil { kind: CoilKind::Set, var: var.clone() });
             }
             super::lexer::Token::Reset(var) => {
-                current.push(LdElement::Coil {
-                    kind: CoilKind::Reset,
-                    var: var.clone(),
-                });
+                current.push(LdElement::Coil { kind: CoilKind::Reset, var: var.clone() });
             }
         }
     }
@@ -87,10 +72,7 @@ pub fn generate_il(networks: &[Vec<LdElement>]) -> String {
 
         for element in network {
             match element {
-                LdElement::Contact {
-                    normally_open,
-                    var,
-                } => {
+                LdElement::Contact { normally_open, var } => {
                     if first_contact {
                         if *normally_open {
                             lines.push(format!("LD {}", var));
@@ -106,13 +88,11 @@ pub fn generate_il(networks: &[Vec<LdElement>]) -> String {
                         }
                     }
                 }
-                LdElement::Coil { kind, var } => {
-                    match kind {
-                        CoilKind::Out => lines.push(format!("ST {}", var)),
-                        CoilKind::Set => lines.push(format!("S {}", var)),
-                        CoilKind::Reset => lines.push(format!("R {}", var)),
-                    }
-                }
+                LdElement::Coil { kind, var } => match kind {
+                    CoilKind::Out => lines.push(format!("ST {}", var)),
+                    CoilKind::Set => lines.push(format!("S {}", var)),
+                    CoilKind::Reset => lines.push(format!("R {}", var)),
+                },
             }
         }
     }
@@ -133,7 +113,9 @@ mod tests {
         assert_eq!(networks.len(), 1);
         let net = &networks[0];
         assert_eq!(net.len(), 3); // NO, NO, OUT (Network element filtered)
-        assert!(matches!(net[0], LdElement::Contact { normally_open: true, ref var } if var == "X1"));
+        assert!(
+            matches!(net[0], LdElement::Contact { normally_open: true, ref var } if var == "X1")
+        );
     }
 
     #[test]

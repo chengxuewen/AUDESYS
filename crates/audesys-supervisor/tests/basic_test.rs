@@ -48,11 +48,7 @@ fn test_supervisor_config_load() {
 fn test_supervisor_singleton() {
     // The Supervisor crate uses ManagedProcess as its core lifecycle struct.
     // Verify it can be created and holds correct initial state.
-    let proc = ManagedProcess::new(
-        "test-process".into(),
-        "/bin/sleep".into(),
-        vec!["1".into()],
-    );
+    let proc = ManagedProcess::new("test-process".into(), "/bin/sleep".into(), vec!["1".into()]);
 
     assert_eq!(proc.name, "test-process");
     assert_eq!(proc.program, "/bin/sleep");
@@ -68,7 +64,7 @@ fn test_managed_process_state_transitions() {
     // Verify initial state and spawn transition — no actual fork, just API shape.
     let mut proc = ManagedProcess::new(
         "transition-test".into(),
-        "true".into(),          // /bin/true — exits immediately with code 0
+        "true".into(), // /bin/true — exits immediately with code 0
         Vec::new(),
     );
 

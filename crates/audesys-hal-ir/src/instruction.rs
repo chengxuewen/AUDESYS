@@ -155,7 +155,11 @@ impl Instruction {
     pub fn load_index(dest: u8, array: u8, index: u8) -> Self {
         Instruction {
             opcode: Opcode::LoadIndex,
-            operands: vec![Operand::Register(dest), Operand::Register(array), Operand::Register(index)],
+            operands: vec![
+                Operand::Register(dest),
+                Operand::Register(array),
+                Operand::Register(index),
+            ],
         }
     }
 
@@ -164,7 +168,11 @@ impl Instruction {
     pub fn store_index(array: u8, index: u8, value: u8) -> Self {
         Instruction {
             opcode: Opcode::StoreIndex,
-            operands: vec![Operand::Register(array), Operand::Register(index), Operand::Register(value)],
+            operands: vec![
+                Operand::Register(array),
+                Operand::Register(index),
+                Operand::Register(value),
+            ],
         }
     }
     /// Convenience: timer run — tick state machine.
@@ -273,8 +281,6 @@ impl Instruction {
             ],
         }
     }
-
-
 }
 
 // ── Tests ──

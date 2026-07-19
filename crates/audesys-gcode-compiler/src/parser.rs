@@ -4,9 +4,9 @@
 //! inheritance so that parameters not specified on a line inherit values
 //! from the current [ModalState].
 
+use crate::GCodeError;
 use crate::compiler::ModalState;
 use crate::token::{LexedToken, Token};
-use crate::GCodeError;
 
 /// Classifies a G-code command for compiler dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,10 +95,7 @@ impl GCodeCommand {
 ///
 /// Parameters not given on this line are `None` — the compiler applies
 /// modal inheritance from [ModalState] during codegen.
-pub fn parse_line(
-    tokens: &[LexedToken],
-    _modal: &ModalState,
-) -> Result<GCodeCommand, GCodeError> {
+pub fn parse_line(tokens: &[LexedToken], _modal: &ModalState) -> Result<GCodeCommand, GCodeError> {
     if tokens.is_empty() {
         // ponytail: empty line → no-op command with a dummy g-code
         let mut cmd = GCodeCommand::new(0);
@@ -315,12 +312,7 @@ mod tests {
             let src = format!("M{}", m);
             let tokens = lex(&src);
             let cmd = parse_line(&tokens, &modal).unwrap();
-            assert_eq!(
-                cmd.kind,
-                CommandKind::ProgramControl,
-                "M{} should be ProgramControl",
-                m
-            );
+            assert_eq!(cmd.kind, CommandKind::ProgramControl, "M{} should be ProgramControl", m);
         }
     }
 

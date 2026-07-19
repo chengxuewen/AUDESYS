@@ -43,8 +43,8 @@
 //! let hal_prog = il_compile(&il_text).unwrap();
 //! ```
 
-mod lexer;
 mod codegen;
+mod lexer;
 
 /// Compile LD (Ladder Diagram) source text to IEC 61131-3 IL text.
 ///

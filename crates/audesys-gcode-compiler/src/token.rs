@@ -370,7 +370,9 @@ mod tests {
     fn test_spindle_codes() {
         let tokens = tokenize("M3 S1000\nM5").unwrap();
         assert!(tokens.iter().any(|t| t.token == Token::M(3)));
-        assert!(tokens.iter().any(|t| matches!(t.token, Token::S(v) if (v - 1000.0).abs() < 0.001)));
+        assert!(
+            tokens.iter().any(|t| matches!(t.token, Token::S(v) if (v - 1000.0).abs() < 0.001))
+        );
         assert!(tokens.iter().any(|t| t.token == Token::M(5)));
     }
 

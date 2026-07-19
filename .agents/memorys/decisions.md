@@ -325,3 +325,17 @@
 - **决定**: AUDESYS CNC 系统分为三个构件：G-code 编译器（第 6 种源码语言，与 ST/IL/LD/FBD/SFC 并列）、运动规划器（梯形/S曲线速度剖面，Phase 1 逐周期步进，Phase 2 Runtime 协处理器）、轴组（坐标系统、回零、软限位、反向间隙）。采用 LinuxCNC 4 层模型作为主参考架构（UI→Task→Motion→HAL），GRBL 逐周期步进作为 Phase 1 运动实现参考，Klipper 分布式 Host/MCU 模型作为 Phase 2+ 架构参考，TwinCAT CNC PLC+CNC 统一作为产品愿景参考。
 - **理由**: CNC 是 AUDESYS tier-1 应用场景，HAL 已预留 motion.axis.N.pos Signal 约定。以最低架构开销建立 G-code 编译管道，后续运动规划器、插补引擎、运动学模型渐进叠加。G-code 编译器作为第 6 种源码语言与现有 5 种 IEC 61131-3 编译器共享 HalProgram 后端，零 VM 变更。
 - **参考**: `docs/modules/cnc/` 4 份设计文档，`docs/modules/cnc/cnc-reference-models.md`，`.sisyphus/plans/add-gcode-compiler/`
+
+## D56: IEC 61131-3 编译器策略偏差 = RuSTy→直接自研
+- **日期**: 2026-07-19
+- **决定**: 记录 D22 决策与实际实现的偏离。D22 原定 Phase 1 使用 RuSTy（Rust+LLVM IEC 61131-3 编译器）编译 ST 源码，HAL Binding Generator 映射到 HAL 原语。实际实现路径：直接自研 5 种 IEC 61131-3 编译器（ST/IL/LD/FBD/SFC），全部编译到 HalProgram 后端，零外部依赖。
+- **理由**: RuSTy 评估后发现集成复杂度高于自研。自研编译器与 HAL IR/VM 共享类型系统，接口零摩擦。CODESYS 的「所有图形语言编译为 ST 内部表示」模式已通过 LD→IL→HalProgram 两步转换实现，完全等价。
+- **参考**: D22, `crates/audesys-st-compiler/`, `crates/audesys-il-compiler/`, `crates/audesys-ld-compiler/`, `crates/audesys-fbd-compiler/`, `crates/audesys-sfc-compiler/`
+
+## D57: Studio 编程模式偏差 = ST Only→6 语言全实现
+- **日期**: 2026-07-19
+- **决定**: 记录 D25 决策与实际实现的偏离。D25 原定 Phase 1 仅支持 ST 文本编程和 HMI 可视化设计，Phase 2 增加 FBD 编辑器（FBD→ST 转换器复用编译管线）。实际实现路径：Phase 1 即完成 5 种 IEC 61131-3 语言（ST/IL/LD/FBD/SFC）全实现，外加 G-code 编译器作为第 6 种源码语言。
+- **理由**: 编译器实现速度超出预期（D22 自研决策降低摩擦）。FBD 编辑器（@xyflow/react 流程图→IL 文本）意外发现实现简单（~200 行转换逻辑），无需等待 Phase 2。CNC 需求推动 G-code 编译器作为额外语言加入管线，与 5 种 IEC 语言共享 HalProgram 后端。
+- **参考**: D25, `crates/audesys-gcode-compiler/`, `docs/modules/cnc/gcode-compiler-design.md`
+
+## 实施防护规则

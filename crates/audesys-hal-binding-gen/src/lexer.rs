@@ -80,20 +80,20 @@ pub enum Token {
     LParen,    // (
     RParen,    // )
     Comma,     // ,
-    LBracket,   // [
-    RBracket,   // ]
-    DotDot,     // ..
-    Dot,        // .
-    Ton,        // IEC 61131-3 TON timer
-    Tof,        // IEC 61131-3 TOF timer
-    Tp,         // IEC 61131-3 TP timer
-    Ctu,        // IEC 61131-3 CTU counter (up)
-    Ctd,        // IEC 61131-3 CTD counter (down)
-    Ctud,       // IEC 61131-3 CTUD counter (up-down)
-    Sr,         // IEC 61131-3 SR (set-dominant)
-    Rs,         // IEC 61131-3 RS (reset-dominant)
-    RTrig,      // IEC 61131-3 R_TRIG (rising edge)
-    FTrig,      // IEC 61131-3 F_TRIG (falling edge)
+    LBracket,  // [
+    RBracket,  // ]
+    DotDot,    // ..
+    Dot,       // .
+    Ton,       // IEC 61131-3 TON timer
+    Tof,       // IEC 61131-3 TOF timer
+    Tp,        // IEC 61131-3 TP timer
+    Ctu,       // IEC 61131-3 CTU counter (up)
+    Ctd,       // IEC 61131-3 CTD counter (down)
+    Ctud,      // IEC 61131-3 CTUD counter (up-down)
+    Sr,        // IEC 61131-3 SR (set-dominant)
+    Rs,        // IEC 61131-3 RS (reset-dominant)
+    RTrig,     // IEC 61131-3 R_TRIG (rising edge)
+    FTrig,     // IEC 61131-3 F_TRIG (falling edge)
 
     // Literals and identifiers
     Identifier(String),

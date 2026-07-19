@@ -17,10 +17,7 @@ pub struct RingBuffer<const N: usize> {
 
 impl<const N: usize> RingBuffer<N> {
     pub fn new() -> Self {
-        Self {
-            buf: std::array::from_fn(|_| AtomicU64::new(0)),
-            cursor: AtomicUsize::new(0),
-        }
+        Self { buf: std::array::from_fn(|_| AtomicU64::new(0)), cursor: AtomicUsize::new(0) }
     }
 
     /// Push a value — overwrites oldest entry when full.
@@ -33,9 +30,7 @@ impl<const N: usize> RingBuffer<N> {
     pub fn read(&self) -> Vec<u64> {
         let cursor = self.cursor.load(Ordering::Relaxed);
         let start = if cursor < N { 0 } else { cursor % N };
-        (0..N)
-            .map(|i| self.buf[(start + i) % N].load(Ordering::Relaxed))
-            .collect()
+        (0..N).map(|i| self.buf[(start + i) % N].load(Ordering::Relaxed)).collect()
     }
 
     /// Reset all entries to zero.

@@ -37,16 +37,40 @@ pub struct DapEvent {
 
 impl DapResponse {
     pub fn ok(seq: u64, request_seq: u64, command: &str, body: serde_json::Value) -> Self {
-        Self { seq, msg_type: "response", request_seq, success: true, command: command.to_string(), body: Some(body), message: None }
+        Self {
+            seq,
+            msg_type: "response",
+            request_seq,
+            success: true,
+            command: command.to_string(),
+            body: Some(body),
+            message: None,
+        }
     }
 
     #[allow(dead_code)]
     pub fn ok_empty(seq: u64, request_seq: u64, command: &str) -> Self {
-        Self { seq, msg_type: "response", request_seq, success: true, command: command.to_string(), body: None, message: None }
+        Self {
+            seq,
+            msg_type: "response",
+            request_seq,
+            success: true,
+            command: command.to_string(),
+            body: None,
+            message: None,
+        }
     }
 
     pub fn err(seq: u64, request_seq: u64, command: &str, msg: &str) -> Self {
-        Self { seq, msg_type: "response", request_seq, success: false, command: command.to_string(), body: None, message: Some(msg.to_string()) }
+        Self {
+            seq,
+            msg_type: "response",
+            request_seq,
+            success: false,
+            command: command.to_string(),
+            body: None,
+            message: Some(msg.to_string()),
+        }
     }
 }
 
@@ -57,7 +81,12 @@ impl DapEvent {
     }
 
     pub fn continued(seq: u64) -> Self {
-        Self { seq, msg_type: "event", event: "continued".into(), body: Some(serde_json::json!({"threadId": 1})) }
+        Self {
+            seq,
+            msg_type: "event",
+            event: "continued".into(),
+            body: Some(serde_json::json!({"threadId": 1})),
+        }
     }
 
     pub fn initialized(seq: u64) -> Self {
@@ -177,8 +206,12 @@ pub struct LaunchArguments {
     pub secret: String,
 }
 
-fn default_socket_path() -> String { "/tmp/audesys-controller.sock".into() }
-fn default_secret() -> String { "audesys-dev-secret".into() }
+fn default_socket_path() -> String {
+    "/tmp/audesys-controller.sock".into()
+}
+fn default_secret() -> String {
+    "audesys-dev-secret".into()
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

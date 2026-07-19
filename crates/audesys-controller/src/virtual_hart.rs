@@ -45,12 +45,7 @@ pub struct VirtualHARTDevice {
 impl VirtualHARTDevice {
     /// Create an unbound device with the given HART device ID and long tag.
     pub fn new(device_id: u8, long_tag: &str) -> Self {
-        Self {
-            device_id,
-            long_tag: long_tag.to_string(),
-            signals: HashMap::new(),
-            transport: None,
-        }
+        Self { device_id, long_tag: long_tag.to_string(), signals: HashMap::new(), transport: None }
     }
 
     /// Bind to a transport. Must be called before `handle_command` for read commands.
@@ -272,9 +267,7 @@ mod tests {
         let (mut dev, transport) = setup_device();
         dev.map_slot(0, "pv.value");
 
-        transport
-            .publish_signal("pv.value", HalValue::F32(42.5), dummy_ts())
-            .unwrap();
+        transport.publish_signal("pv.value", HalValue::F32(42.5), dummy_ts()).unwrap();
 
         let resp = dev.handle_command(1, &[]);
         assert_eq!(resp[0], 0x00); // status OK
@@ -311,9 +304,7 @@ mod tests {
         dev.map_slot(0, "pv.value");
 
         // PV = 50 (half of range 100)
-        transport
-            .publish_signal("pv.value", HalValue::F32(50.0), dummy_ts())
-            .unwrap();
+        transport.publish_signal("pv.value", HalValue::F32(50.0), dummy_ts()).unwrap();
 
         let resp = dev.handle_command(2, &[]);
         assert_eq!(resp[0], 0x00); // status OK
@@ -339,9 +330,7 @@ mod tests {
     #[test]
     fn test_map_multiple_slots() {
         let mut dev = VirtualHARTDevice::new(0x01, "TAG");
-        dev.map_slot(0, "sensor.temp")
-            .map_slot(1, "sensor.pressure")
-            .map_slot(3, "sensor.flow");
+        dev.map_slot(0, "sensor.temp").map_slot(1, "sensor.pressure").map_slot(3, "sensor.flow");
 
         assert_eq!(dev.signals.len(), 3);
         assert_eq!(dev.signals.get(&0).unwrap(), "sensor.temp");
@@ -354,19 +343,11 @@ mod tests {
     #[test]
     fn test_cmd3_read_all_slots() {
         let (mut dev, transport) = setup_device();
-        dev.map_slot(0, "sensor.temp")
-            .map_slot(1, "sensor.pressure")
-            .map_slot(2, "sensor.flow");
+        dev.map_slot(0, "sensor.temp").map_slot(1, "sensor.pressure").map_slot(2, "sensor.flow");
 
-        transport
-            .publish_signal("sensor.temp", HalValue::F32(25.5), dummy_ts())
-            .unwrap();
-        transport
-            .publish_signal("sensor.pressure", HalValue::F32(101.3), dummy_ts())
-            .unwrap();
-        transport
-            .publish_signal("sensor.flow", HalValue::F32(3.7), dummy_ts())
-            .unwrap();
+        transport.publish_signal("sensor.temp", HalValue::F32(25.5), dummy_ts()).unwrap();
+        transport.publish_signal("sensor.pressure", HalValue::F32(101.3), dummy_ts()).unwrap();
+        transport.publish_signal("sensor.flow", HalValue::F32(3.7), dummy_ts()).unwrap();
 
         let resp = dev.handle_command(3, &[]);
         assert_eq!(resp[0], 0x00); // status OK
@@ -426,17 +407,13 @@ mod tests {
         dev.map_slot(0, "value");
 
         // U16 → f32
-        transport
-            .publish_signal("value", HalValue::U16(100), dummy_ts())
-            .unwrap();
+        transport.publish_signal("value", HalValue::U16(100), dummy_ts()).unwrap();
         let resp = dev.handle_command(1, &[]);
         let v = f32::from_be_bytes([resp[2], resp[3], resp[4], resp[5]]);
         assert!((v - 100.0).abs() < 0.001);
 
         // Bool true → 1.0
-        transport
-            .publish_signal("value", HalValue::Bool(true), dummy_ts())
-            .unwrap();
+        transport.publish_signal("value", HalValue::Bool(true), dummy_ts()).unwrap();
         let resp = dev.handle_command(1, &[]);
         let v = f32::from_be_bytes([resp[2], resp[3], resp[4], resp[5]]);
         assert!((v - 1.0).abs() < 0.001);

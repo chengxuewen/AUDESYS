@@ -129,12 +129,7 @@ fn parse_blocks(lines: &[String]) -> Result<Vec<FbBlock>, String> {
                 return Err(format!("duplicate block name: {name}"));
             }
 
-            blocks.push(FbBlock {
-                name,
-                kind,
-                inputs: BTreeMap::new(),
-                outputs: BTreeMap::new(),
-            });
+            blocks.push(FbBlock { name, kind, inputs: BTreeMap::new(), outputs: BTreeMap::new() });
         } else if let Some((lhs, rhs)) = parse_assignment(line) {
             let lhs = lhs.trim();
             let rhs = rhs.trim();
@@ -171,10 +166,10 @@ fn parse_blocks(lines: &[String]) -> Result<Vec<FbBlock>, String> {
 
     // Store output connections on the source block
     for (target, src_expr) in &outputs {
-        if let Some((src_block, src_pin)) = split_dot(src_expr) {
-            if let Some(blk) = blocks.iter_mut().find(|b| b.name == src_block) {
-                blk.outputs.insert(target.clone(), src_pin.to_string());
-            }
+        if let Some((src_block, src_pin)) = split_dot(src_expr)
+            && let Some(blk) = blocks.iter_mut().find(|b| b.name == src_block)
+        {
+            blk.outputs.insert(target.clone(), src_pin.to_string());
         }
     }
 
@@ -439,7 +434,8 @@ result3 := sr1.Q1
 
     #[test]
     fn test_ctu_basic() {
-        let src = "BLOCK cnt1 CTU\n\ncnt1.CU := pulse\ncnt1.R := reset\ncnt1.PV := 10\n\ncount := cnt1.Q";
+        let src =
+            "BLOCK cnt1 CTU\n\ncnt1.CU := pulse\ncnt1.R := reset\ncnt1.PV := 10\n\ncount := cnt1.Q";
         let il = fbd_compile(src).unwrap();
         assert!(il.contains("CAL cnt1"));
         assert!(il.contains("LD pulse"));

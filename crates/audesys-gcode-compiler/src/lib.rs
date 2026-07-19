@@ -110,10 +110,12 @@ mod tests {
         let src = "G0 X10 Y20 Z30";
         let program = gcode_compile(src).unwrap();
         assert!(program.instructions.len() > 1);
-        assert!(program
-            .instructions
-            .iter()
-            .any(|inst| inst.opcode == audesys_hal_ir::instruction::Opcode::Store));
+        assert!(
+            program
+                .instructions
+                .iter()
+                .any(|inst| inst.opcode == audesys_hal_ir::instruction::Opcode::Store)
+        );
     }
 
     #[test]
@@ -168,10 +170,12 @@ M30";
         let src = "M3 S1000\nM30";
         let program = gcode_compile(src).unwrap();
         // M30 should emit Halt
-        assert!(program
-            .instructions
-            .iter()
-            .any(|inst| inst.opcode == audesys_hal_ir::instruction::Opcode::Halt));
+        assert!(
+            program
+                .instructions
+                .iter()
+                .any(|inst| inst.opcode == audesys_hal_ir::instruction::Opcode::Halt)
+        );
     }
 
     #[test]
@@ -221,11 +225,8 @@ M30       ; end";
     fn test_axis_signal_bindings() {
         let src = "G0 X10 Y20 Z30";
         let program = gcode_compile(src).unwrap();
-        let signal_names: Vec<&str> = program
-            .signals
-            .iter()
-            .map(|s| s.hal_signal_name.as_str())
-            .collect();
+        let signal_names: Vec<&str> =
+            program.signals.iter().map(|s| s.hal_signal_name.as_str()).collect();
         assert!(signal_names.contains(&"axis.0.pos"));
         assert!(signal_names.contains(&"axis.1.pos"));
         assert!(signal_names.contains(&"axis.2.pos"));

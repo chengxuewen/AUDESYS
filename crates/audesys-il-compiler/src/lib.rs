@@ -11,9 +11,9 @@
 //! let prog = audesys_il_compiler::il_compile("LD X1\nAND X2\nST Y1").unwrap();
 //! assert!(prog.is_well_formed());
 //! ```
+mod codegen;
 mod lexer;
 mod parser;
-mod codegen;
 
 use audesys_hal_ir::program::HalProgram;
 

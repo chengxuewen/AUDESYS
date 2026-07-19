@@ -88,7 +88,6 @@ fn test_g1_basic() {
     assert!(val.is_some());
 }
 
-
 #[test]
 fn test_trapezoidal_generates_mul_ops() {
     use audesys_hal_ir::instruction::Opcode;

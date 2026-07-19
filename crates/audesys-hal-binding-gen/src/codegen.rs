@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use audesys_hal_core::HalValue;
 use audesys_hal_core::types::HalPinType;
+use std::collections::HashMap;
 
 use audesys_hal_ir::{
     instruction::{Instruction, Opcode},
@@ -115,7 +115,9 @@ impl Codegen {
             VarType::Int => HalValue::S16(0),
             VarType::UInt | VarType::Word => HalValue::U16(0),
             VarType::DInt | VarType::Time => HalValue::S32(0),
-            VarType::ULInt | VarType::DWord | VarType::Date | VarType::TOD | VarType::DT => HalValue::U32(0),
+            VarType::ULInt | VarType::DWord | VarType::Date | VarType::TOD | VarType::DT => {
+                HalValue::U32(0)
+            }
             VarType::LInt => HalValue::S64(0),
             VarType::Real => HalValue::F32(0.0),
             VarType::LReal => HalValue::F64(0.0),
@@ -135,7 +137,9 @@ impl Codegen {
             VarType::Int => HalPinType::S16,
             VarType::UInt | VarType::Word => HalPinType::U16,
             VarType::DInt | VarType::Time => HalPinType::S32,
-            VarType::ULInt | VarType::DWord | VarType::Date | VarType::TOD | VarType::DT => HalPinType::U32,
+            VarType::ULInt | VarType::DWord | VarType::Date | VarType::TOD | VarType::DT => {
+                HalPinType::U32
+            }
             VarType::LInt => HalPinType::S64,
             VarType::Real => HalPinType::F32,
             VarType::LReal => HalPinType::F64,
@@ -234,7 +238,11 @@ impl Codegen {
                     let q1_dest = if field == "Q2" { self.alloc_scratch() } else { dest_reg };
                     let q2_dest = if field == "Q2" { dest_reg } else { self.alloc_scratch() };
                     self.emit(Instruction::read_sr(reg, q1_dest, q2_dest));
-                    if field != "Q2" { self.free_scratch(q2_dest); } else { self.free_scratch(q1_dest); }
+                    if field != "Q2" {
+                        self.free_scratch(q2_dest);
+                    } else {
+                        self.free_scratch(q1_dest);
+                    }
                 } else if is_edge {
                     self.emit(Instruction::read_edge(reg, dest_reg));
                 } else {
@@ -460,7 +468,10 @@ impl Codegen {
                     match &args[0] {
                         Expr::Variable(in_name) => {
                             let in_reg = self.var_reg(in_name)?;
-                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(in_scratch), Operand::Register(in_reg)]));
+                            self.emit(Instruction::new(
+                                Opcode::Load,
+                                vec![Operand::Register(in_scratch), Operand::Register(in_reg)],
+                            ));
                         }
                         _ => {
                             self.compile_expr(&args[0], in_scratch)?;
@@ -484,7 +495,10 @@ impl Codegen {
                     match &args[0] {
                         Expr::Variable(in_name) => {
                             let in_reg = self.var_reg(in_name)?;
-                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(cu_scratch), Operand::Register(in_reg)]));
+                            self.emit(Instruction::new(
+                                Opcode::Load,
+                                vec![Operand::Register(cu_scratch), Operand::Register(in_reg)],
+                            ));
                         }
                         _ => {
                             self.compile_expr(&args[0], cu_scratch)?;
@@ -495,7 +509,10 @@ impl Codegen {
                         match &args[2] {
                             Expr::Variable(cd_name) => {
                                 let cd_reg = self.var_reg(cd_name)?;
-                                self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(cd_scratch), Operand::Register(cd_reg)]));
+                                self.emit(Instruction::new(
+                                    Opcode::Load,
+                                    vec![Operand::Register(cd_scratch), Operand::Register(cd_reg)],
+                                ));
                             }
                             _ => {
                                 self.compile_expr(&args[2], cd_scratch)?;
@@ -523,7 +540,10 @@ impl Codegen {
                     match &args[0] {
                         Expr::Variable(in_name) => {
                             let in_reg = self.var_reg(in_name)?;
-                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(s1_scratch), Operand::Register(in_reg)]));
+                            self.emit(Instruction::new(
+                                Opcode::Load,
+                                vec![Operand::Register(s1_scratch), Operand::Register(in_reg)],
+                            ));
                         }
                         _ => {
                             self.compile_expr(&args[0], s1_scratch)?;
@@ -533,7 +553,10 @@ impl Codegen {
                     match &args[1] {
                         Expr::Variable(in_name) => {
                             let in_reg = self.var_reg(in_name)?;
-                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(r_scratch), Operand::Register(in_reg)]));
+                            self.emit(Instruction::new(
+                                Opcode::Load,
+                                vec![Operand::Register(r_scratch), Operand::Register(in_reg)],
+                            ));
                         }
                         _ => {
                             self.compile_expr(&args[1], r_scratch)?;
@@ -553,7 +576,10 @@ impl Codegen {
                     match &args[0] {
                         Expr::Variable(in_name) => {
                             let in_reg = self.var_reg(in_name)?;
-                            self.emit(Instruction::new(Opcode::Load, vec![Operand::Register(clk_scratch), Operand::Register(in_reg)]));
+                            self.emit(Instruction::new(
+                                Opcode::Load,
+                                vec![Operand::Register(clk_scratch), Operand::Register(in_reg)],
+                            ));
                         }
                         _ => {
                             self.compile_expr(&args[0], clk_scratch)?;
@@ -795,7 +821,6 @@ impl Codegen {
     }
 }
 
-
 fn is_cmp_op(op: BinOp) -> bool {
     matches!(op, BinOp::Eq | BinOp::Neq | BinOp::Gt | BinOp::Lt | BinOp::Gte | BinOp::Lte)
 }
@@ -864,7 +889,6 @@ pub fn compile_ast(program: &Program) -> Result<HalProgram, CodegenError> {
     }
     cg.emit(Instruction::halt());
 
-
     // ponytail: compile functions — each with fresh register scope
     let mut function_table: Vec<FunctionEntry> = vec![];
     for func in &program.functions {
@@ -903,7 +927,7 @@ pub fn compile_ast(program: &Program) -> Result<HalProgram, CodegenError> {
                 program_var: name.clone(),
                 direction: Direction::Write,
                 hal_pin_type: Codegen::var_type_to_hal_pin_type(
-                    var_types.get(name.as_str()).copied().unwrap_or(VarType::Int)
+                    var_types.get(name.as_str()).copied().unwrap_or(VarType::Int),
                 ),
             });
         }
@@ -925,7 +949,8 @@ mod tests {
 
     #[test]
     fn test_compile_empty_program() {
-        let prog = Program { name: "empty".into(), variables: vec![], body: vec![], functions: vec![] };
+        let prog =
+            Program { name: "empty".into(), variables: vec![], body: vec![], functions: vec![] };
         let result = compile_ast(&prog).unwrap();
         assert_eq!(result.name, "empty");
         assert!(result.is_well_formed());
@@ -936,7 +961,12 @@ mod tests {
     fn test_simple_assignment() {
         let prog = Program {
             name: "test".into(),
-            variables: vec![Variable { name: "x".into(), var_type: VarType::Int, array_bounds: None, string_len: None }],
+            variables: vec![Variable {
+                name: "x".into(),
+                var_type: VarType::Int,
+                array_bounds: None,
+                string_len: None,
+            }],
             body: vec![Statement::Assign { name: "x".into(), value: Expr::IntLiteral(42) }],
             functions: vec![],
         };
@@ -952,9 +982,24 @@ mod tests {
         let prog = Program {
             name: "arith".into(),
             variables: vec![
-                Variable { name: "a".into(), var_type: VarType::Int, array_bounds: None, string_len: None },
-                Variable { name: "b".into(), var_type: VarType::Int, array_bounds: None, string_len: None },
-                Variable { name: "c".into(), var_type: VarType::Int, array_bounds: None, string_len: None },
+                Variable {
+                    name: "a".into(),
+                    var_type: VarType::Int,
+                    array_bounds: None,
+                    string_len: None,
+                },
+                Variable {
+                    name: "b".into(),
+                    var_type: VarType::Int,
+                    array_bounds: None,
+                    string_len: None,
+                },
+                Variable {
+                    name: "c".into(),
+                    var_type: VarType::Int,
+                    array_bounds: None,
+                    string_len: None,
+                },
             ],
             body: vec![Statement::Assign {
                 name: "c".into(),
@@ -984,8 +1029,14 @@ mod tests {
 
     #[test]
     fn test_too_many_variables() {
-        let vars: Vec<_> =
-            (0..15).map(|i| Variable { name: format!("v{i}"), var_type: VarType::Int, array_bounds: None, string_len: None }).collect();
+        let vars: Vec<_> = (0..15)
+            .map(|i| Variable {
+                name: format!("v{i}"),
+                var_type: VarType::Int,
+                array_bounds: None,
+                string_len: None,
+            })
+            .collect();
         let prog = Program { name: "big".into(), variables: vars, body: vec![], functions: vec![] };
         assert!(compile_ast(&prog).is_err());
     }

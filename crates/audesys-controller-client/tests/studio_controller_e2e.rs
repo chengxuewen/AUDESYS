@@ -120,14 +120,11 @@ END_PROGRAM";
     let program_bytes = serde_json::to_vec(&program).expect("should serialize");
 
     // Connect, authenticate, deploy
-    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET)
-        .expect("should connect");
-    client.authenticate(Role::Engineer)
-        .expect("should authenticate");
+    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET).expect("should connect");
+    client.authenticate(Role::Engineer).expect("should authenticate");
 
     // Deploy program
-    client.load_program(&program_bytes)
-        .expect("should deploy program");
+    client.load_program(&program_bytes).expect("should deploy program");
 
     // Read the counter signal
     let val = client.read_signal("counter").expect("should read signal");
@@ -160,20 +157,17 @@ fn test_signal_snapshot_after_deploy() {
     let program = compile(st_source).expect("should compile");
     let program_bytes = serde_json::to_vec(&program).expect("should serialize");
 
-    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET)
-        .expect("should connect");
-    client.authenticate(Role::Engineer)
-        .expect("should authenticate");
-    client.load_program(&program_bytes)
-        .expect("should deploy");
+    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET).expect("should connect");
+    client.authenticate(Role::Engineer).expect("should authenticate");
+    client.load_program(&program_bytes).expect("should deploy");
 
     // Snapshot should include our signal
-    let snapshot = client.signal_snapshot("*")
-        .expect("should get snapshot");
+    let snapshot = client.signal_snapshot("*").expect("should get snapshot");
     assert!(!snapshot.is_empty(), "snapshot should have signals");
 
     // ponytail: snapshot returns Vec<(String, HalValue)>
-    let has_signal = snapshot.iter().any(|(name, _)| name.contains("x") || name.contains("counter"));
+    let has_signal =
+        snapshot.iter().any(|(name, _)| name.contains("x") || name.contains("counter"));
     assert!(has_signal, "snapshot should contain deployed signal");
 
     drop(client);
@@ -194,15 +188,12 @@ fn test_load_hal_config() {
     wait_for_socket(SOCKET_PATH, STARTUP_TIMEOUT);
     thread::sleep(Duration::from_millis(200));
 
-    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET)
-        .expect("should connect");
-    client.authenticate(Role::Engineer)
-        .expect("should authenticate");
+    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET).expect("should connect");
+    client.authenticate(Role::Engineer).expect("should authenticate");
 
     // Load a minimal HAL config
     let yaml = b"signals:\n  test.sig1:\n    type: S32\n    direction: in\n";
-    client.load_hal_config(yaml)
-        .expect("should load HAL config");
+    client.load_hal_config(yaml).expect("should load HAL config");
 
     drop(client);
     let _ = std::fs::remove_file(SOCKET_PATH);

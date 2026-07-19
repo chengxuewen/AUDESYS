@@ -45,7 +45,8 @@ M30";
     let program = gcode_compile(source).expect("mixed G0/G1 should compile");
 
     // Should have signals for X, Y, Z axes
-    let signal_names: Vec<&str> = program.signals.iter().map(|s| s.hal_signal_name.as_str()).collect();
+    let signal_names: Vec<&str> =
+        program.signals.iter().map(|s| s.hal_signal_name.as_str()).collect();
     assert!(signal_names.contains(&"axis.0.pos"), "should bind X axis");
     assert!(signal_names.contains(&"axis.1.pos"), "should bind Y axis");
     assert!(signal_names.contains(&"axis.2.pos"), "should bind Z axis");

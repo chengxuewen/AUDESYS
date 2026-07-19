@@ -4,10 +4,10 @@
 //! G20/G21 units, G17/G18/G19 plane) to generate register-VM instructions
 //! for motion, spindle, and program control.
 
-use crate::parser::{CommandKind, GCodeCommand};
 use crate::GCodeError;
-use audesys_hal_core::types::HalPinType;
+use crate::parser::{CommandKind, GCodeCommand};
 use audesys_hal_core::HalValue;
+use audesys_hal_core::types::HalPinType;
 use audesys_hal_ir::instruction::{Instruction, Opcode};
 use audesys_hal_ir::program::HalProgram;
 use audesys_hal_ir::types::{Direction, SignalBinding};
@@ -46,10 +46,10 @@ impl ModalState {
     /// Default power-on state: G0 motion, G90 absolute, G21 mm, G17 XY plane.
     pub fn new() -> Self {
         ModalState {
-            motion_mode: 0,      // G0 (rapid) default
-            coord_mode: 90,       // G90 (absolute)
-            unit_mode: 21,        // G21 (mm)
-            plane: 17,            // G17 (XY)
+            motion_mode: 0, // G0 (rapid) default
+            coord_mode: 90, // G90 (absolute)
+            unit_mode: 21,  // G21 (mm)
+            plane: 17,      // G17 (XY)
             feedrate: 0.0,
             spindle_rpm: 0.0,
             acceleration: 500.0, // ponytail: 500 mm/s^2 (typical 3D printer default)
@@ -325,7 +325,9 @@ fn emit_g1(prev: &ModalState, next: &ModalState, instructions: &mut Vec<Instruct
     let dy = next.current_y - prev.current_y;
     let dz = next.current_z - prev.current_z;
     let distance = (dx * dx + dy * dy + dz * dz).sqrt();
-    if distance < 1e-9 { return; }
+    if distance < 1e-9 {
+        return;
+    }
 
     let feedrate = if next.feedrate > 0.0 { next.feedrate } else { 100.0 };
     let dt = 0.01; // ponytail: 10ms scan cycle
@@ -367,27 +369,71 @@ fn emit_g1(prev: &ModalState, next: &ModalState, instructions: &mut Vec<Instruct
 
     // Phase 1: Acceleration
     if cycles_accel > 0 {
-        emit_profile_phase(instructions, dx, dy, dz, distance, cycles_accel, v_target, a, dt, true, false);
+        emit_profile_phase(
+            instructions,
+            dx,
+            dy,
+            dz,
+            distance,
+            cycles_accel,
+            v_target,
+            a,
+            dt,
+            true,
+            false,
+        );
     }
     // Phase 2: Cruise
     if cycles_cruise > 0 {
-        emit_profile_phase(instructions, dx, dy, dz, distance, cycles_cruise, v_target, a, dt, false, false);
+        emit_profile_phase(
+            instructions,
+            dx,
+            dy,
+            dz,
+            distance,
+            cycles_cruise,
+            v_target,
+            a,
+            dt,
+            false,
+            false,
+        );
     }
     // Phase 3: Deceleration
     if cycles_decel > 0 {
-        emit_profile_phase(instructions, dx, dy, dz, distance, cycles_decel, v_target, a, dt, false, true);
+        emit_profile_phase(
+            instructions,
+            dx,
+            dy,
+            dz,
+            distance,
+            cycles_decel,
+            v_target,
+            a,
+            dt,
+            false,
+            true,
+        );
     }
 }
 
 /// Emit one phase (accel/cruise/decel) of the trapezoidal profile.
 fn emit_profile_phase(
     instructions: &mut Vec<Instruction>,
-    dx: f64, dy: f64, dz: f64, distance: f64,
+    dx: f64,
+    dy: f64,
+    dz: f64,
+    distance: f64,
     phase_cycles: u32,
-    v_target: f64, a: f64, dt: f64,
-    is_accel: bool, is_decel: bool,
+    v_target: f64,
+    a: f64,
+    dt: f64,
+    is_accel: bool,
+    is_decel: bool,
 ) {
-    if phase_cycles == 0 { return; }
+    if phase_cycles == 0 {
+        return;
+    }
 
     // Load velocity step dv = a * dt
     let dv = a * dt;
@@ -449,7 +495,10 @@ fn emit_axis_step(instructions: &mut Vec<Instruction>, ratio: f64, pos_reg: u8, 
 /// Triangular velocity profile (accel then immediate decel, no cruise).
 fn emit_triangular_motion(
     instructions: &mut Vec<Instruction>,
-    dx: f64, dy: f64, dz: f64, distance: f64,
+    dx: f64,
+    dy: f64,
+    dz: f64,
+    distance: f64,
     cycles_half: u32,
     prev: &ModalState,
 ) {
@@ -688,10 +737,7 @@ mod tests {
         let m = ModalState::new();
         // G91 incremental mode
         let cmd = make_cmd(Some(91), None, None, None, None);
-        let cmd = GCodeCommand {
-            kind: CommandKind::Modal,
-            ..cmd
-        };
+        let cmd = GCodeCommand { kind: CommandKind::Modal, ..cmd };
         let m2 = m.advance(&cmd);
         assert_eq!(m2.coord_mode, 91);
     }
@@ -725,9 +771,7 @@ mod tests {
         let has_store = program.instructions.iter().any(|inst| {
             inst.opcode == Opcode::Store
                 && inst.operands.first()
-                    == Some(&audesys_hal_ir::types::Operand::SignalName(
-                        "axis.0.pos".into(),
-                    ))
+                    == Some(&audesys_hal_ir::types::Operand::SignalName("axis.0.pos".into()))
         });
         assert!(has_store);
     }
@@ -749,23 +793,17 @@ mod tests {
         let has_x = program.instructions.iter().any(|inst| {
             inst.opcode == Opcode::Store
                 && inst.operands.first()
-                    == Some(&audesys_hal_ir::types::Operand::SignalName(
-                        "axis.0.pos".into(),
-                    ))
+                    == Some(&audesys_hal_ir::types::Operand::SignalName("axis.0.pos".into()))
         });
         let has_y = program.instructions.iter().any(|inst| {
             inst.opcode == Opcode::Store
                 && inst.operands.first()
-                    == Some(&audesys_hal_ir::types::Operand::SignalName(
-                        "axis.1.pos".into(),
-                    ))
+                    == Some(&audesys_hal_ir::types::Operand::SignalName("axis.1.pos".into()))
         });
         let has_z = program.instructions.iter().any(|inst| {
             inst.opcode == Opcode::Store
                 && inst.operands.first()
-                    == Some(&audesys_hal_ir::types::Operand::SignalName(
-                        "axis.2.pos".into(),
-                    ))
+                    == Some(&audesys_hal_ir::types::Operand::SignalName("axis.2.pos".into()))
         });
         assert!(has_x);
         assert!(has_y);
@@ -785,10 +823,7 @@ mod tests {
         let program = compile_commands(&[cmd], &m).unwrap();
         // G1 should emit a loop with jump_if
         let has_jump_if = program.instructions.iter().any(|inst| inst.opcode == Opcode::JumpIf);
-        let has_loop = program
-            .instructions
-            .iter()
-            .any(|inst| inst.opcode == Opcode::Add);
+        let has_loop = program.instructions.iter().any(|inst| inst.opcode == Opcode::Add);
         assert!(has_jump_if, "G1 should emit a counter loop with JumpIf");
         assert!(has_loop, "G1 should emit Add for step accumulation");
     }
@@ -807,7 +842,8 @@ mod tests {
         let program = compile_commands(&[cmd], &m).unwrap();
         assert!(program.instructions.iter().any(|inst| inst.opcode == Opcode::JumpIf));
         // Both axis stores should be present
-        let store_count = program.instructions.iter().filter(|inst| inst.opcode == Opcode::Store).count();
+        let store_count =
+            program.instructions.iter().filter(|inst| inst.opcode == Opcode::Store).count();
         assert!(store_count >= 2);
     }
 
@@ -825,10 +861,7 @@ mod tests {
         };
         let program = compile_commands(&[cmd], &m).unwrap();
         // Should contain Nop for G2 (parse-only)
-        assert!(program
-            .instructions
-            .iter()
-            .any(|inst| inst.opcode == Opcode::Nop));
+        assert!(program.instructions.iter().any(|inst| inst.opcode == Opcode::Nop));
     }
 
     #[test]
@@ -843,10 +876,7 @@ mod tests {
             ..make_cmd(Some(3), None, Some(-10.0), Some(0.0), None)
         };
         let program = compile_commands(&[cmd], &m).unwrap();
-        assert!(program
-            .instructions
-            .iter()
-            .any(|inst| inst.opcode == Opcode::Nop));
+        assert!(program.instructions.iter().any(|inst| inst.opcode == Opcode::Nop));
     }
 
     #[test]
@@ -862,9 +892,7 @@ mod tests {
         let has_cw = program.instructions.iter().any(|inst| {
             inst.opcode == Opcode::Store
                 && inst.operands.first()
-                    == Some(&audesys_hal_ir::types::Operand::SignalName(
-                        "spindle.cw".into(),
-                    ))
+                    == Some(&audesys_hal_ir::types::Operand::SignalName("spindle.cw".into()))
         });
         assert!(has_cw);
     }
@@ -882,9 +910,7 @@ mod tests {
         let cw_off = program.instructions.iter().any(|inst| {
             inst.opcode == Opcode::Store
                 && inst.operands.first()
-                    == Some(&audesys_hal_ir::types::Operand::SignalName(
-                        "spindle.cw".into(),
-                    ))
+                    == Some(&audesys_hal_ir::types::Operand::SignalName("spindle.cw".into()))
         });
         assert!(cw_off);
     }
