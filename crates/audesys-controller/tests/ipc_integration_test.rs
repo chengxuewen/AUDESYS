@@ -279,6 +279,7 @@ const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 /// Re-enable when Controller shutdown is proven deterministic.
 #[test]
 #[ignore]
+fn test_controller_graceful_shutdown() {
     let bin_path = controller_binary();
     if ensure_binary("audesys-controller", &bin_path).is_none() {
         return;

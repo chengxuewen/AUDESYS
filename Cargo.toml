@@ -18,6 +18,7 @@ members = [
   "crates/audesys-ld-compiler",
   "crates/audesys-fbd-compiler",
   "crates/audesys-sfc-compiler",
+  "crates/audesys-gcode-compiler",
 ]
 exclude = ["apps/studio/src-tauri"]
 [workspace.package]
