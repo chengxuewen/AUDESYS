@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { useHmiSignal } from "../../hooks/useHmiSignal";
+import WidgetErrorOverlay from "./WidgetErrorOverlay";
 
 interface TrendWidgetProps {
   id: string; label: string; signal?: string;
@@ -10,7 +11,7 @@ interface TrendWidgetProps {
 }
 
 export default function TrendWidget({ label, signal, config, width, height, isPreview }: TrendWidgetProps) {
-  const rawValue = useHmiSignal(isPreview ? signal : undefined);
+  const { value: rawValue, error, clearError } = useHmiSignal(isPreview ? signal : undefined);
   const history = (config.history as number) ?? 60;
   const chartColor = (config.color as string) ?? "#FFB800";
 
@@ -56,6 +57,9 @@ export default function TrendWidget({ label, signal, config, width, height, isPr
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <ReactECharts option={option} style={{ width: "100%", height: "100%" }} notMerge />
+      {isPreview && error && (
+        <WidgetErrorOverlay message={error} onDismiss={clearError} />
+      )}
     </div>
   );
 }

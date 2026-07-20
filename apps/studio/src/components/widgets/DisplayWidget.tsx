@@ -1,5 +1,5 @@
 import { useHmiSignal } from "../../hooks/useHmiSignal";
-
+import WidgetErrorOverlay from "./WidgetErrorOverlay";
 interface DisplayWidgetProps {
   id: string; label: string; signal?: string;
   config: Record<string, unknown>;
@@ -8,12 +8,13 @@ interface DisplayWidgetProps {
 }
 
 export default function DisplayWidget({ signal, config, width, height, isPreview }: DisplayWidgetProps) {
-  const value = useHmiSignal(isPreview ? signal : undefined);
+  const { value, error, clearError } = useHmiSignal(isPreview ? signal : undefined);
   const unit = (config.unit as string) ?? "";
   const displayValue = isPreview && value !== null ? `${value}${unit}` : "---";
 
   return (
-    <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
+    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
       <rect x={1} y={1} width={width - 2} height={height - 2} rx={4}
         fill="#0a0a0b" stroke="#2a2a30" strokeWidth={1}
       />
@@ -25,6 +26,10 @@ export default function DisplayWidget({ signal, config, width, height, isPreview
         fontFamily="Geist Sans, sans-serif" fontSize={12} fill="#a0a0b0">
         {(config.label as string) ?? ""}
       </text>
-    </svg>
+      </svg>
+      {isPreview && error && (
+        <WidgetErrorOverlay message={error} onDismiss={clearError} />
+      )}
+    </div>
   );
 }

@@ -390,4 +390,63 @@ mod tests {
         let program = generate_trapezoidal_program(&profile);
         assert!(program.instructions.len() > 30);
     }
+
+    #[test]
+    fn test_negative_displacement() {
+        // Negative X displacement should still generate valid instructions
+        let profile = TrapezoidalProfile {
+            dx: -50.0,
+            dy: 0.0,
+            dz: 0.0,
+            feedrate: 200.0,
+            acceleration: 400.0,
+            dt: 0.01,
+            start_x: 0.0,
+            start_y: 0.0,
+            start_z: 0.0,
+        };
+        let program = generate_trapezoidal_program(&profile);
+        assert!(program.instructions.len() > 0);
+        let has_jump_if = program
+            .instructions
+            .iter()
+            .any(|inst| inst.opcode == Opcode::JumpIf);
+        assert!(has_jump_if);
+    }
+
+    #[test]
+    fn test_high_feedrate_boundary() {
+        // Very high feedrate (rapid traverse) — should not panic
+        let profile = TrapezoidalProfile {
+            dx: 100.0,
+            dy: 0.0,
+            dz: 0.0,
+            feedrate: 5000.0,
+            acceleration: 1000.0,
+            dt: 0.01,
+            start_x: 0.0,
+            start_y: 0.0,
+            start_z: 0.0,
+        };
+        let program = generate_trapezoidal_program(&profile);
+        assert!(program.instructions.len() > 0);
+    }
+
+    #[test]
+    fn test_low_acceleration() {
+        // Very low acceleration — should still compute valid ramp
+        let profile = TrapezoidalProfile {
+            dx: 50.0,
+            dy: 0.0,
+            dz: 0.0,
+            feedrate: 100.0,
+            acceleration: 10.0,
+            dt: 0.01,
+            start_x: 0.0,
+            start_y: 0.0,
+            start_z: 0.0,
+        };
+        let program = generate_trapezoidal_program(&profile);
+        assert!(program.instructions.len() > 0);
+    }
 }

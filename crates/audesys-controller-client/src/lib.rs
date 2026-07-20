@@ -43,6 +43,7 @@ const METHOD_DEBUG_STATE: u8 = 0x10;
 const METHOD_PREPARE_SWAP: u8 = 0x11;
 const METHOD_COMMIT_SWAP: u8 = 0x12;
 const METHOD_ROLLBACK_SWAP: u8 = 0x13;
+const METHOD_DEPLOY_HMI_LAYOUT: u8 = 0x17;
 
 const STATUS_OK: u8 = 0x00;
 #[allow(dead_code)]
@@ -424,6 +425,18 @@ impl ControllerClient {
     pub fn rollback_swap(&mut self) -> Result<String, String> {
         let resp = self.send_request(METHOD_ROLLBACK_SWAP, &[])?;
         String::from_utf8(resp).map_err(|e| format!("utf8: {}", e))
+    }
+
+    /// Deploy an HMI layout (YAML bytes) to the Controller.
+    ///
+    /// Returns the layout generation number.
+    pub fn deploy_hmi_layout(&mut self, yaml_bytes: &[u8]) -> Result<u64, String> {
+        let resp = self.send_request(METHOD_DEPLOY_HMI_LAYOUT, yaml_bytes)?;
+        if resp.len() < 8 {
+            return Err(format!("response too short: {} bytes", resp.len()));
+        }
+        let generation = u64::from_le_bytes([resp[0], resp[1], resp[2], resp[3], resp[4], resp[5], resp[6], resp[7]]);
+        Ok(generation)
     }
 
     // ── Internal helpers ──

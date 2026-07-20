@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SignalWatchPanel from "../SignalWatchPanel";
 
@@ -14,7 +14,6 @@ const mockedInvoke = vi.mocked(invoke);
 
 describe("SignalWatchPanel", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     vi.clearAllMocks();
   });
 
@@ -34,7 +33,7 @@ describe("SignalWatchPanel", () => {
 
   it("shows 'Live' status after clicking Start", async () => {
     mockedInvoke.mockResolvedValue([]);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(<SignalWatchPanel />);
     await user.click(screen.getByRole("button", { name: "Start" }));
@@ -48,15 +47,15 @@ describe("SignalWatchPanel", () => {
       ["motor.speed", "1200"],
       ["temp.celsius", "45"],
     ]);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(<SignalWatchPanel />);
     await user.click(screen.getByRole("button", { name: "Start" }));
 
-    // The startPolling sets an interval at 500ms — advance to trigger the first poll
-    await act(() => vi.advanceTimersByTimeAsync(500));
-
-    expect(screen.getByText("motor.speed")).toBeInTheDocument();
+    // Wait for the async poll to resolve
+    await vi.waitFor(() => {
+      expect(screen.getByText("motor.speed")).toBeInTheDocument();
+    }, { timeout: 2000 });
     expect(screen.getByText("1200")).toBeInTheDocument();
     expect(screen.getByText("temp.celsius")).toBeInTheDocument();
     expect(screen.getByText("45")).toBeInTheDocument();
@@ -64,19 +63,19 @@ describe("SignalWatchPanel", () => {
 
   it("shows empty state when polling but no signals", async () => {
     mockedInvoke.mockResolvedValue([]);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(<SignalWatchPanel />);
     await user.click(screen.getByRole("button", { name: "Start" }));
 
-    await act(() => vi.advanceTimersByTimeAsync(500));
-
-    expect(screen.getByText(/No signals yet/)).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(screen.getByText(/No signals yet/)).toBeInTheDocument();
+    }, { timeout: 2000 });
   });
 
   it("stops polling when Stop is clicked", async () => {
     mockedInvoke.mockResolvedValue([]);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(<SignalWatchPanel />);
     await user.click(screen.getByRole("button", { name: "Start" }));

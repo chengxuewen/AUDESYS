@@ -26,7 +26,7 @@ export default defineConfig({
       name: 'web-mock',
       use: {
         // Vite dev server — plain web app without Tauri shell
-        baseURL: 'http://localhost:5173',
+      baseURL: 'http://localhost:4000',
         ...devices['Desktop Chrome'],
       },
     },
@@ -44,10 +44,8 @@ export default defineConfig({
 
   // Vite dev server for web-mock project (CI-friendly, no Tauri binary)
   webServer: {
-    command: 'npx vite --port 5173',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    cwd: '.',
-    timeout: 15_000,
+    command: './node_modules/.bin/vite --port 4000',
+    timeout: 60_000,
+    reuseExistingServer: true,
   },
 });

@@ -338,4 +338,79 @@
 - **理由**: 编译器实现速度超出预期（D22 自研决策降低摩擦）。FBD 编辑器（@xyflow/react 流程图→IL 文本）意外发现实现简单（~200 行转换逻辑），无需等待 Phase 2。CNC 需求推动 G-code 编译器作为额外语言加入管线，与 5 种 IEC 语言共享 HalProgram 后端。
 - **参考**: D25, `crates/audesys-gcode-compiler/`, `docs/modules/cnc/gcode-compiler-design.md`
 
-## 实施防护规则
+## D58: Studio 插件架构 = PluginRegistry + CommandRegistry + PlatformAdapter + PanelSystem
+- **日期**: 2026-07-19
+- **决定**: AUDESYS Studio 采用四层插件架构。参考 VS Code Extension API（activate/deactivate 模式、25 种 activationEvents、20+ 种 Contribution Points），但 P1 仅实现核心：PluginRegistry (Manifest Scan + Lifecycle)、CommandRegistry (37 命令 7 命名空间)、PanelSystem (PanelDescriptor 布局引擎)、PlatformAdapter (PC/Web 双模式)。
+- **理由**: VS Code 的插件架构经过 10 年验证，是最成熟的 IDE 扩展模型。AUDESYS 不需要重造轮子——直接采用 activate/deactivate 模式、activationEvents 延迟加载、commands 统一入口。Tauri 不支持运行时动态加载，因此 P1 使用静态 JSON manifests + lazy import 组件。
+- **参考**: docs/modules/studio/plugin-architecture-design.md, docs/reference/vscode.md
+
+## D59: Studio PC/Web 双模式 = PlatformAdapter 抽象层
+- **日期**: 2026-07-19
+- **决定**: 通过 IPlatformAdapter 接口将 Tauri 特定 API（invoke、fs、dialog）抽象为统一接口。PC 模式封装 Tauri API，Web 模式使用浏览器 API（fetch + IndexedDB + File API）。前端 React 组件零修改——仅替换 import 源。
+- **理由**: VS Code 的 IFileService/ICommandService 抽象模式已验证 Web 迁移可行性。当前 61 处 @tauri-apps/* 硬绑定是 Web 部署的主要阻碍。PlatformAdapter 作为唯一的适配点，替换后 100% 前端代码可复用。
+- **参考**: docs/modules/studio/plugin-architecture-design.md §3, docs/reference/vscode.md §2.5
+
+## D60: Panel Widget 复用 = packages/studio-core 共享组件
+- **日期**: 2026-07-19
+- **决定**: Runtime Panel 复用 Studio 的 7 种 HMI Widget 组件（Gauge/Trend/Tank/Indicator/Button/Display/Text），而非重写。Widget 提取到 `packages/studio-core/src/widgets/`，统一 WidgetProps 接口 `{ signalValue, ...rest }`。
+- **理由**: 7 种 widget 已实现且测试通过，重写带来双倍维护成本。Widget 已改为纯函数组件，signalValue 通过 prop 注入（而不内部调用 useHmiSignal），两端可注入不同的信号源。
+- **参考**: packages/studio-core/, apps/studio/src/components/widgets/
+
+## D61: Panel Plugin 参考 Studio 接口但不继承
+- **日期**: 2026-07-19
+- **决定**: Panel 的 Plugin System 参考 Studio 的 PluginRegistry 生命周期模式（activate/deactivate）和 Manifest 结构，但不作为子类/继承关系。
+- **理由**: Panel 插件上下文不同——核心能力是 SignalBridge（信号订阅/写入/快照），而 Studio 是 Tauri invoke（文件/调试/部署）。强行共享接口会引入不必要的抽象层，增加两端复杂度。
+- **参考**: docs/modules/runtime/panel-architecture-design.md §3, docs/modules/studio/plugin-architecture-design.md
+
+## D62: SignalBridge 默认 Hybrid 模式 = Push 优先 + Poll 降级
+- **日期**: 2026-07-19
+- **决定**: Runtime Panel 信号更新采用 Hybrid 策略：优先使用 IPC push 推送（Controller 端 SIGNAL_PUSH frame），降级使用 100ms poll 轮询（SIGNAL_SNAPSHOT）。Push 延迟 <50μs (UDS)，poll 作为 Controller 不支持推送时的兜底。
+- **理由**: Push 是低延迟的最佳方案，但不能假设所有 Controller 部署都支持 0x16 push frame（特别是远程 WebSocket 场景）。Hybrid 确保 Panel 在所有部署模式下都能工作。
+- **参考**: .sisyphus/plans/signal-bridge/design.md, docs/modules/runtime/panel-architecture-design.md §4
+
+## D63: 订阅推送在周期边界批量发送
+- **日期**: 2026-07-19
+- **决定**: Controller 端信号变化推送在 RT 周期边界（Config Barrier 边界）批量发送，不在信号变化时即时推送。同周期内同一信号多次变化，仅推送最终值。
+- **理由**: 避免 RT 线程中逐信号推送造成抖动。与 Config Barrier (D17) 设计哲学一致——所有变更在周期边界批量应用。
+- **参考**: docs/modules/hal/config-barrier-design.md, docs/modules/runtime/panel-architecture-design.md §7
+
+## D64: HMI 角色 writeSignal 限定按钮绑定信号
+- **日期**: 2026-07-19
+- **决定**: 新增 Role::HMI (枚举值 5)，用于 Panel 连接到 Controller 的角色认证。writeSignal 权限仅限于 HmiLayout 中 button widget 绑定的信号，非 button 信号拒绝写入。
+- **理由**: 操作员不应通过 Panel 修改控制逻辑信号，但需要启停按钮能力（如紧急停止、泵启停）。审计日志中区分 `Role::HMI`（Panel 操作）和 `Role::Operator`（Studio 操作）。
+- **参考**: docs/modules/runtime/ipc-security-design.md, docs/modules/runtime/panel-architecture-design.md §7.4
+
+## D65: Panel 作为独立 Tauri 应用而非 Studio 面板
+- **日期**: 2026-07-19
+- **决定**: Runtime Panel 作为独立的 Tauri 应用（`apps/runtime-panel/`）部署，不嵌入 Studio IDE 窗口。支持全屏 kiosk 模式，独立进程可单独部署、升级、崩溃隔离。
+- **理由**: 操作员站全屏运行，不应嵌入 IDE chrome（工具栏、文件树、终端）。独立进程提供进程级隔离——Panel 崩溃不影响 Studio 开发，反之亦然。与 D65（应为 D58）Studio 插件架构是互补关系而非替代关系。
+- **参考**: docs/modules/runtime/panel-architecture-design.md, docs/reference/ignition.md
+
+## D66: Transport 层统一接口 + 自动选择
+- **日期**: 2026-07-19
+- **决定**: Panel Transport 层定义统一接口 `IPanelTransport`（connect/readSignal/writeSignal/snapshot/subscribe），三种实现：UdsTransport（本地 UDS ~10μs）、WsTransport（远程 WebSocket ~5ms LAN）、SimTransport（SimulationHarness 进程内）。部署时根据配置自动选择。
+- **理由**: UDS/WS/Sim 三种模式接口一致，Panel 业务代码零变更。自动选择避免操作员手动配置传输模式。
+- **参考**: docs/modules/runtime/panel-architecture-design.md §5, crates/audeys-controller-client/src/lib.rs
+
+## D69: HMI 布局版本管理 = YAML 文本 + Git diff 友好
+- **日期**: 2026-07-19
+- **决定**: HMI 布局文件以 YAML 文本格式存储（`{project}/hmi/layout.yaml`），纳入 Git 版本管理。不采用二进制序列化或数据库存储。P2 升级为 FlatBuffers 编译（D24 运行时策略）。
+- **理由**: YAML 文本 Git-diffable，工程师可直接审查布局变更（"将 Tank-1 从 x=100 移动到 x=200"）。LabVIEW .vi 二进制格式不可 Git diff 的教训（pitfalls.md §LabVIEW 二进制格式）直接验证了文本格式的必要性。FlatBuffers 仅用于运行时加载，不用于源码管理。
+- **参考**: `apps/studio/src/hooks/useHmiLayout.ts:46-68` (exportYaml), `apps/studio/src-tauri/src/lib.rs:406-409` (save_hmi_layout)
+## D68: HMI 布局部署协议 = 复用 deploy_program IPC 模式 + 新增 0x17
+- **日期**: 2026-07-19
+- **决定**: HMI 布局部署使用与 `deploy_program` (IPC method 0x10) 相同的模式：Studio 通过 ControllerClient 发送 HmiLayout → Controller 写入 Config Barrier → 下周期边界 Panel 获取新布局。新增 IPC method 0x17 (DEPLOY_HMI_LAYOUT)，不修改现有 0x10 语义。
+- **理由**: Config Barrier (D17) 已在周期边界批量应用变更，HMI 布局变更适用相同机制。0x10 的 HMAC 认证+RBAC (Role::Engineer) 可直接复用。新建 0x17 保持方法语义单一职责——0x10=程序部署，0x17=HMI 布局部署。
+- **参考**: `crates/audeys-ipc-server/src/`, `docs/modules/hal/config-barrier-design.md`, `docs/modules/runtime/panel-architecture-design.md`
+
+## D67: HMI 调试信号注入 = sim_set_signal Tauri 命令复用
+- **日期**: 2026-07-19
+- **决定**: HMI Builder 的 Preview 模式信号注入复用现有 `sim_set_signal` Tauri 命令（第 331 行），通过 SimulationHarness 注入模拟信号值。不新建独立的 HMI 信号模拟系统。
+- **理由**: SimulationHarness 已有完整的信号写入/读取/步进能力，新建独立系统会重复建设。HMI Preview 本质上就是"注入信号 → 观察 widget 渲染"的测试循环，与 SimHarness 的 step/read 模式完全等价。
+- **参考**: `apps/studio/src-tauri/src/lib.rs:331`, `crates/audeys-runtime-engine/src/simulation.rs`
+
+## D70: Studio 响应式布局 = CSS flexbox + min-height:0 + 去白边
+- **日期**: 2026-07-20
+- **决定**: Studio 采用 `height: 100%` 继承链（html→body→#root→.app-root）替代 `100vh`，`.app-panel` 加 `min-height:0; max-height:100%` 允许 flex 子元素随窗口缩小，html/body 显式设置 `background: var(--color-canvas)` 防止白边。
+- **理由**: Playwright 测试验证（1440×900→1000×450）布局始终填满视口。根因是 flex 子元素默认 `min-height: auto` 阻止缩小，CSS `overflow:hidden` 无法越过此限制。
+- **参考**: `apps/studio/src/index.css`, `apps/studio/src/App.css`, `apps/studio/e2e/studio-responsive-ui.spec.ts`（15 项测试）

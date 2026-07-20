@@ -22,6 +22,7 @@ use std::sync::{
     Arc, Mutex, RwLock,
     atomic::{AtomicBool, Ordering},
 };
+use std::sync::atomic::AtomicU64;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -65,6 +66,12 @@ pub struct Engine {
     pending_swap: Arc<RwLock<Option<HalProgram>>>,
     /// Whether a swap has been committed and should be applied at next cycle boundary
     swap_committed: Arc<AtomicBool>,
+    /// Pending HMI layout (yaml_bytes, generation) — applied at cycle boundary
+    pending_hmi_layout: Arc<RwLock<Option<(Vec<u8>, u64)>>>,
+    /// Monotonic HMI layout generation counter
+    hmi_layout_generation: Arc<AtomicU64>,
+    /// Active HMI layout (available for Panel read)
+    hmi_layout: Arc<RwLock<Option<(Vec<u8>, u64)>>>,
 }
 
 impl Engine {
@@ -92,6 +99,9 @@ impl Engine {
             hal_executor: Arc::new(RwLock::new(None)),
             pending_swap: Arc::new(RwLock::new(None)),
             swap_committed: Arc::new(AtomicBool::new(false)),
+            pending_hmi_layout: Arc::new(RwLock::new(None)),
+            hmi_layout_generation: Arc::new(AtomicU64::new(0)),
+            hmi_layout: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -142,6 +152,9 @@ impl Engine {
         let _step_requested = Arc::clone(&self.step_requested);
         let pending_swap = Arc::clone(&self.pending_swap);
         let swap_committed = Arc::clone(&self.swap_committed);
+        let pending_hmi_layout = Arc::clone(&self.pending_hmi_layout);
+        let _hmi_layout_generation = Arc::clone(&self.hmi_layout_generation);
+        let hmi_layout = Arc::clone(&self.hmi_layout);
         let hal_executor = Arc::clone(&self.hal_executor);
         let paused = Arc::clone(&self.paused);
         let step_requested = Arc::clone(&self.step_requested);
@@ -203,6 +216,19 @@ impl Engine {
                         *hal_executor.write().unwrap() = Some(executor);
                     }
                     swap_committed.store(false, Ordering::SeqCst);
+                }
+
+                // 1.6 Apply pending HMI layout (Config Barrier, D17/D68)
+                {
+                    let mut pending = pending_hmi_layout.write().unwrap();
+                    if let Some((yaml_bytes, generation)) = pending.take() {
+                        let project_dir = std::path::Path::new("project/hmi");
+                        let _ = std::fs::create_dir_all(project_dir);
+                        let layout_path = project_dir.join("layout.yaml");
+                        if std::fs::write(&layout_path, &yaml_bytes).is_ok() {
+                            *hmi_layout.write().unwrap() = Some((yaml_bytes, generation));
+                        }
+                    }
                 }
 
                 let now_ts = Timestamp {
@@ -490,6 +516,29 @@ impl Engine {
     /// Check if a swap has been committed (waiting for cycle boundary).
     pub fn is_swap_committed(&self) -> bool {
         self.swap_committed.load(Ordering::SeqCst)
+    }
+
+    // ── HMI Layout ──
+
+    /// Deploy an HMI layout (YAML bytes) via Config Barrier.
+    ///
+    /// Validates the YAML is valid UTF-8 and parsable, increments the
+    /// generation counter, and stores it in pending_hmi_layout for application
+    /// at the next cycle boundary. Returns the generation number.
+    pub fn deploy_hmi_layout(&self, yaml_bytes: &[u8]) -> Result<u64, String> {
+        let yaml_str = std::str::from_utf8(yaml_bytes)
+            .map_err(|e| format!("invalid UTF-8: {}", e))?;
+        // Validate parseable YAML
+        let _: serde_yaml::Value = serde_yaml::from_str(yaml_str)
+            .map_err(|e| format!("invalid YAML: {}", e))?;
+        let generation = self.hmi_layout_generation.fetch_add(1, Ordering::SeqCst) + 1;
+        *self.pending_hmi_layout.write().unwrap() = Some((yaml_bytes.to_vec(), generation));
+        Ok(generation)
+    }
+
+    /// Get the active HMI layout and generation, if any.
+    pub fn get_hmi_layout(&self) -> Option<(Vec<u8>, u64)> {
+        self.hmi_layout.read().unwrap().clone()
     }
 }
 

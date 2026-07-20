@@ -1,5 +1,5 @@
 import { useHmiSignal } from "../../hooks/useHmiSignal";
-
+import WidgetErrorOverlay from "./WidgetErrorOverlay";
 interface IndicatorWidgetProps {
   id: string; label: string; signal?: string;
   config: Record<string, unknown>;
@@ -8,7 +8,7 @@ interface IndicatorWidgetProps {
 }
 
 export default function IndicatorWidget({ signal, config, width, height, isPreview }: IndicatorWidgetProps) {
-  const value = useHmiSignal(isPreview ? signal : undefined);
+  const { value, error, clearError } = useHmiSignal(isPreview ? signal : undefined);
   const isOn = value !== null && value !== "0" && value !== "false";
   const onColor = (config.onColor as string) ?? "#00D26A";
   const offColor = (config.offColor as string) ?? "#FF4444";
@@ -19,7 +19,8 @@ export default function IndicatorWidget({ signal, config, width, height, isPrevi
   const r = Math.min(width, height) * 0.25;
 
   return (
-    <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
+    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
       {/* Glow filter */}
       <defs>
         <filter id={`glow-${signal ?? "ind"}`}>
@@ -39,6 +40,10 @@ export default function IndicatorWidget({ signal, config, width, height, isPrevi
         fontFamily="Geist Sans, sans-serif" fontSize={11} fill="#a0a0b0">
         {(config.label as string) ?? ""}
       </text>
-    </svg>
+      </svg>
+      {isPreview && error && (
+        <WidgetErrorOverlay message={error} onDismiss={clearError} />
+      )}
+    </div>
   );
 }

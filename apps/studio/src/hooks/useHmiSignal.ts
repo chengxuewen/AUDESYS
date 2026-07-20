@@ -8,17 +8,21 @@ import { invoke } from "@tauri-apps/api/core";
  * Follows the same pattern as controller_read_signal:
  * - Uses setInterval at 500ms to invoke `controller_read_signal`
  * - Cleans up the interval on unmount or signal name change
- * - Returns null when signalName is undefined, unbound, or unavailable
+ * - Returns null value when signalName is undefined, unbound, or unavailable
+ * - Returns error state when the IPC call fails (e.g. Controller disconnected)
+ * - clearError() dismisses the error (click the error overlay to retry)
  *
  * @param signalName - Dot-notation HAL signal name (e.g. "axis.0.pos")
- * @returns The current string value of the signal, or null
+ * @returns Object with string value (or null), error message (or null), and clearError function
  */
-export function useHmiSignal(signalName?: string): string | null {
+export function useHmiSignal(signalName?: string): { value: string | null; error: string | null; clearError: () => void } {
   const [value, setValue] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     setValue(null);
+    setError(null);
     if (!signalName) return;
 
     const tick = async () => {
@@ -28,8 +32,12 @@ export function useHmiSignal(signalName?: string): string | null {
           signalName,
         });
         setValue(String(result ?? null));
-      } catch (_e) {
+        setError(null);
+      } catch (e) {
+        // ponytail: set error state so widgets can show visual error indicator
         setValue(null);
+        setError(String(e));
+        console.error('[useHmiSignal]', signalName, e);
       }
     };
 
@@ -41,6 +49,7 @@ export function useHmiSignal(signalName?: string): string | null {
       intervalRef.current = null;
     };
   }, [signalName]);
+  const clearError = () => setError(null);
 
-  return value;
+  return { value, error, clearError };
 }

@@ -1,0 +1,24 @@
+{
+  "productName": "AUDESYS Runtime Panel",
+  "version": "0.1.0",
+  "identifier": "com.audesys.runtime-panel",
+  "build": {
+    "devUrl": "http://localhost:1421",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "AUDESYS Runtime Panel",
+        "fullscreen": true,
+        "decorations": false,
+        "alwaysOnTop": false,
+        "resizable": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}

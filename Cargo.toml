@@ -23,7 +23,7 @@ members = [
   "crates/audesys-cnc-axis-group",
   "crates/audesys-amw-zenoh",
 ]
-exclude = ["apps/studio/src-tauri"]
+exclude = ["apps/studio/src-tauri", "apps/runtime-panel/src-tauri"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"

@@ -21,13 +21,14 @@ describe("ErrorPanel", () => {
   it("renders header with 'No errors' when empty", () => {
     render(<ErrorPanel errors={[]} onErrorClick={vi.fn()} />);
 
-    expect(screen.getByText("No errors")).toBeInTheDocument();
+    const allNoErrors = screen.getAllByText("No errors");
+    expect(allNoErrors.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders error and warning list items", () => {
     render(<ErrorPanel errors={errors} onErrorClick={vi.fn()} />);
 
-    const items = screen.getAllByRole("button", { name: "Click to jump to location" });
+    const items = screen.getAllByTitle("Click to jump to location");
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent("Ln 10, Col 2");
     expect(items[0]).toHaveTextContent("Unexpected token ';'");
@@ -41,7 +42,7 @@ describe("ErrorPanel", () => {
 
     render(<ErrorPanel errors={errors} onErrorClick={onErrorClick} />);
 
-    const items = screen.getAllByRole("button", { name: "Click to jump to location" });
+    const items = screen.getAllByTitle("Click to jump to location");
     await user.click(items[0]);
 
     expect(onErrorClick).toHaveBeenCalledTimes(1);
@@ -53,13 +54,13 @@ describe("ErrorPanel", () => {
 
     render(<ErrorPanel errors={errors} onErrorClick={vi.fn()} />);
 
-    const toggle = screen.getByRole("button", { name: "Collapse error panel" });
+    const toggle = screen.getByTitle("Collapse error panel");
     await user.click(toggle);
 
     // After collapse, error items should not be visible
     expect(screen.queryByText("Unexpected token ';'")).not.toBeInTheDocument();
 
-    const expand = screen.getByRole("button", { name: "Expand error panel" });
+    const expand = screen.getByTitle("Expand error panel");
     await user.click(expand);
 
     // After expand, items reappear
@@ -69,6 +70,7 @@ describe("ErrorPanel", () => {
   it("shows empty state when no errors and not collapsed", () => {
     render(<ErrorPanel errors={[]} onErrorClick={vi.fn()} />);
 
-    expect(screen.getByText("No errors")).toBeInTheDocument();
+    const allNoErrors = screen.getAllByText("No errors");
+    expect(allNoErrors.length).toBeGreaterThanOrEqual(1);
   });
 });

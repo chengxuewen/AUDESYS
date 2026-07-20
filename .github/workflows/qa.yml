@@ -1,5 +1,5 @@
 # AUDESYS CI/CD — qa-fast workflow (Phase 0)
-# Gates: cargo test + clippy + fmt + deny + unwrap-budget
+# Gates: cargo test + clippy + fmt + deny + unwrap-budget + vitest (frontend)
 # OS matrix: macOS + Linux (Windows deferred to Phase 1 per D21)
 #
 # D32: CI-first — infrastructure before code
@@ -53,5 +53,18 @@ jobs:
           key: ${{ matrix.os }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ matrix.os }}-cargo-
 
-      - name: Run qa-fast
+      - name: Run qa-fast (Rust)
         run: bash scripts/qa-fast.sh
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: apps/studio
+
+      - name: Run vitest (frontend)
+        run: npm test
+        working-directory: apps/studio

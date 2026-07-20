@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import type { HmiLayout, HmiWidgetState, HmiWidgetType, HmiWidgetPosition, HmiWidgetSize } from "../types/hmi";
+import { validateLayout } from "./useHmiLayoutValidator";
+import type { ValidationResult } from "./useHmiLayoutValidator";
 const DEFAULT_CANVAS = { width: 1200, height: 800 };
 
 /**
@@ -41,6 +43,11 @@ export function useHmiLayout(initialLayout?: HmiLayout) {
   const selectWidget = useCallback((id: string | null) => {
     setSelectedWidgetId(id);
   }, []);
+
+  /** Validate layout before save. Returns validation result (errors block save). */
+  const validateBeforeSave = useCallback((): ValidationResult => {
+    return validateLayout(layout);
+  }, [layout]);
 
   /** Export layout as YAML string */
   const exportYaml = useCallback((): string => {
@@ -202,8 +209,7 @@ export function useHmiLayout(initialLayout?: HmiLayout) {
     resizeWidget,
     bindSignal,
     updateConfig,
-    replaceLayout,
-    setCanvasSize,
+    validateBeforeSave,
     exportYaml,
     importYaml,
   };

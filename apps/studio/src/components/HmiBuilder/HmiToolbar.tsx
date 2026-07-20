@@ -4,9 +4,10 @@ interface HmiToolbarProps {
   onSave: () => void;
   onLoad: () => void;
   onClear: () => void;
+  onDeploy?: () => void;
 }
 
-export default function HmiToolbar({ editMode, onToggleMode, onSave, onLoad, onClear }: HmiToolbarProps) {
+export default function HmiToolbar({ editMode, onToggleMode, onSave, onLoad, onClear, onDeploy }: HmiToolbarProps) {
   return (
     <div
       style={{
@@ -40,6 +41,15 @@ export default function HmiToolbar({ editMode, onToggleMode, onSave, onLoad, onC
           onClick={onClear}
         >
           Clear
+        </button>
+      )}
+      {editMode && onDeploy && (
+        <button
+          className="app-btn"
+          style={{ fontSize: 12, padding: "4px 10px", color: "#FFB800" }}
+          onClick={onDeploy}
+        >
+          ⬆ Deploy
         </button>
       )}
     </div>

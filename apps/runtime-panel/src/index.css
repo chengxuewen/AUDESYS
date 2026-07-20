@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/* AUDESYS Runtime Panel — Industrial HMI Display */
+/* Design system: dark-first, Linear-style surface layers, amber accent */
+
+@theme {
+  --color-canvas: #010102;
+  --color-surface-1: #0A0A0B;
+  --color-surface-2: #141416;
+  --color-surface-3: #1E1E22;
+  --color-surface-4: #2A2A30;
+  --color-amber: #FFB800;
+  --color-blue: #0066CC;
+  --color-operational: #00D26A;
+  --color-warning: #FFB800;
+  --color-error: #FF4444;
+  --color-info: #0099FF;
+  --color-text-primary: #E8E8ED;
+  --color-text-secondary: #A0A0B0;
+  --color-text-tertiary: #6B6B7B;
+  --color-border: #1E1E22;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --font-body: "Geist Sans", -apple-system, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Menlo, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}

@@ -19,8 +19,6 @@ import PropertyPanel from "./components/HmiBuilder/PropertyPanel";
 import { useHmiLayout } from "./hooks/useHmiLayout";
 import { HmiWidgetType } from "./types/hmi";
 import "./App.css";
-import SfcEditor from "./components/SfcEditor";
-import SimulatorPanel from "./components/SimulatorPanel";
 
 interface SignalState {
   name: string;
@@ -96,7 +94,7 @@ export default function App() {
   const editorRef = useRef<CodeEditorHandle>(null);
 
   const hmi = useHmiLayout();
-  const handleCompileRun = useCallback(async () => {
+
   const handleHmiSave = useCallback(async () => {
     try {
       const yaml = hmi.exportYaml();
@@ -134,6 +132,26 @@ export default function App() {
     }
   }, [hmi]);
 
+  const handleHmiDeploy = useCallback(async () => {
+    try {
+      const result = hmi.validateBeforeSave();
+      if (result.errors.length > 0) {
+        setErrors(result.errors.map((e: string) => ({ line: 1, col: 1, message: e, severity: "error" as const })));
+        return;
+      }
+      const yaml = hmi.exportYaml();
+      const gen: string = await invoke("deploy_hmi_layout", {
+        socketPath: "",
+        secret: "",
+        yamlBytes: Array.from(new TextEncoder().encode(yaml)),
+      });
+      setErrors([{ line: 1, col: 1, message: `\u2714 deployed (gen: ${gen})`, severity: "warning" as const }]);
+    } catch (e) {
+      setErrors([{ line: 1, col: 1, message: `deploy failed: ${String(e)}`, severity: "error" }]);
+    }
+  }, [hmi]);
+
+  const handleCompileRun = useCallback(async () => {
     setCompileStatus("compiling");
     setErrors([]);
     setSignals([]);
@@ -252,6 +270,8 @@ export default function App() {
   return (
     <div className="app-root">
       {/* Toolbar */}
+      {/* Toolbar V2 */}
+
       <div className="app-toolbar">
         <FileOperations
           currentFile={currentFile}
@@ -275,6 +295,7 @@ export default function App() {
             {langMode.toUpperCase()}
           </button>
       </div>
+      </div>
 
       {langMode !== "hmi" && <ProjectTree
         onFileOpen={(f) => { setSource(f.content); setCurrentFile(f.path); }}
@@ -282,10 +303,8 @@ export default function App() {
       />}
 
       {langMode === "hmi" ? (
-        <div className="app-main" style={{ flex: 1, overflow: "hidden" }}>
+        <div className="app-main">
           <HmiCanvas
-            canvasWidth={1200}
-            canvasHeight={800}
             widgets={hmi.layout.widgets}
             selectedWidgetId={hmi.selectedWidgetId}
             onSelectWidget={hmi.selectWidget}
@@ -296,6 +315,8 @@ export default function App() {
             }}
             onSave={handleHmiSave}
             onLoad={handleHmiLoad}
+            onDeploy={handleHmiDeploy}
+
           />
           <PropertyPanel
             widget={hmi.selectedWidget}
@@ -304,7 +325,8 @@ export default function App() {
           />
         </div>
       ) : (
-        <>
+        <div className="app-main">
+          {langMode === "sfc" ? (
           <div className="app-panel app-panel--editor">
             <div className="app-panel__header">SFC Editor</div>
             <SfcEditor />
@@ -373,10 +395,9 @@ export default function App() {
           <ObservablePanel />
           <SimulatorPanel />
         </div>
-        </>
+        </div>
       )}
 
-      </div>
 
       {/* Error Panel */}
       <ErrorPanel errors={errors} onErrorClick={handleErrorClick} />

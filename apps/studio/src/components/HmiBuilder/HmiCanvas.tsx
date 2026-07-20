@@ -3,6 +3,7 @@ import { Rnd } from "react-rnd";
 import type { HmiWidgetState, HmiWidgetType } from "../../types/hmi";
 import WidgetPalette from "./WidgetPalette";
 import HmiToolbar from "./HmiToolbar";
+import SignalInjector from "./SignalInjector";
 
 // Lazy-loaded widget components — rendered by type
 import GaugeWidget from "../widgets/GaugeWidget";
@@ -14,8 +15,6 @@ import TankWidget from "../widgets/TankWidget";
 import DisplayWidget from "../widgets/DisplayWidget";
 
 interface HmiCanvasProps {
-  canvasWidth: number;
-  canvasHeight: number;
   widgets: HmiWidgetState[];
   selectedWidgetId: string | null;
   onSelectWidget: (id: string | null) => void;
@@ -24,6 +23,7 @@ interface HmiCanvasProps {
   onAddWidget: (type: HmiWidgetType, label: string) => void;
   onSave: () => void;
   onLoad: () => void;
+  onDeploy?: () => void;
 }
 
 const WIDGET_COMPONENTS: Record<HmiWidgetType, React.FC<{ id: string; label: string; signal?: string; config: Record<string, unknown>; width: number; height: number; isSelected: boolean; isPreview: boolean }>> = {
@@ -36,7 +36,7 @@ const WIDGET_COMPONENTS: Record<HmiWidgetType, React.FC<{ id: string; label: str
   display: DisplayWidget,
 };
 
-export default function HmiCanvas({ canvasWidth, canvasHeight, widgets, selectedWidgetId, onSelectWidget, onUpdateWidget, onRemoveWidget, onAddWidget, onSave, onLoad }: HmiCanvasProps) {
+export default function HmiCanvas({ widgets, selectedWidgetId, onSelectWidget, onUpdateWidget, onRemoveWidget, onAddWidget, onSave, onLoad, onDeploy }: HmiCanvasProps) {
   const [editMode, setEditMode] = useState(true);
 
   const handleSave = useCallback(() => {
@@ -47,11 +47,9 @@ export default function HmiCanvas({ canvasWidth, canvasHeight, widgets, selected
     onLoad();
   }, [onLoad]);
 
-
   const handleClear = useCallback(() => {
     widgets.forEach(w => onRemoveWidget(w.id));
   }, [widgets, onRemoveWidget]);
-
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -65,17 +63,20 @@ export default function HmiCanvas({ canvasWidth, canvasHeight, widgets, selected
     }
   }, [selectedWidgetId, onRemoveWidget]);
 
+  const isPreview = !editMode;
+
   return (
     <div className="hmi-builder" onKeyDown={handleKeyDown} tabIndex={0} style={{ display: "flex", height: "100%", outline: "none" }}>
       <WidgetPalette onAddWidget={onAddWidget} />
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <HmiToolbar
           editMode={editMode}
           onToggleMode={() => setEditMode(m => !m)}
           onSave={handleSave}
           onLoad={handleLoad}
           onClear={handleClear}
+          onDeploy={onDeploy}
         />
 
         <div
@@ -84,10 +85,8 @@ export default function HmiCanvas({ canvasWidth, canvasHeight, widgets, selected
           style={{
             flex: 1,
             backgroundColor: "#0a0a0b",
-            overflow: "auto",
+            overflow: "hidden",
             position: "relative",
-            minWidth: canvasWidth,
-            minHeight: canvasHeight,
           }}
         >
           {widgets.map((widget) => {
@@ -129,7 +128,7 @@ export default function HmiCanvas({ canvasWidth, canvasHeight, widgets, selected
                     width={widget.size.width}
                     height={widget.size.height}
                     isSelected={isSelected}
-                    isPreview={!editMode}
+                    isPreview={isPreview}
                   />
                 ) : (
                   <div style={{ padding: 8, fontSize: 12, color: "#a0a0b0" }}>
@@ -151,6 +150,8 @@ export default function HmiCanvas({ canvasWidth, canvasHeight, widgets, selected
           )}
         </div>
       </div>
+
+      {isPreview && <SignalInjector widgets={widgets} />}
     </div>
   );
 }

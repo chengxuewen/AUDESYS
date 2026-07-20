@@ -65,6 +65,7 @@ const METHOD_PREPARE_SWAP: u8 = 0x11;
 const METHOD_COMMIT_SWAP: u8 = 0x12;
 const METHOD_ROLLBACK_SWAP: u8 = 0x13;
 
+const METHOD_DEPLOY_HMI_LAYOUT: u8 = 0x17;
 // ── Response status ──
 
 const STATUS_OK: u8 = 0x00;
@@ -1091,6 +1092,38 @@ fn handle_connection(
                     Err(e) => {
                         let _ =
                             write_all(&mut stream, &build_error_response(METHOD_ROLLBACK_SWAP, &e));
+                    }
+                }
+            }
+
+            METHOD_DEPLOY_HMI_LAYOUT => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_config(role) {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_DEPLOY_HMI_LAYOUT, "unauthorized"),
+                    );
+                    continue;
+                }
+                if payload.is_empty() {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_DEPLOY_HMI_LAYOUT, "empty payload"),
+                    );
+                    continue;
+                }
+                match engine.deploy_hmi_layout(&payload) {
+                    Ok(generation) => {
+                        let _ = write_all(
+                            &mut stream,
+                            &build_ok_response(METHOD_DEPLOY_HMI_LAYOUT, &generation.to_le_bytes()),
+                        );
+                    }
+                    Err(e) => {
+                        let _ = write_all(
+                            &mut stream,
+                            &build_error_response(METHOD_DEPLOY_HMI_LAYOUT, &e),
+                        );
                     }
                 }
             }

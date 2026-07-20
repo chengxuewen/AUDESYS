@@ -416,6 +416,18 @@ fn load_hmi_layout(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("read: {e}"))
 }
 
+/// Deploy HMI layout YAML to a running Controller via IPC.
+#[tauri::command]
+fn deploy_hmi_layout(socket_path: String, secret: String, yaml_bytes: Vec<u8>) -> Result<String, String> {
+    let mut client = ControllerClient::connect(&socket_path, secret.as_bytes())
+        .map_err(|e| format!("connect: {e}"))?;
+    client.authenticate(Role::Engineer)
+        .map_err(|e| format!("auth: {e}"))?;
+    let generation = client.deploy_hmi_layout(&yaml_bytes)
+        .map_err(|e| format!("deploy: {e}"))?;
+    Ok(generation.to_string())
+}
+
 
 /// Read a project source file.
 #[tauri::command]
@@ -467,6 +479,7 @@ pub fn run() {
             sim_run,
             save_hmi_layout,
             load_hmi_layout,
+            deploy_hmi_layout,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

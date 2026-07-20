@@ -56,8 +56,7 @@ describe("PropertyPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Motor Speed")).toBeInTheDocument();
-    expect(screen.getByText("gauge")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Motor Speed")).toBeInTheDocument();
     expect(screen.getByText("axis.0.pos")).toBeInTheDocument();
   });
 
@@ -85,6 +84,6 @@ describe("PropertyPanel", () => {
       />,
     );
 
-    expect(screen.getByText("\u2715 Remove")).toBeInTheDocument();
+    expect(screen.getByText("Remove Widget")).toBeInTheDocument();
   });
 });

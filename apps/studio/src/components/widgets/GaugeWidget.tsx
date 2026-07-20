@@ -1,5 +1,5 @@
 import { useHmiSignal } from "../../hooks/useHmiSignal";
-
+import WidgetErrorOverlay from "./WidgetErrorOverlay";
 interface GaugeWidgetProps {
   id: string; label: string; signal?: string;
   config: Record<string, unknown>;
@@ -8,7 +8,7 @@ interface GaugeWidgetProps {
 }
 
 export default function GaugeWidget({ signal, config, width, height, isPreview }: GaugeWidgetProps) {
-  const rawValue = useHmiSignal(isPreview ? signal : undefined);
+  const { value: rawValue, error, clearError } = useHmiSignal(isPreview ? signal : undefined);
   const value = rawValue ? parseFloat(rawValue) : 0;
   const min = (config.min as number) ?? 0;
   const max = (config.max as number) ?? 100;
@@ -39,7 +39,8 @@ export default function GaugeWidget({ signal, config, width, height, isPreview }
   }
 
   return (
-    <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
+    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
       {/* Track arc */}
       <path
         d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
@@ -68,6 +69,10 @@ export default function GaugeWidget({ signal, config, width, height, isPreview }
         fontFamily="Geist Sans, sans-serif" fontSize={12} fill="#a0a0b0">
         {config.label as string ?? ""}
       </text>
-    </svg>
+      </svg>
+      {isPreview && error && (
+        <WidgetErrorOverlay message={error} onDismiss={clearError} />
+      )}
+    </div>
   );
 }

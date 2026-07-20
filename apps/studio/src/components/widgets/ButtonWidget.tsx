@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useHmiSignal } from "../../hooks/useHmiSignal";
+import WidgetErrorOverlay from "./WidgetErrorOverlay";
 
 interface ButtonWidgetProps {
   id: string; label: string; signal?: string;
@@ -9,7 +10,7 @@ interface ButtonWidgetProps {
 }
 
 export default function ButtonWidget({ label, signal, config, width, height, isSelected, isPreview }: ButtonWidgetProps) {
-  const rawValue = useHmiSignal(isPreview ? signal : undefined);
+  const { value: rawValue, error, clearError } = useHmiSignal(isPreview ? signal : undefined);
   const isOn = rawValue !== null && rawValue !== "0" && rawValue !== "false";
   const [pressed, setPressed] = useState(false);
 
@@ -20,7 +21,8 @@ export default function ButtonWidget({ label, signal, config, width, height, isS
   const r = Math.min(width, height) * 0.15;
 
   return (
-    <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
+    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`}>
       <rect x={2} y={2} width={width - 4} height={height - 4} rx={r} ry={r}
         fill={bgColor} stroke={isSelected ? "#FFB800" : "#2a2a30"} strokeWidth={1}
         style={{ cursor: isPreview ? "pointer" : "default", transition: "fill 150ms ease-out" }}
@@ -33,6 +35,10 @@ export default function ButtonWidget({ label, signal, config, width, height, isS
         style={{ pointerEvents: "none", userSelect: "none" }}>
         {label}
       </text>
-    </svg>
+      </svg>
+      {isPreview && error && (
+        <WidgetErrorOverlay message={error} onDismiss={clearError} />
+      )}
+    </div>
   );
 }

@@ -1,0 +1,19 @@
+[package]
+name = "audesys-runtime-panel"
+version = "0.1.0"
+edition = "2021"
+description = "AUDESYS Runtime Panel — Industrial HMI display"
+license = "Apache-2.0"
+
+[lib]
+name = "audesys_runtime_panel_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde_json = "1"
+audesys-controller-client = { path = "../../../crates/audesys-controller-client" }
+audesys-runtime-common = { path = "../../../crates/audesys-runtime-common" }
