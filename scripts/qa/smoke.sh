@@ -12,11 +12,7 @@ echo ""
 
 # S1: Rust core crate fast tests (hal-core + hal-vm + runtime-engine + ipc-server)
 echo "[S1] cargo test core crates"
-cargo test \
-  -p audesys-hal-core \
-  -p audesys-hal-vm \
-  -p audesys-runtime-engine \
-  -p audesys-ipc-server \
+cargo test -p audesys-hal-core -p audesys-runtime-common -p audesys-controller -p audesys-supervisor \
   -- --test-threads=4 -q 2>&1 | tail -3
 echo ""
 
