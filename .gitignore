@@ -98,10 +98,14 @@ apps/studio/node_modules/
 apps/studio/dist/
 apps/studio/src-tauri/target/
 
+
 # Theia build outputs
 apps/studio-theia/lib/
 apps/studio-theia/.browser_modules/
+apps/studio-theia/lib/
+apps/studio-theia/.browser_modules/
 apps/studio-theia-test/lib/
+apps/studio-theia-test/.browser_modules/
 apps/studio-theia-test/.browser_modules/
 
 # Theia generated sources
@@ -117,17 +121,31 @@ theia-plugins/
 
 # Development sandbox (complete ignore)
 apps/studio-theia-test/
+
 # napi-rs bridge artifacts
+crates/audesys-theia-bridge/node_modules/
+crates/audesys-theia-bridge/*.node
+crates/audesys-theia-bridge/index.d.ts
+crates/audesys-theia-bridge/index.js
 crates/audesys-theia-bridge/node_modules/
 crates/audesys-theia-bridge/*.node
 crates/audesys-theia-bridge/index.d.ts
 crates/audesys-theia-bridge/index.js
 
 # Audit logs
-/tmp/audesys-audit/
+
+# Source maps
+*.js.map
+*.d.ts.map
 
 # Theia test sandbox (keep source, ignore build)
 apps/studio-theia-test/node_modules/
 
-# Playwright screenshots and test artifacts
+
+# Playwright screenshots (root only)
+/*.png
+
+# Test reports
+theia-*.png
+signal-*.png
 *.png
