@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: 'dot',
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:4000',
     ...devices['Desktop Chrome'],
     // Theia Electron app: ignore HTTPS errors from self-signed certs
     ignoreHTTPSErrors: true,
@@ -19,9 +19,9 @@ export default defineConfig({
 
   // Start Theia app (serves frontend on port 3000)
   webServer: {
-    command: 'npm start',
+    command: 'npx theia start --app-target browser --port 4000',
     cwd: './',
-    port: 3000,
+    port: 4000,
     timeout: 120_000,
     reuseExistingServer: true,
   },

@@ -53,8 +53,6 @@ linux:
   artifactName: audesys-studio-${version}-linux-${arch}.AppImage
   maintainer: audesys@example.com
 
-appImage:
-  systemIntegration: doNotAsk
 
 electronDownload:
   mirror: https://github.com/electron/electron/releases/download/
