@@ -97,4 +97,34 @@ test-results
 apps/studio/node_modules/
 apps/studio/dist/
 apps/studio/src-tauri/target/
-apps/studio/src-tauri/gen/
+
+# Theia build outputs
+apps/studio-theia/lib/
+apps/studio-theia/.browser_modules/
+apps/studio-theia-test/lib/
+apps/studio-theia-test/.browser_modules/
+
+# Theia generated sources
+apps/studio-theia/src-gen/
+apps/studio-theia-test/src-gen/
+
+# Electron packaging
+apps/studio-theia/release/
+apps/studio-theia-test/release/
+
+# Theia plugins
+theia-plugins/
+
+# Development sandbox (complete ignore)
+apps/studio-theia-test/
+# napi-rs bridge artifacts
+crates/audesys-theia-bridge/node_modules/
+crates/audesys-theia-bridge/*.node
+crates/audesys-theia-bridge/index.d.ts
+crates/audesys-theia-bridge/index.js
+
+# Audit logs
+/tmp/audesys-audit/
+
+# Theia test sandbox (keep source, ignore build)
+apps/studio-theia-test/node_modules/
