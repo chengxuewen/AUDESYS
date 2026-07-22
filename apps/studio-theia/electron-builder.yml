@@ -56,3 +56,7 @@ linux:
 
 electronDownload:
   mirror: https://github.com/electron/electron/releases/download/
+
+electronLanguages:
+  - en
+  - zh_CN
