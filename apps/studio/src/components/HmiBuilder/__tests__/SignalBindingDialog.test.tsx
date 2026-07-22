@@ -2,15 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// Mock Tauri invoke before module imports
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
-}));
-
-import { invoke } from "@tauri-apps/api/core";
 import SignalBindingDialog from "../SignalBindingDialog";
+import { PlatformContext } from "../../../platform/provider";
 
-const mockedInvoke = vi.mocked(invoke);
+const mockedInvoke = vi.fn();
+
+const MockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <PlatformContext.Provider value={{ invoke: mockedInvoke } as any}>
+    {children}
+  </PlatformContext.Provider>
+);
 
 describe("SignalBindingDialog", () => {
   beforeEach(() => {
@@ -23,7 +24,9 @@ describe("SignalBindingDialog", () => {
 
   it("renders nothing when isOpen is false", () => {
     render(
-      <SignalBindingDialog isOpen={false} onClose={vi.fn()} onSelect={vi.fn()} />,
+      <MockProvider>
+        <SignalBindingDialog isOpen={false} onClose={vi.fn()} onSelect={vi.fn()} />
+      </MockProvider>,
     );
 
     expect(screen.queryByText("Bind Signal")).not.toBeInTheDocument();
@@ -33,7 +36,9 @@ describe("SignalBindingDialog", () => {
     mockedInvoke.mockResolvedValue([]);
 
     render(
-      <SignalBindingDialog isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />,
+      <MockProvider>
+        <SignalBindingDialog isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
+      </MockProvider>,
     );
 
     expect(screen.getByText("Bind Signal")).toBeInTheDocument();
@@ -46,7 +51,9 @@ describe("SignalBindingDialog", () => {
     mockedInvoke.mockResolvedValue([]);
 
     render(
-      <SignalBindingDialog isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />,
+      <MockProvider>
+        <SignalBindingDialog isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
+      </MockProvider>,
     );
 
     expect(
@@ -61,7 +68,9 @@ describe("SignalBindingDialog", () => {
     ]);
 
     render(
-      <SignalBindingDialog isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />,
+      <MockProvider>
+        <SignalBindingDialog isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
+      </MockProvider>,
     );
 
     expect(await screen.findByText("motor.speed")).toBeInTheDocument();
@@ -77,7 +86,9 @@ describe("SignalBindingDialog", () => {
     const user = userEvent.setup();
 
     render(
-      <SignalBindingDialog isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />,
+      <MockProvider>
+        <SignalBindingDialog isOpen={true} onClose={vi.fn()} onSelect={vi.fn()} />
+      </MockProvider>,
     );
 
     // Wait for signals to load
@@ -97,11 +108,13 @@ describe("SignalBindingDialog", () => {
     const user = userEvent.setup();
 
     render(
-      <SignalBindingDialog
-        isOpen={true}
-        onClose={vi.fn()}
-        onSelect={onSelect}
-      />,
+      <MockProvider>
+        <SignalBindingDialog
+          isOpen={true}
+          onClose={vi.fn()}
+          onSelect={onSelect}
+        />
+      </MockProvider>,
     );
 
     const signalItem = await screen.findByText("motor.speed");
@@ -116,11 +129,13 @@ describe("SignalBindingDialog", () => {
     const user = userEvent.setup();
 
     render(
-      <SignalBindingDialog
-        isOpen={true}
-        onClose={vi.fn()}
-        onSelect={onSelect}
-      />,
+      <MockProvider>
+        <SignalBindingDialog
+          isOpen={true}
+          onClose={vi.fn()}
+          onSelect={onSelect}
+        />
+      </MockProvider>,
     );
 
     await user.click(screen.getByText("Unbind"));
@@ -133,11 +148,13 @@ describe("SignalBindingDialog", () => {
     const user = userEvent.setup();
 
     render(
-      <SignalBindingDialog
-        isOpen={true}
-        onClose={onClose}
-        onSelect={vi.fn()}
-      />,
+      <MockProvider>
+        <SignalBindingDialog
+          isOpen={true}
+          onClose={onClose}
+          onSelect={vi.fn()}
+        />
+      </MockProvider>,
     );
 
     await user.click(screen.getByText("Cancel"));

@@ -1,0 +1,1 @@
+{"version":3,"file":"gcode-completion.d.ts","sourceRoot":"","sources":["../../src/browser/gcode-completion.ts"],"names":[],"mappings":"AAAA;;;;;;;GAOG;AAEH,UAAU,cAAc;IACpB,KAAK,EAAE,MAAM,CAAC;IACd,IAAI,EAAE,MAAM,CAAC;IACb,MAAM,EAAE,MAAM,CAAC;IACf,UAAU,EAAE,MAAM,CAAC;CACtB;AAoFD;;;GAGG;AACH,wBAAgB,mBAAmB,IAAI,aAAa,CAAC,cAAc,CAAC,CAEnE"}

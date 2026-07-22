@@ -1,0 +1,1 @@
+{"version":3,"file":"gcode-language.d.ts","sourceRoot":"","sources":["../../src/browser/gcode-language.ts"],"names":[],"mappings":"AAAA;;;;;;;;;;;;;;;;GAgBG;AAGH,KAAK,WAAW,GAAG,GAAG,EAAE,CAAC;AAGzB,UAAU,eAAe;IACrB,YAAY,EAAE,MAAM,CAAC;IACrB,UAAU,CAAC,EAAE,OAAO,CAAC;IACrB,SAAS,EAAE,MAAM,CAAC,MAAM,EAAE,WAAW,EAAE,CAAC,CAAC;CAC5C;AAED;;;;;GAKG;AACH,wBAAgB,0BAA0B,IAAI,eAAe,CAmD5D"}

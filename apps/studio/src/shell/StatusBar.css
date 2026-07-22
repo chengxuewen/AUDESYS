@@ -1,0 +1,102 @@
+/* ── StatusBar — 24px global status bar ── */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 24px;
+  padding: 0 12px;
+  background: var(--color-surface-2);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+}
+
+/* ── Cursor position ── */
+
+.status-bar__cursor {
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+/* ── Compile status ── */
+
+.status-bar__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Connection indicator ── */
+
+.status-bar__connection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.status-bar__connection--connected {
+  color: var(--color-operational);
+}
+
+.status-bar__connection--disconnected {
+  color: var(--color-error);
+}
+
+.status-bar__connection--connecting {
+  color: var(--color-amber);
+}
+
+/* ── Status dot ── */
+
+.status-bar__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Compile status colors ── */
+
+.status-bar__status--ready .status-bar__dot {
+  background: var(--color-text-tertiary);
+}
+
+.status-bar__status--compiling .status-bar__dot {
+  background: var(--color-amber);
+  animation: status-pulse 1s ease-in-out infinite;
+}
+
+.status-bar__status--error .status-bar__dot {
+  background: var(--color-error);
+}
+
+.status-bar__status--success .status-bar__dot {
+  background: var(--color-operational);
+}
+
+/* ── File name ── */
+
+.status-bar__file {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+/* ── Pulse animation ── */
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

@@ -1,0 +1,69 @@
+/* ── Shell NavBar ── */
+
+.navbar {
+  width: 48px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--color-surface-3);
+  border-right: 1px solid var(--color-border);
+  flex-shrink: 0;
+  padding: 8px 0;
+  gap: 4px;
+}
+
+.navbar__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.navbar__separator {
+  width: 24px;
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}
+
+.navbar__btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: background 100ms ease-out, color 100ms ease-out;
+  flex-shrink: 0;
+}
+
+.navbar__btn:hover {
+  background: var(--color-surface-4);
+  color: var(--color-text-primary);
+}
+
+.navbar__btn:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 1px;
+}
+
+.navbar__btn--active {
+  background: var(--color-surface-4);
+  color: var(--color-amber);
+  border-left: 3px solid var(--color-amber);
+}
+
+.navbar__btn--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.navbar__btn svg {
+  width: 20px;
+  height: 20px;
+}

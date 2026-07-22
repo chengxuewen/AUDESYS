@@ -1,0 +1,103 @@
+/* ── Shell BottomSlot ── */
+
+.bottom-slot {
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-1);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.bottom-slot__tab-bar {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.bottom-slot__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 100ms ease-out;
+}
+
+.bottom-slot__tab:hover {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+}
+
+.bottom-slot__tab--active {
+  color: var(--color-text-primary);
+  background: var(--color-surface-1);
+  border-bottom: 2px solid var(--color-amber);
+}
+
+.bottom-slot__tab--badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--color-amber);
+  color: var(--color-canvas);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.bottom-slot__tab__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  padding: 0;
+}
+
+.bottom-slot__tab__close:hover {
+  background: var(--color-surface-4);
+  color: var(--color-text-primary);
+}
+
+.bottom-slot__content {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.bottom-slot__panel {
+  display: none;
+  height: 100%;
+}
+
+.bottom-slot__panel--active {
+  display: flex;
+}

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { usePlatform } from "../platform/provider";
 
 export default function DebugPanel() {
+    const { invoke } = usePlatform();
     const [socketPath, setSocketPath] = useState("/tmp/audesys-controller.sock");
     const [secret, setSecret] = useState("audesys-dev-secret");
     const [connected, setConnected] = useState(false);

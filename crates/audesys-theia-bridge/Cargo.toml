@@ -1,0 +1,27 @@
+[package]
+name = "audesys-theia-bridge"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3", features = ["napi4", "serde-json"] }
+napi-derive = "3"
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+audesys-hal-binding-gen = { path = "../audesys-hal-binding-gen" }
+audesys-il-compiler = { path = "../audesys-il-compiler" }
+audesys-ld-compiler = { path = "../audesys-ld-compiler" }
+audesys-fbd-compiler = { path = "../audesys-fbd-compiler" }
+audesys-sfc-compiler = { path = "../audesys-sfc-compiler" }
+audesys-gcode-compiler = { path = "../audesys-gcode-compiler" }
+audesys-hal-ir = { path = "../audesys-hal-ir" }
+audesys-controller-client = { path = "../audesys-controller-client" }
+audesys-runtime-common = { path = "../audesys-runtime-common" }
+
+[build-dependencies]
+napi-build = "2"

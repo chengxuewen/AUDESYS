@@ -1,0 +1,83 @@
+/* ── Toolbar — 40px three-section action bar ── */
+
+.shell-toolbar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 8px;
+  gap: 4px;
+  background: var(--color-surface-3);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+/* ── Section (global / mode / tool) ── */
+
+.shell-toolbar__section {
+  display: flex;
+  gap: 4px;
+}
+
+/* ── Section Separator ── */
+
+.shell-toolbar__separator {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 4px;
+}
+
+/* ── Button ── */
+
+.shell-toolbar__btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 100ms ease-out, color 100ms ease-out;
+}
+
+.shell-toolbar__btn:hover:not(.shell-toolbar__btn--disabled) {
+  background: var(--color-surface-4);
+  color: var(--color-text-primary);
+}
+
+/* Primary (amber accent) */
+
+.shell-toolbar__btn--primary:hover:not(.shell-toolbar__btn--disabled) {
+  border-color: var(--color-amber);
+  color: var(--color-text-primary);
+}
+
+/* Disabled */
+
+.shell-toolbar__btn--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Button label ── */
+
+.shell-toolbar__btn-label {
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ── Status text (right-aligned) ── */
+
+.shell-toolbar__status {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  padding-right: 8px;
+}

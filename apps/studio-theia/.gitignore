@@ -1,0 +1,20 @@
+# AUDESYS Studio Theia — Build output
+lib/
+dist/
+src-gen/
+.browser_modules/
+node_modules/
+
+# Electron packaging
+release/
+*.dmg
+*.AppImage
+*.exe
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

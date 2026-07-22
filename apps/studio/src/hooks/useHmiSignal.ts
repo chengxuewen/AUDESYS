@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { usePlatform } from "../platform/provider";
 
 /**
  * React hook that polls a single HAL signal value via Tauri IPC.
@@ -16,6 +16,7 @@ import { invoke } from "@tauri-apps/api/core";
  * @returns Object with string value (or null), error message (or null), and clearError function
  */
 export function useHmiSignal(signalName?: string): { value: string | null; error: string | null; clearError: () => void } {
+  const { invoke } = usePlatform();
   const [value, setValue] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

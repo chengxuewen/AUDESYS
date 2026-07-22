@@ -1,0 +1,1 @@
+{"version":3,"file":"sfc-contribution.d.ts","sourceRoot":"","sources":["../../src/browser/sfc-contribution.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AAGH,OAAO,EAAE,+BAA+B,EAAE,MAAM,yBAAyB,CAAC;AAI1E,qCAAqC;AACrC,eAAO,MAAM,eAAe,QAAQ,CAAC;AACrC,eAAO,MAAM,mBAAmB,UAAmB,CAAC;AAEpD,qBACa,qBAAsB,YAAW,+BAA+B;IAEzE,UAAU,IAAI,IAAI;IAIlB,OAAO,CAAC,mBAAmB;CAe9B"}

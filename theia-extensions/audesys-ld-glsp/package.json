@@ -1,0 +1,38 @@
+{
+  "name": "audesys-ld-glsp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUDESYS LD GLSP — GModel types, serialization, tool palette, and editor for IEC 61131-3 Ladder Diagram",
+  "license": "Apache-2.0",
+  "main": "lib/index.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/ld-glsp-frontend-module"
+    },
+    {
+      "frontend": "lib/property-view/ld-property-frontend-module"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "watch": "tsc -b -w",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest run",
+    "test:gmodel": "vitest run __tests__/gmodel/",
+    "test:smoke": "vitest run __tests__/smoke/"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.0",
+    "@theia/filesystem": "1.73.0",
+    "@theia/workspace": "1.73.0",
+    "@lumino/messaging": "^2.0.0"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "vitest": "^4.1.10"
+  }
+}

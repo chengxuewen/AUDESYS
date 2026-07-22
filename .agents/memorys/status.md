@@ -1,7 +1,7 @@
 # AUDESYS 项目状态
 
 ## 当前阶段
-- **MVP 原型完成** — 2026-07-17，6 语言 IEC 61131-3 编译器（ST/IL/LD/FBD/SFC）+ G-code 编译器，HAL IR/VM（34 操作码+定时器+计数器+触发器+函数调用栈）、Runtime Engine（5 步周期引擎+Config Barrier+Hot-swap+信号注册表）、Supervisor（子进程编排+指数退避+重启）、IPC Server（9 方法 UDS 协议+HMAC 认证+5 角色 RBAC）、Studio IDE（Tauri+CodeMirror 6+React+TypeScript，8 面板+35 Tauri 命令+7 种模式：6 语言+HMI 可视化设计器）
+- **Theia 迁移完成** — 2026-07-21，Studio IDE 从 Tauri+React 迁移到 Eclipse Theia+Monaco Editor+GLSP+napi-rs。6 语言编辑器就绪：ST Monaco ✅、IL Monaco ✅、G-code Monaco ✅、LD GLSP 编辑器 ✅、FBD GLSP 编辑器 ✅、SFC 编辑器 ✅。Signal Browser ✅、Scope View ✅、Debug Panel ✅、HMI Designer (Theia) ✅、Mode System ✅。Runtime Panel 不受影响（D65 保持有效）。
 - **Studio ↔ Controller 集成完成** — ControllerClient 库（UDS IPC 客户端，6 方法+认证）、Studio Tauri 命令（deploy_program/load_hal_config/read_controller_signal）
 - **协议适配器就绪** — Modbus RTU/TCP（8 测试）、HART（6 测试）
 - **仿真器就绪** — SimulationHarness + 故障注入引擎 + 场景录制/回放 + VirtualModbusTcpDevice + VirtualHARTDevice
@@ -32,7 +32,19 @@
 | Runtime Engine | ✅ 完成 | 5 步周期，Config Barrier，Hot-swap，信号注册表 |
 | Supervisor | ✅ 完成 | 子进程编排，指数退避，3 重试 |
 | IPC Server | ✅ 完成 | UDS 10 方法（0x01-0x17），HMAC 认证，5 角色 RBAC |
-| Studio IDE | ✅ 完成 | Tauri + CodeMirror 6 + 35 Tauri 命令 + 8 面板 + 6 种模式 + HMI 设计器 |
+| Studio IDE | ✅ Theia 迁移完成 | D71: Tauri+React → Eclipse Theia+Monaco+GLSP+napi-rs，迁移完成（2026-07-21） |
+| Studio Theia 迁移 | 🟡 3 扩展已集成 (apps/studio-theia-test/) | P3: audesys-core ✅, audesys-debug ✅ (8 文件/7 测试/DI 就绪), audesys-hmi-designer ✅。Workbench 在 Electron+browser 双端渲染正常，DevTools (F12) 可用，后端连接正常。待办: 移植回 apps/studio-theia/ + 集成 IDE 编辑器扩展 (ST/IL/LD/FBD/SFC/G-code) |
+| LD GLSP Editor | ✅ 完成 | Eclipse GLSP 图形编辑器，LD 梯形图 → HalProgram |
+| FBD GLSP Editor | ✅ 完成 | Eclipse GLSP 图形编辑器，FBD 功能块图 → HalProgram |
+| ST Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，ST 结构化文本 |
+| IL Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，IL 指令表 |
+| G-code Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，G-code RS274 |
+| SFC Editor | ✅ 完成 | SFC 顺序功能图编辑器 |
+| Signal Browser | ✅ 完成 | Theia Widget，信号注册表浏览/搜索 |
+| Scope View | ✅ 完成 | Theia Widget，信号实时波形示波器 |
+| Debug Panel (Theia) | ✅ 完成 | Theia Widget，8 源文件/7 测试，DI bindings 完整 |
+| HMI Designer (Theia) | ✅ 完成 | Theia Widget，HMI 可视化设计器迁移完成 |
+| Mode System | ✅ 完成 | 编辑器模式切换系统（6 语言 + HMI） |
 | ControllerClient | ✅ 完成 | UDS IPC 客户端（7 方法含 deploy_hmi_layout + 认证）|
 | Studio ↔ Controller 联调 | ✅ 完成 | deploy_program + load_hal_config + read_controller_signal |
 | Modbus RTU/TCP | ✅ 完成 | libmodbus FFI，8 测试 |
@@ -50,10 +62,10 @@
 | Simulator (AVD) | 🔮 Phase 3/4 | 7 种虚拟设备，设计完成 |
 | 工业调试桥 | 🔲 规划中 | architecture.md §5 设计完成 |
 | CNC 系统 | 🟡 编译器+轴组完成 | G-code (75 测试含 G2/G3)、轴组 crate (32 测试)、运动规划器提取中、插补设计文档完成 |
-| Studio 插件架构 | 🟡 设计完成 | PluginRegistry + CommandRegistry + PlatformAdapter + PanelSystem 设计完成，PcAdapter 已实现 |
+| Studio 插件架构 | ⚠️ 已废弃（D71 Theia 替代） | D58/D59 被 D71 取代：插件模型→Theia Extension System，PlatformAdapter→Theia Browser 模式 |
 | Runtime Panel | 🟡 骨架实现 | 独立 Tauri app + IpcSignalProvider (100ms 轮询) + IpcLayoutLoader + 5 Tauri 命令 (connect/read/disconnect)，P2: push 模式
 | HMI 设计器 | ✅ 完成 | 拖拽编辑器+7 widget+信号绑定+YAML 持久化+布局验证+部署，5 vitest 测试+3 Playwright E2E 测试
-| HMI 部署管道 | ✅ 完成 | IPC 0x17 DEPLOY_HMI_LAYOUT→Controller Engine→Config Barrier→文件持久化→Panel P1 轮询
+| HMI 部署管道 | 🟡 | IPC 0x17→Controller Config Barrier→Panel，P1 轮询（Push 模式待 P1 续建完成）|
 | HMI 调试能力 | 🟡 基础具备 | SignalInjector+布局验证器已实现，P2: 渲染性能监控+断点调试
 
 ## 文档与规范

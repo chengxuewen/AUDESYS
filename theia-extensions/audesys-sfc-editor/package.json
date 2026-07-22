@@ -1,0 +1,33 @@
+{
+  "name": "audesys-sfc-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUDESYS SFC Editor — Monarch tokenizer for IEC 61131-3 Sequential Function Chart (text mode)",
+  "license": "Apache-2.0",
+  "keywords": [
+    "theia-extension"
+  ],
+  "main": "lib/browser/index.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/index"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "watch": "tsc -b -w",
+    "test": "vitest run",
+    "test:compile": "vitest run __tests__/sfc-compile.test.ts"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.0",
+    "@theia/monaco": "1.73.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0",
+    "vitest": "^4.1.10",
+    "@types/node": "^20.0.0"
+  }
+}

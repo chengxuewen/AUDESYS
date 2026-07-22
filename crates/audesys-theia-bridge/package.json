@@ -1,0 +1,21 @@
+{
+  "name": "@audesys/theia-bridge",
+  "version": "0.1.0",
+  "main": "audesys-theia-bridge.darwin-x64.node",
+  "types": "index.d.ts",
+  "scripts": {
+    "build": "napi build --platform --release",
+    "test": "vitest run",
+    "test:worker": "vitest run __tests__/worker-thread-pool.test.ts"
+  },
+  "napi": {
+    "binaryName": "index",
+    "targets": [
+      "x86_64-apple-darwin"
+    ]
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.7.4",
+    "vitest": "^4.1.10"
+  }
+}

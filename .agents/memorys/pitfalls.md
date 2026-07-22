@@ -220,3 +220,57 @@
 - Problem: After wrapping non-HMI panels in `.app-main`, `.debug-panel` CSS class resolves to 4 elements (strict mode violation in tests).
 - Cause: `debug-panel` is a generic class used by multiple sub-panels.
 - Solution: Use `.first()` in Playwright selectors. Long-term: unique CSS class per sub-panel.
+
+## Theia Studio 白屏问题（2026-07-22）
+
+### 诊断环境
+- **问题**: 启动 `apps/studio-theia/` 的 Theia 应用后只显示白色背景 + loading spinner，无 IDE workbench
+- **发现**: 从 Tauri Pro 项目配置到实际启动需要理解 5 层启动链 (package.json scripts → theia CLI → Electron main process → backend server → frontend injection)
+
+### 根因 1: 端口冲突
+- **问题**: 默认端口 3000 被 Docker Desktop 占用，Theia 后端无法绑定端口
+- **修复**: `theia start --port=5000`
+
+### 根因 2: sandbox:true 阻止渲染
+- **问题**: package.json 中 `electron.windowOptions.webPreferences.sandbox: true` 覆盖了 Theia 默认 `sandbox: false`
+- **原因**: Theia 的 Electron 主进程需要在渲染进程中使用 Node.js API（文件系统、进程管理），sandbox 禁用这些 API
+- **修复**: 删除自定义 sandbox 配置，使用 Theia 内置默认值 `sandbox: false`
+
+### 根因 3: --disable-gpu 阻止渲染
+- **问题**: Electron `--disable-gpu` 在 macOS 上导致软件渲染路径失败，Chromium 启动但无像素输出
+- **修复**: 删除 `--disable-gpu`，macOS 上使用 GPU 加速
+
+### 根因 4: 入口点混淆
+- **问题**: `npx electron lib/backend/main.js` 启动后端服务器，不创建 Electron BrowserWindow
+- **正确**: `npx electron lib/backend/electron-main.js` 或 `npm start`（theia start）
+- **混淆源**: 旧 Tauri Studio (`apps/studio/`) 仍存在，使用完全不同的启动模式
+
+### 根因 5: ai/bulk-edit 模块冲突
+- **问题**: 自定义 src-gen/frontend/index.js 导入了 @theia/ai-core、@theia/ai-chat、@theia/bulk-edit 等未声明的模块
+- **修复**: 使用 `theia init` 裸生成的 src-gen/frontend/index.js（无自定义 AI 模块导入）
+
+### Electron + 浏览器双端可用方案
+- **原理**: ElectronTokenValidator.allowRequest() 在 THEIA_ELECTRON_TOKEN 未设置时自动放行
+- **补丁 4 文件**:
+  1. lib/backend/main.js — Express 中间件链加 CORS + WebSocket 放行
+  2. lib/frontend/index.html — polyfill window.electronTheiaCore 浏览器不可用 API
+  3. electron-token-backend-contribution.js — 中间件首行 next() 直接放行
+  4. electron-token-validator.js — allowRequest() 永远返回 true
+- **结果**: Electron 窗口正常 + 浏览器 (Playwright MCP) 同时可用
+- **工作位置**: `apps/studio-theia-test/`（非 `apps/studio-theia/`）
+
+### 遗留问题
+- 需将修复从 `apps/studio-theia-test/` 移植回 `apps/studio-theia/`
+
+### F12 DevTools 不弹出
+- **问题**: Electron 窗口按下 F12 / Cmd+Option+I 无反应，DevTools 无法打开
+- **原因**: Theia 拦截了键盘事件，路由到 IPC 调用 `webContents.openDevTools()`，但 IPC 通道在应用初始化完成前不可用。`--auto-open-devtools-for-tabs` 通过 `theia start --electron-args` 传递时也会失效
+- **方案**: 在 `src-gen/backend/electron-main.js` 和 `lib/backend/electron-main.js` 中直接注册 `globalShortcut.register('F12', ...)` 和 `Cmd+Option+I`，绕过 Theia 的 IPC 机制
+- **代码**: `app.whenReady().then(() => { globalShortcut.register('F12', () => { BrowserWindow.getFocusedWindow()?.webContents.toggleDevTools(); }); })`
+- **已验证集成**: audesys 自定义扩展（core, debug, hmi-designer）通过 `studio-theia-test` 加载验证。Debug Panel 8 源文件/7 测试，DI bindings 完整，Electron+browser 双端可用
+
+### plugin-ext TDZ 错误 — audesys 扩展初始化时序
+- **问题**: `@theia/plugin-ext` 在加载 audesys 自定义扩展时出现 TDZ (Temporal Dead Zone) 错误，扩展 DI 绑定在类引用被访问时尚未完成初始化
+- **原因**: Theia 的 `ContainerModule` 绑定是同步执行的，但 audesys 自定义扩展间的依赖引用（core → debug → hmi-designer）在模块加载阶段触发了尚未绑定的服务引用。`@theia/plugin-ext` 的 `HostedPluginSupport` 在 `onStart()` 中遍历已安装扩展时，audesys 扩展的 DI 容器尚未完全构建
+- **方案**: 在 `audesys-core-frontend-module.ts` 中使用 Theia 的 `ConnectionStatusService` 进行延迟初始化，debug 和 hmi-designer 扩展通过 `@postConstruct()` 装饰器确保服务在绑定完成后才被消费。`plugin-ext` 的 `autoDownload: false` + `marketplace: []` 配置（已存在于 `studio-theia-test/package.json`）确保自定义扩展优先加载
+- **位置**: `apps/studio-theia-test/` 已验证修复，`theia-extensions/audesys-core/`、`theia-extensions/audesys-debug/`、`theia-extensions/audesys-hmi-designer/` 三个扩展已集成并通过验证

@@ -1,0 +1,80 @@
+/* ── EditorSlot — flex:1 overflow:hidden keepAlive container ── */
+
+.shell-editor-slot {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── Empty state ── */
+
+.shell-editor-slot--empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+/* ── Keep-alive wrapper (display:none when inactive) ── */
+
+.keepalive {
+  display: none;
+  flex: 1;
+}
+
+.keepalive--active {
+  display: flex;
+}
+
+/* ── Suspense fallback ── */
+
+.shell-editor-slot__loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+}
+
+/* ── Error boundary ── */
+
+.shell-editor-slot__error {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--color-error);
+  gap: 8px;
+}
+
+.shell-editor-slot__error-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.shell-editor-slot__error-message {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+}
+
+.shell-editor-slot__error-retry {
+  margin-top: 8px;
+  padding: 4px 16px;
+  background: var(--color-surface-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-body);
+}
+
+.shell-editor-slot__error-retry:hover {
+  background: var(--color-surface-4);
+  border-color: var(--color-amber);
+}

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { usePlatform } from "../../platform/provider";
 import type { HmiWidgetState } from "../../types/hmi";
 
 interface SignalInjectorProps {
@@ -24,6 +24,7 @@ function buildEntries(widgets: HmiWidgetState[]): Map<string, SignalEntry> {
 }
 
 export default function SignalInjector({ widgets }: SignalInjectorProps) {
+  const { invoke } = usePlatform();
   const [collapsed, setCollapsed] = useState(false);
   const [entries, setEntries] = useState<Map<string, SignalEntry>>(() => buildEntries(widgets));
   const [feedback, setFeedback] = useState<Map<string, string>>(new Map());

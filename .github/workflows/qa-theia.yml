@@ -1,0 +1,152 @@
+# AUDESYS CI/CD — Theia + napi-rs workflow
+# Gates: Rust compile check (bridge crate) + napi-rs native build + Theia build + smoke test
+# OS matrix: macOS + Ubuntu + Windows (Windows skips native napi-rs build for now)
+#
+# D71: Studio Theia migration — dual-track with existing Tauri CI (qa.yml)
+
+name: qa-theia
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/audesys-theia-bridge/**'
+      - 'apps/studio-theia/**'
+      - 'theia-extensions/**'
+      - '.github/workflows/qa-theia.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/audesys-theia-bridge/**'
+      - 'apps/studio-theia/**'
+      - 'theia-extensions/**'
+      - '.github/workflows/qa-theia.yml'
+
+jobs:
+  qa-theia:
+    name: qa-theia (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: |
+            apps/studio-theia/package-lock.json
+            crates/audesys-theia-bridge/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install system dependencies
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update && sudo apt-get install -y flatbuffers-compiler
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            brew install flatbuffers
+          else
+            choco install flatbuffers -y || echo "flatbuffers not available on Windows — SKIPPED"
+          fi
+        shell: bash
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ matrix.os }}-cargo-
+
+      # ── Step 1: Rust compile check (bridge crate) ──
+      - name: cargo check (audesys-theia-bridge)
+        run: cargo check -p audesys-theia-bridge
+        shell: bash
+
+      # ── Step 2: napi-rs native build ──
+      - name: Install napi-rs bridge deps
+        run: npm ci
+        working-directory: crates/audesys-theia-bridge
+
+      - name: Build napi-rs bridge
+        if: runner.os != 'Windows'
+        run: npm run build
+        working-directory: crates/audesys-theia-bridge
+        env:
+          CARGO_TERM_COLOR: always
+
+      - name: Build napi-rs bridge (Windows)
+        if: runner.os == 'Windows'
+        run: npm run build
+        working-directory: crates/audesys-theia-bridge
+        env:
+          CARGO_TERM_COLOR: always
+        continue-on-error: true
+        # ponytail: Windows napi-rs cross-compilation needs MSVC toolchain tuning;
+        # non-blocking until Phase 1 Windows support is activated.
+
+      # ── Step 3: napi-rs smoke test ──
+      - name: Smoke test napi-rs bridge
+        if: runner.os != 'Windows'
+        run: |
+          node -e "
+          const m = require('./audesys-theia-bridge.' + process.platform + '-' + process.arch + '.node');
+          const r = m.compileSt('PROGRAM main END_PROGRAM');
+          if (!r || r.length === 0) { console.error('compileSt returned empty'); process.exit(1); }
+          console.log('compileSt OK, length:', r.length);
+          console.log('preview:', r.substring(0, 200));
+          "
+        working-directory: crates/audesys-theia-bridge
+
+      # ── Step 4: Theia app build ──
+      - name: Install Theia deps
+        run: npm ci
+        working-directory: apps/studio-theia
+        env:
+          NODE_ENV: development
+
+      - name: Install Theia extensions deps
+        run: |
+          if ls theia-extensions/audesys-core/package.json 2>/dev/null; then
+            npm ci
+          else
+            echo "No theia-extensions — SKIPPED"
+          fi
+        working-directory: theia-extensions/audesys-core
+        continue-on-error: true
+        shell: bash
+
+      - name: Build Theia app
+        run: npm run build
+        working-directory: apps/studio-theia
+        env:
+          NODE_ENV: development
+
+      # ── Step 5: Upload artifacts ──
+      - name: Upload napi-rs .node artifact
+        if: runner.os != 'Windows' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audesys-theia-bridge-${{ matrix.os }}
+          path: crates/audesys-theia-bridge/audesys-theia-bridge.*.node
+          retention-days: 7
+
+      - name: Upload Theia build artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audesys-studio-theia-${{ matrix.os }}
+          path: |
+            apps/studio-theia/lib/
+          retention-days: 7

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { usePlatform } from "../platform/provider";
 import "./SimulatorPanel.css";
 
 // ── Types ──
@@ -52,6 +52,7 @@ const FAULT_TYPES = ["timeout", "overheat", "disconnect"] as const;
 // ── Tab 1: Signals ──
 
 function SignalsTab() {
+  const { invoke } = usePlatform();
   const [signals, setSignals] = useState<SimSignal[]>([]);
   const [running, setRunning] = useState(false);
   const [editCell, setEditCell] = useState<{ idx: number; field: "value" } | null>(null);
@@ -155,6 +156,7 @@ function SignalsTab() {
 // ── Tab 2: Devices ──
 
 function DevicesTab() {
+  const { invoke } = usePlatform();
   const [devices, setDevices] = useState<SimDevice[]>([]);
 
   const refresh = useCallback(async () => {
@@ -200,6 +202,7 @@ function DevicesTab() {
 // ── Tab 3: Modbus ──
 
 function ModbusTab() {
+  const { invoke } = usePlatform();
   const [coils, setCoils] = useState<ModbusCoil[]>([]);
   const [registers, setRegisters] = useState<ModbusRegister[]>([]);
   const [mapAddr, setMapAddr] = useState("");
@@ -322,6 +325,7 @@ function ModbusTab() {
 // ── Tab 4: Scene ──
 
 function SceneTab() {
+  const { invoke } = usePlatform();
   const [name, setName] = useState("");
   const [cycles, setCycles] = useState("10");
   const [scenes, setScenes] = useState<SavedScene[]>([]);
@@ -405,6 +409,7 @@ function SceneTab() {
 // ── Tab 5: Faults ──
 
 function FaultsTab() {
+  const { invoke } = usePlatform();
   const [faults, setFaults] = useState<Fault[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 

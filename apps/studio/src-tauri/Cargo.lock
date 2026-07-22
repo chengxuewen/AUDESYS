@@ -94,6 +94,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-cnc-motion"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-core",
+ "audesys-hal-ir",
+]
+
+[[package]]
 name = "audesys-controller"
 version = "0.1.0"
 dependencies = [
@@ -128,6 +136,7 @@ dependencies = [
 name = "audesys-gcode-compiler"
 version = "0.1.0"
 dependencies = [
+ "audesys-cnc-motion",
  "audesys-hal-core",
  "audesys-hal-ir",
 ]

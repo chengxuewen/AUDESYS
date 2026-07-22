@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SignalWatchPanel from "../SignalWatchPanel";
+import { PlatformContext } from "../../platform/provider";
 
-// Mock @tauri-apps/api/core
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
-}));
+const mockedInvoke = vi.fn();
 
-import { invoke } from "@tauri-apps/api/core";
-
-const mockedInvoke = vi.mocked(invoke);
+const MockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <PlatformContext.Provider value={{ invoke: mockedInvoke } as any}>
+    {children}
+  </PlatformContext.Provider>
+);
 
 describe("SignalWatchPanel", () => {
   beforeEach(() => {
@@ -18,7 +18,11 @@ describe("SignalWatchPanel", () => {
   });
 
   it("renders idle state with Start button", () => {
-    render(<SignalWatchPanel />);
+    render(
+      <MockProvider>
+        <SignalWatchPanel />
+      </MockProvider>,
+    );
 
     expect(screen.getByText("Signal Monitor")).toBeInTheDocument();
     expect(screen.getByText("○ Idle")).toBeInTheDocument();
@@ -26,7 +30,11 @@ describe("SignalWatchPanel", () => {
   });
 
   it("does not show Stop button in idle state", () => {
-    render(<SignalWatchPanel />);
+    render(
+      <MockProvider>
+        <SignalWatchPanel />
+      </MockProvider>,
+    );
 
     expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
   });
@@ -35,7 +43,11 @@ describe("SignalWatchPanel", () => {
     mockedInvoke.mockResolvedValue([]);
     const user = userEvent.setup();
 
-    render(<SignalWatchPanel />);
+    render(
+      <MockProvider>
+        <SignalWatchPanel />
+      </MockProvider>,
+    );
     await user.click(screen.getByRole("button", { name: "Start" }));
 
     expect(screen.getByText("● Live (0)")).toBeInTheDocument();
@@ -49,7 +61,11 @@ describe("SignalWatchPanel", () => {
     ]);
     const user = userEvent.setup();
 
-    render(<SignalWatchPanel />);
+    render(
+      <MockProvider>
+        <SignalWatchPanel />
+      </MockProvider>,
+    );
     await user.click(screen.getByRole("button", { name: "Start" }));
 
     // Wait for the async poll to resolve
@@ -65,7 +81,11 @@ describe("SignalWatchPanel", () => {
     mockedInvoke.mockResolvedValue([]);
     const user = userEvent.setup();
 
-    render(<SignalWatchPanel />);
+    render(
+      <MockProvider>
+        <SignalWatchPanel />
+      </MockProvider>,
+    );
     await user.click(screen.getByRole("button", { name: "Start" }));
 
     await vi.waitFor(() => {
@@ -77,7 +97,11 @@ describe("SignalWatchPanel", () => {
     mockedInvoke.mockResolvedValue([]);
     const user = userEvent.setup();
 
-    render(<SignalWatchPanel />);
+    render(
+      <MockProvider>
+        <SignalWatchPanel />
+      </MockProvider>,
+    );
     await user.click(screen.getByRole("button", { name: "Start" }));
     await user.click(screen.getByRole("button", { name: "Stop" }));
 

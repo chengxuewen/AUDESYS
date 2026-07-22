@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { usePlatform } from "../platform/provider";
 
 export default function SignalWatchPanel() {
+    const { invoke } = usePlatform();
     const [signals, setSignals] = useState<[string, string][]>([]);
     const [polling, setPolling] = useState(false);
     const [count, setCount] = useState(0);

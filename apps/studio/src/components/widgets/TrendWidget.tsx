@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import ReactECharts from "echarts-for-react";
-import { useHmiSignal } from "../../hooks/useHmiSignal";
+import { useStudioHmiSignal as useHmiSignal } from "../../hooks/useStudioHmiSignal";
 import WidgetErrorOverlay from "./WidgetErrorOverlay";
 
 interface TrendWidgetProps {

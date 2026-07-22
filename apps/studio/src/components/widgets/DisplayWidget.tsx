@@ -1,4 +1,4 @@
-import { useHmiSignal } from "../../hooks/useHmiSignal";
+import { useStudioHmiSignal as useHmiSignal } from "../../hooks/useStudioHmiSignal";
 import WidgetErrorOverlay from "./WidgetErrorOverlay";
 interface DisplayWidgetProps {
   id: string; label: string; signal?: string;

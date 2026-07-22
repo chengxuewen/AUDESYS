@@ -1,0 +1,71 @@
+/* ── NavBar — vertical icon bar (48px) ── */
+
+.shell-navbar {
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  background: var(--color-surface-2);
+  border-right: 1px solid var(--color-border);
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/* ── Group ── */
+
+.shell-navbar__group {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.shell-navbar__label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  padding: 4px 0;
+}
+
+/* ── Icon Button (32x32) ── */
+
+.shell-navbar__btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2px auto;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 100ms ease-out, color 100ms ease-out;
+}
+
+.shell-navbar__btn:hover {
+  background: var(--color-surface-4);
+  color: var(--color-text-primary);
+}
+
+/* Active indicator — amber left border */
+
+.shell-navbar__btn--active {
+  background: var(--color-surface-4);
+  color: var(--color-amber);
+  border-left: 3px solid var(--color-amber);
+}
+
+/* ── Group Separator ── */
+
+.shell-navbar__separator {
+  width: 28px;
+  margin: 4px auto;
+  height: 1px;
+  background: var(--color-border);
+}

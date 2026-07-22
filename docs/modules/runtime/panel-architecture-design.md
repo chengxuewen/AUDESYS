@@ -1,9 +1,13 @@
 # AUDESYS Runtime Panel 架构设计
 
-> 生成日期：2026-07-19
-> 依赖决策：D58 (Studio PluginRegistry), D59 (PlatformAdapter PC/Web 双模式), D17 (Config Barrier)
-> 参考：`docs/modules/studio/plugin-architecture-design.md`、`docs/modules/runtime/ipc-security-design.md`
-> 设计目标：Runtime Panel 作为独立操作员进程运行 HMI 布局，区别于 Studio 设计器
+**生成日期**: 2026-07-19
+**修订日期**: 2026-07-21
+
+*> ℹ️ Studio 迁移通知：AUDESYS Studio 已从 Tauri+React 迁移到 Eclipse Theia（详见 docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md）。Runtime Panel 不受影响——仍基于 Tauri 独立运行，通过 packages/studio-core/ 共享 Widget 组件。*
+
+**依赖决策**: D58 (Studio PluginRegistry, 已弃用), D59 (PlatformAdapter PC/Web 双模式), D17 (Config Barrier)
+**参考**: `docs/modules/studio/plugin-architecture-design.md`（已弃用）、`docs/modules/runtime/ipc-security-design.md`
+**设计目标**: Runtime Panel 作为独立操作员进程运行 HMI 布局，区别于 Studio 设计器
 
 ---
 
@@ -76,7 +80,7 @@
 | **Panel Shell** | 启动流程、全屏模式、Operational Mode 锁定、紧急停止按钮 | PlatformAdapter | **Panel 独有** |
 | **Plugin System** | 操作员登录、报警管理、趋势记录、多画面导航 — 四大内置插件 | SignalBridge, NavigationManager | **Panel 独有**（参考 Studio PluginRegistry 接口，但不共享实例） |
 | **Widget Renderer** | PanelRenderer 加载 HmiLayout YAML，遍历 widgets[]，以 `{ signalValue }` 注入渲染 7 种 widget | packages/studio-core/ (组件), SignalProvider (信号值) | **共享组件** — widget 代码来自 packages/studio-core，零修改复用 |
-| **SignalProvider** | subscribe / unsubscribe / write / snapshot / onUpdate — 信号值的获取与更新 | ControllerClient (UDS) / WebSocket / SimulationHarness | **Panel 独有** — Studio 通过 Tauri invoke 获取信号值 |
+| **SignalProvider** | subscribe / unsubscribe / write / snapshot / onUpdate — 信号值的获取与更新 | ControllerClient (UDS) / WebSocket / SimulationHarness | **Panel 独有** — Studio 通过 Theia Backend Service (napi-rs) 获取信号值 |
 | **Transport** | ControllerClient (UDS) / WebSocket Client / SimulationHarness — 被 SignalProvider 内部封装 | SignalProvider 各实现内部持有 | **非独立层** — 由 LocalSignalProvider/WsSignalProvider 封装 |
 
 ---

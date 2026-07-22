@@ -1,9 +1,36 @@
 # AUDESYS Studio 插件架构设计
 
-> 生成日期：2026-07-19
+> ⚠️ **已弃用** — 本文档描述的 PluginRegistry + CommandRegistry + PanelSystem + PlatformAdapter 四层架构已被 Tool+Slot+Mode 架构取代，后者又已被 Eclipse Theia 迁移计划取代。
+> 
+> **当前活跃文档**：docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md
+> 
+> 本文档保留作为 D58 决策的历史记录。
+
+
+> 生成日期：2026-07-19（2026-07-21 弃用）
 > 依赖决策：D58 (PluginRegistry + CommandRegistry + PlatformAdapter + PanelSystem), D59 (PC/Web 双模式)
 > 参考架构：VS Code Extension API（`docs/reference/vscode.md`）
 > 设计目标：为 AUDESYS Studio 构建插件化编辑器平台，支持 PC (Tauri) 和 Web 双模式部署
+
+## 0. 现状矩阵（2026-07-20）
+
+四层架构的实现完成度：
+
+| 层 | 设计状态 | 实现状态 | 代码位置 | 合规 |
+|---|:---:|:---:|------|:---:|
+| PluginRegistry | ✅ 设计完成 | ❌ 零代码 | — | — |
+| CommandRegistry | ✅ 设计完成 | 🟡 骨架（897 行） | `packages/studio-core/src/commands/` | ❌ 未接入 App.tsx |
+| PanelSystem | ✅ 设计完成 | ❌ 零代码 | 面板硬编码在 `apps/studio/src/App.tsx:300-395` | — |
+| PlatformAdapter | ✅ 设计完成 | 🟡 已实现（578 行） | `apps/studio/src/platform/` | ❌ 未接线：57 文件直接 import @tauri-apps/* |
+
+**当前面板渲染模式**：App.tsx 使用 `langMode` 状态 + 嵌套三元运算符直接渲染面板（而非通过 PluginRegistry/PanelSystem）。
+
+**关键缺口**（详见 §8 实现状态）：
+- PluginRegistry：零代码。无 manifest 扫描、生命周期、activate/deactivate
+- PanelSystem：零代码。5 区域布局引擎未实现
+- PlatformAdapter：578 行代码闲置。App.tsx 第 2-4 行直接 import `@tauri-apps/api/core`
+- HMI 部署管道：IPC 0x17 后端就绪，但 Studio 缺少 deploy 按钮和 Tauri 命令
+- Role::HMI：D64 决策声明但枚举值未添加
 
 ---
 
@@ -38,12 +65,15 @@
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-| 层 | 职责 | 依赖 |
-|---|------|------|
-| **PluginRegistry** | 插件发现（JSON manifests）、元数据索引、生命周期管理（activate/deactivate） | PlatformAdapter（通过 PluginContext 注入） |
-| **CommandRegistry** | 命名空间命令注册、到 PlatformAdapter.invoke() 的映射、快捷键绑定 | PlatformAdapter（invoke 管道） |
-| **PanelSystem** | 面板布局引擎、PanelDescriptor 收集、视图容器管理 | React 组件树、PluginRegistry（获取 PanelDescriptor） |
-| **PlatformAdapter** | PC/Web 模式切换、能力退化矩阵、统一 IO 抽象 | Tauri (PC) 或浏览器 API (Web) |
+| 层 | 职责 | 实现状态 | 依赖 |
+|---|------|:---:|------|
+| **PluginRegistry** | 插件发现（JSON manifests）、元数据索引、生命周期管理（activate/deactivate） | ❌ 零代码 | PlatformAdapter（通过 PluginContext 注入） |
+| **CommandRegistry** | 命名空间命令注册、到 PlatformAdapter.invoke() 的映射、快捷键绑定 | 🟡 骨架存在，未接入 App.tsx | PlatformAdapter（invoke 管道） |
+| **PanelSystem** | 面板布局引擎、PanelDescriptor 收集、视图容器管理 | ❌ 零代码 | React 组件树、PluginRegistry（获取 PanelDescriptor） |
+| **PlatformAdapter** | PC/Web 模式切换、能力退化矩阵、统一 IO 抽象 | 🟡 已实现，未接线（57 文件绕过） | Tauri (PC) 或浏览器 API (Web) |
+│  ┌─────────────┐  ┌──────────────────┐  ┌──────────────────────────┐ │
+│  │ Plugin      │  │ Command          │  │ Panel                    │ │
+│  │ Registry ❌  │  │ Registry 🟡      │  │ System ❌                │ │
 
 **关键设计决策**：
 - PluginRegistry 和 CommandRegistry 是**纯前端层**（TypeScript），不依赖 Rust 后端变更
@@ -65,8 +95,8 @@ interface PluginManifest {
   displayName: string;           // "ST Compiler"
   version: string;               // SemVer
   engines: { studio: string };   // 最低 Studio 版本
-  main: string;                  // Node.js/ES module 入口
-  browser?: string;              // Web 模式替代入口（双平台关键字段）
+  main: string;                  // Node.js/ES module 入口（P1: 静态 JSON manifest，无文件导入）
+  browser?: string;              // Web 模式替代入口（P1: 未启用）
   activationEvents: ActivationEvent[];
   contributes?: PluginContributions;
 }
@@ -113,21 +143,18 @@ Manifest Scan (JSON files) → Contribution Index → UI Bootstrap
 
 ```typescript
 interface PluginContributions {
-  languages?: LanguageContribution[];       // 语言定义
-  commands?: CommandContribution[];          // 命令注册
-  panels?: PanelDescriptor[];               // 面板注册
-  toolbarActions?: ToolbarAction[];         // 工具栏按钮
-  settings?: Record<string, SettingDescriptor>; // 配置项
-  protocolAdapters?: ProtocolAdapterContribution[]; // 协议适配器
-}
-
-interface LanguageContribution {
-  id: string;           // "st", "gcode"
-  extensions: string[];  // [".st"], [".nc", ".gcode"]
+  languages?: LanguageContribution[];       // 语言定义 ✅ 已实现（App.tsx 内 6 种语言硬编码）
+  commands?: CommandContribution[];          // 命令注册 🟡 CommandRegistry 已实现，贡献注册机制缺失
+  panels?: PanelDescriptor[];               // 面板注册 ❌ 零代码（App.tsx 硬编码渲染）
+  toolbarActions?: ToolbarAction[];         // 工具栏按钮 ❌ 零代码（App.tsx 硬编码 HTML）
+  settings?: Record<string, SettingDescriptor>; // 配置项 ❌ 零代码
+  protocolAdapters?: ProtocolAdapterContribution[]; // 协议适配器 ❌ 零代码
 }
 ```
 
----
+### 2.3.1 当前实现状态
+
+P1 阶段以 JSON manifest 文件静态注册插件（Tauri 不支持运行时动态模块加载）。当前 6 种 `contributes` 类型实现状态见上文注释。语言定义、命令处理、面板渲染均硬编码在 `apps/studio/src/App.tsx:300-395`。
 
 ## 3. PlatformAdapter — PC/Web 双模式
 
@@ -308,11 +335,17 @@ PanelSystem 收集所有已注册的 PanelDescriptor，按 `defaultPosition` 分
 
 ## 7. P1 范围与约束
 
-**P1 实现的目标**：
-- 四层架构就绪（PluginRegistry + CommandRegistry + PanelSystem + PlatformAdapter）
-- 12 个现有面板作为 built-in plugins 注册
-- 33 个 Tauri 命令映射到 7 个命名空间
-- PC 模式完整可用，Web 模式骨架就绪
+**P1 当前实现状态**：
+
+| 目标 | 状态 | 说明 |
+|------|:----:|------|
+| PluginRegistry（Manifest Scan + Lifecycle） | ❌ 未实现 | 设计已定，无代码 |
+| CommandRegistry（7 命名空间 37 命令） | 🟡 骨架就绪 | 897 行代码，仅有 `read_controller_signal` 1 个命令通过注册系统 |
+| PanelSystem（PanelDescriptor 布局引擎） | ❌ 未实现 | App.tsx 硬编码渲染 switch(panel) |
+| PlatformAdapter（PC/Web 双模式） | 🟡 PC 已实现 | 578 行代码，但 57 文件绕过它直接 import invoke |
+| 12 个现有面板作为 built-in plugins 注册 | ❌ 未实现 | 等待 PanelSystem |
+| PC 模式完整可用 | ✅ 可用 | Tauri 全功能 |
+| Web 模式骨架就绪 | ❌ 未实现 | 等待 PlatformAdapter 接线 |
 
 **P1 明确不做**：
 

@@ -178,7 +178,7 @@
 
   // Experimental
   "experimental": {
-    "aggressive_truncation": false,  // false+DCP: skip blind truncation, rely on ACP smart pruning; compaction.auto=false in opencode.json
+    "aggressive_truncation": false,  // false+DCP: skip blind truncation; compaction.auto=false in opencode.json
     "task_system": true
   },
 

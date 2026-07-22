@@ -19,6 +19,7 @@ import { WebAdapter, type WebAdapterConfig } from "./web-adapter";
 // ── Context ───────────────────────────────────────────────────────────
 
 const PlatformContext = createContext<IPlatformAdapter | null>(null);
+export { PlatformContext };
 
 /** Hook — call inside any component to get the platform adapter. */
 export function usePlatform(): IPlatformAdapter {

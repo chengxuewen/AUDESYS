@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { usePlatform } from "../../platform/provider";
 
 interface SignalBindingDialogProps {
   isOpen: boolean;
@@ -8,6 +8,7 @@ interface SignalBindingDialogProps {
 }
 
 export default function SignalBindingDialog({ isOpen, onClose, onSelect }: SignalBindingDialogProps) {
+  const { invoke } = usePlatform();
   const [signals, setSignals] = useState<string[]>([]);
   const [search, setSearch] = useState("");
 

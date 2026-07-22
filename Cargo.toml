@@ -16,12 +16,15 @@ members = [
   "crates/audesys-dap-adapter",
   "crates/audesys-il-compiler",
   "crates/audesys-ld-compiler",
-  "crates/audesys-fbd-compiler",
+  "crates/audesys-ld-compiler",
+  "crates/audesys-ld-layout",
+  "crates/audesys-ld-semantics",
   "crates/audesys-sfc-compiler",
   "crates/audesys-gcode-compiler",
   "crates/audesys-cnc-motion",
   "crates/audesys-cnc-axis-group",
   "crates/audesys-amw-zenoh",
+  "crates/audesys-theia-bridge",
 ]
 exclude = ["apps/studio/src-tauri", "apps/runtime-panel/src-tauri"]
 [workspace.package]

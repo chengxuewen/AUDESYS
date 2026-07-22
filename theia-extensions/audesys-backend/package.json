@@ -1,0 +1,31 @@
+{
+  "name": "audesys-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUDESYS Studio Backend — JSON-RPC proxy bridging Theia frontend to napi-rs Rust backend",
+  "license": "Apache-2.0",
+  "main": "lib/node/index.js",
+  "theiaExtensions": [
+    {
+      "backend": "lib/node/index"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "watch": "tsc -b -w",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge",
+    "@theia/core": "1.73.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/winston": "^2.4.4",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.10"
+  }
+}

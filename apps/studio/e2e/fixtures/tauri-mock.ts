@@ -8,7 +8,7 @@ export const test = base.extend({
   page: async ({ page }, use) => {
     await page.addInitScript(() => {
       // Mock @tauri-apps/api/core invoke
-      (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {
+      const mockInternals = {
         invoke: async (cmd: string, _args?: unknown) => {
           const mocks: Record<string, unknown> = {
             compile_st: '{"program":"__mock_program__","instructions":[]}',
@@ -35,6 +35,9 @@ export const test = base.extend({
           return mocks[cmd] ?? `mock:${cmd}`;
         },
       };
+      // Set on both window and Object.defineProperty for robustness
+      (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = mockInternals;
+      Object.defineProperty(window, '__TAURI_INTERNALS__', { value: mockInternals, writable: true, configurable: true });
 
       // Mock @tauri-apps/plugin-dialog
       (window as unknown as Record<string, unknown>).__TAURI_PLUGIN_DIALOG__ = {

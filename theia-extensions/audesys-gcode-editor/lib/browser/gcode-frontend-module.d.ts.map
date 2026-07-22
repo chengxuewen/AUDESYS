@@ -1,0 +1,1 @@
+{"version":3,"file":"gcode-frontend-module.d.ts","sourceRoot":"","sources":["../../src/browser/gcode-frontend-module.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,+BAA+B,EAAE,mBAAmB,EAAE,MAAM,yBAAyB,CAAC;AAI/F;;;;;;;GAOG;AACH,qBACa,yBAA0B,YAAW,+BAA+B;IAC7E,OAAO,CAAC,UAAU,CAAS;IAE3B,OAAO,CAAC,IAAI,EAAE,mBAAmB,GAAG,IAAI;CAyB3C"}

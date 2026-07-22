@@ -1,0 +1,75 @@
+{
+  "private": true,
+  "name": "audesys-studio",
+  "productName": "AUDESYS Studio",
+  "version": "0.1.0",
+  "description": "AUDESYS Studio IDE — Industrial Control Development Environment based on Eclipse Theia",
+  "main": "lib/backend/electron-main.js",
+  "license": "Apache-2.0",
+  "theia": {
+    "target": "electron",
+    "frontend": {
+      "config": {
+        "applicationName": "AUDESYS Studio",
+        "defaultTheme": "dark",
+        "electron": {
+          "windowOptions": {
+            "webPreferences": {
+              "contextIsolation": true,
+              "sandbox": true,
+              "nodeIntegration": false,
+              "nodeIntegrationInWorker": false,
+              "webSecurity": true,
+              "backgroundThrottling": false,
+              "enableDeprecatedPaste": true
+            }
+          }
+        }
+      }
+    },
+    "backend": {
+      "config": {
+        "plugin": {
+          "autoDownload": false,
+          "marketplace": []
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@theia/core": "1.73.0",
+    "@theia/editor": "1.73.0",
+    "@theia/electron": "1.73.0",
+    "@theia/filesystem": "1.73.0",
+    "@theia/markers": "1.73.0",
+    "@theia/messages": "1.73.0",
+    "@theia/monaco": "1.73.0",
+    "@theia/navigator": "1.73.0",
+    "@theia/plugin-ext": "1.73.0",
+    "@theia/plugin-ext-vscode": "1.73.0",
+    "@theia/preferences": "1.73.0",
+    "@theia/process": "1.73.0",
+    "@theia/terminal": "1.73.0",
+    "@theia/workspace": "1.73.0",
+    "audesys-core": "file:../../theia-extensions/audesys-core"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@theia/cli": "1.73.0",
+    "electron": "39.8.7"
+  },
+  "scripts": {
+    "start": "theia start --plugins=local-dir:../../theia-plugins",
+    "start:debug": "npm run -s start -- --log-level=debug",
+    "build": "theia build --mode development",
+    "build:prod": "theia build --mode production",
+    "bundle": "npm run rebuild && theia build --mode development",
+    "clean": "theia clean",
+    "rebuild": "theia rebuild:electron --cacheRoot ../..",
+    "package": "electron-builder",
+    "postinstall": "theia check:theia-version",
+    "test:smoke": "playwright test e2e/smoke/ --config playwright.config.ts"
+  },
+  "theiaPluginsDir": "../../theia-plugins",
+  "theiaPlugins": {}
+}

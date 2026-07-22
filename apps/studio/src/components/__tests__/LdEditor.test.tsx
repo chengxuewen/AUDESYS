@@ -1,10 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import LdEditor from "../LdEditor";
+import { PlatformContext } from "../../platform/provider";
+
+const MockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <PlatformContext.Provider value={{ invoke: () => Promise.resolve() } as any}>
+    {children}
+  </PlatformContext.Provider>
+);
 
 describe("LdEditor", () => {
   it("renders palette with 5 items", () => {
-    render(<LdEditor />);
+    render(
+      <MockProvider>
+        <LdEditor />
+      </MockProvider>,
+    );
 
     expect(screen.getByText("NO Contact")).toBeInTheDocument();
     expect(screen.getByText("NC Contact")).toBeInTheDocument();
@@ -17,7 +28,11 @@ describe("LdEditor", () => {
   });
 
   it("renders 10 rungs with empty slots", () => {
-    render(<LdEditor />);
+    render(
+      <MockProvider>
+        <LdEditor />
+      </MockProvider>,
+    );
 
     for (let i = 1; i <= 10; i++) {
       const label = String(i).padStart(2, "0");
@@ -29,7 +44,11 @@ describe("LdEditor", () => {
   });
 
   it("Add Rung button increases rung count", () => {
-    render(<LdEditor />);
+    render(
+      <MockProvider>
+        <LdEditor />
+      </MockProvider>,
+    );
 
     expect(screen.getByText("10 rungs")).toBeInTheDocument();
 
@@ -42,7 +61,11 @@ describe("LdEditor", () => {
   });
 
   it("click cell adds NO contact", () => {
-    render(<LdEditor />);
+    render(
+      <MockProvider>
+        <LdEditor />
+      </MockProvider>,
+    );
 
     // Select NO from palette
     const noItem = screen.getByText("NO Contact").closest(".ld-editor__palette-item")! as HTMLElement;

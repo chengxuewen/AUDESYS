@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { usePlatform } from "../platform/provider";
 import "./LdEditor.css";
 
 // ── Types ──
@@ -95,6 +95,7 @@ interface LdEditorProps {
 }
 
 export default function LdEditor({ onCompile }: LdEditorProps) {
+  const { invoke } = usePlatform();
   const [rungs, setRungs] = useState<Rung[]>(() =>
     Array.from({ length: INITIAL_RUNGS }, () => ({
       contacts: Array<ContactSlot | null>(CONTACT_COUNT).fill(null),

@@ -1,0 +1,1 @@
+{"version":3,"file":"il-contribution.d.ts","sourceRoot":"","sources":["../../src/browser/il-contribution.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AAGH,OAAO,EAAE,+BAA+B,EAAE,MAAM,yBAAyB,CAAC;AAK1E,oCAAoC;AACpC,eAAO,MAAM,cAAc,OAAO,CAAC;AACnC,eAAO,MAAM,kBAAkB,UAAiB,CAAC;AAEjD,qBACa,oBAAqB,YAAW,+BAA+B;IAExE,UAAU,IAAI,IAAI;IAIlB,OAAO,CAAC,kBAAkB;CAsB7B"}

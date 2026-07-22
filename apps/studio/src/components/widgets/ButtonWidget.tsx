@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useHmiSignal } from "../../hooks/useHmiSignal";
+import { useStudioHmiSignal as useHmiSignal } from "../../hooks/useStudioHmiSignal";
 import WidgetErrorOverlay from "./WidgetErrorOverlay";
 
 interface ButtonWidgetProps {

@@ -1,0 +1,27 @@
+{
+  "name": "audesys-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUDESYS Studio Core — Theia extension for industrial control IDE features",
+  "license": "Apache-2.0",
+  "main": "lib/common/index.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/index",
+      "backend": "lib/node/index"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "watch": "tsc -b -w",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}

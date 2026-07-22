@@ -1,0 +1,132 @@
+/**
+ * LD Editor Theme — CSS variables for the ladder diagram editor.
+ *
+ * Supports both light and dark Theia themes through CSS custom properties.
+ * Ponytail: one stylesheet, no CSS-in-JS runtime overhead.
+ */
+
+/* ============================================================================
+   LD Diagram Variables
+   ============================================================================ */
+
+:root {
+  /* Element colors */
+  --ld-power-rail-color: var(--theia-foreground, #d4d4d4);
+  --ld-power-rail-width: 3px;
+  --ld-wire-color: var(--theia-foreground, #d4d4d4);
+  --ld-wire-width: 1.5px;
+  --ld-contact-fill: var(--theia-editor-background, #1e1e1e);
+  --ld-contact-stroke: var(--theia-foreground, #d4d4d4);
+  --ld-contact-no-fill: #4ec9b0;
+  --ld-contact-nc-fill: #ce9178;
+  --ld-coil-fill: var(--theia-editor-background, #1e1e1e);
+  --ld-coil-stroke: var(--theia-foreground, #d4d4d4);
+  --ld-coil-normal-fill: #569cd6;
+  --ld-coil-set-fill: #6a9955;
+  --ld-coil-reset-fill: #dcdcaa;
+  --ld-fb-fill: var(--theia-editor-background, #1e1e1e);
+  --ld-fb-stroke: #c586c0;
+  --ld-rung-label-color: var(--theia-descriptionForeground, #858585);
+
+  /* Selection */
+  --ld-selection-color: #007acc;
+  --ld-selection-width: 2px;
+
+  /* Grid */
+  --ld-grid-color: var(--theia-editor-lineHighlightBackground, #2a2a2a);
+  --ld-grid-size: 40px;
+  --ld-canvas-background: var(--theia-editor-background, #1e1e1e);
+
+  /* Layout constants (match operation handler grid) */
+  --ld-contact-size: 36px;
+  --ld-rail-width: 4px;
+  --ld-grid-x: 120px;
+  --ld-grid-y: 80px;
+  --ld-coil-offset: 600px;
+  --ld-rung-offset: 80px;
+}
+
+/* ============================================================================
+   Editor Container
+   ============================================================================ */
+
+.ld-editor {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: var(--ld-canvas-background);
+  cursor: default;
+}
+
+.ld-editor svg {
+  display: block;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.ld-editor--tool-active {
+  cursor: crosshair;
+}
+
+/* ============================================================================
+   Context Menu
+   ============================================================================ */
+
+.ld-context-menu {
+  position: fixed;
+  z-index: 10000;
+  background: var(--theia-menu-background, #252526);
+  border: 1px solid var(--theia-menu-border, #454545);
+  border-radius: 4px;
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.36);
+}
+
+.ld-context-menu__item {
+  display: block;
+  width: 100%;
+  padding: 4px 24px;
+  border: none;
+  background: transparent;
+  color: var(--theia-menu-foreground, #cccccc);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ld-context-menu__item:hover {
+  background: var(--theia-menu-selectionBackground, #094771);
+}
+
+.ld-context-menu__item--danger {
+  color: var(--theia-inputValidation-errorBorder, #f44747);
+}
+
+.ld-context-menu__separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--theia-menu-separatorBackground, #454545);
+}
+
+/* ============================================================================
+   Status Bar
+   ============================================================================ */
+
+.ld-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 22px;
+  font-size: 11px;
+  color: var(--theia-descriptionForeground, #858585);
+  background: var(--theia-statusBar-background);
+  border-top: 1px solid var(--theia-statusBar-border);
+}
+
+.ld-status__dirty {
+  color: var(--theia-list-warningForeground, #cca700);
+  font-weight: 600;
+}

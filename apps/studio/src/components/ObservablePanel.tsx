@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { usePlatform } from "../platform/provider";
 
 function parsePrometheus(text: string): Record<string, string> {
     const metrics: Record<string, string> = {};
@@ -15,6 +15,7 @@ function parsePrometheus(text: string): Record<string, string> {
 }
 
 export default function ObservablePanel() {
+    const { invoke } = usePlatform();
     const [metrics, setMetrics] = useState<Record<string, string>>({});
     const [port, setPort] = useState("9000");
     const [polling, setPolling] = useState(false);

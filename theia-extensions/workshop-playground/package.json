@@ -1,0 +1,29 @@
+{
+  "name": "workshop-playground",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUDESYS Theia Workshop Playground — learning exercise for DI, Contributions, and Monarch tokenizer",
+  "license": "Apache-2.0",
+  "keywords": [
+    "theia-extension"
+  ],
+  "main": "lib/browser/index.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/index"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "watch": "tsc -b -w"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.0",
+    "@theia/monaco": "1.73.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}

@@ -115,6 +115,7 @@
 
 ## D21: Studio IDE 技术栈 = Tauri + React + TypeScript
 - **日期**: 2026-07-13
+> ⚠️ **已弃用** — 此决策于 2026-07-21 被 D71 取代。Studio 已从 Tauri+React 迁移到 Eclipse Theia。
 - **决定**: AUDESYS Studio 使用 Tauri (Rust 后端) + React + TypeScript 构建桌面 IDE。Phase 2 增加 PWA 辅助访问。CI/CD 同时验证 macOS/Windows/Linux 三平台 Playwright E2E 测试。
 - **理由**: Tauri Rust 后端与 HAL 开发语言一致，包体积（~5-10MB）远小于 Electron（~120MB），内存占用（~50MB）远低于 Electron（~150MB）。工业 HMI 以表单/图表/SVG 为主，跨平台 WebView 差异（≤3% 像素级）不影响核心功能。
 - **参考**: Beckhoff TwinCAT 3 (VS Shell 不自研 IDE 的模式验证), Ignition Perspective (Web 原生可行性验证), QiTech Control (Electron→Tauri 迁移趋势验证)
@@ -414,3 +415,42 @@
 - **决定**: Studio 采用 `height: 100%` 继承链（html→body→#root→.app-root）替代 `100vh`，`.app-panel` 加 `min-height:0; max-height:100%` 允许 flex 子元素随窗口缩小，html/body 显式设置 `background: var(--color-canvas)` 防止白边。
 - **理由**: Playwright 测试验证（1440×900→1000×450）布局始终填满视口。根因是 flex 子元素默认 `min-height: auto` 阻止缩小，CSS `overflow:hidden` 无法越过此限制。
 - **参考**: `apps/studio/src/index.css`, `apps/studio/src/App.css`, `apps/studio/e2e/studio-responsive-ui.spec.ts`（15 项测试）
+
+## D71: Studio 技术栈迁移 = Tauri+React → Eclipse Theia
+- **日期**: 2026-07-21
+- **决定**: Studio IDE 从 Tauri+React 自建架构迁移到 Eclipse Theia 框架
+- **理由**: (a) Neuron Automation 已验证 Theia+GLSP 可用于 IEC 61131-3 工业编程；(b) VS Code 扩展生态（Open VSX）；(c) TI/ST/Arm/Samsung 等主流厂商采用 Theia；(d) Theia 提供 Dock/Tab/Command Palette/Keybinding/Theme 等 13 项开箱即用的通用 IDE 功能；(e) Fork VS Code 不可行（周发版维护成本过高）；(f) CodeBlitz 不可行（无调试/无 Rust LSP）
+- **技术栈**: Eclipse Theia (Electron) + Monaco Editor + Eclipse GLSP + ReactWidget + napi-rs (Rust bridge)
+- **影响范围**: Studio 前端全部替换。Runtime Panel 不受影响（D65 保持有效）。Rust 运行时通过 napi-rs 桥接（~50% 需适配：34 个 Tauri 命令重写为 ~25 个 napi-rs 函数，Cargo.toml 配置变更，Controller 生命周期适配）。纯逻辑代码（编译器、VM、Engine）零修改。
+- **取代决策**: D21 (Tauri+React 技术栈)，D58 部分 (插件架构由 Theia Extension System 替代)，D59 部分 (PlatformAdapter 由 Theia Backend Service 替代)
+- **参考**: docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md
+
+## D72: Smoke 测试作为 qa-fast Step 0，2 分钟超时
+- **日期**: 2026-07-22
+- **决定**: qa-fast CI 门禁新增 Step 0 Smoke 测试（`cargo test --workspace -- smoke`），独立于 Step 1 full test suite。Smoke 超时 2 分钟，超过则 CI 快速失败。
+- **理由**: 工业控制编译器和运行时测试套件规模大（700+ tests），快速 smoke 门禁在破坏性变更时 2 分钟内给出信号，避免等待 full suite 超时。IEC 61131-3 和 G-code 编译器 smoke 覆盖核心编译路径。
+- **参考**: `qa/smoke-checks.sh`, `.github/workflows/qa-fast.yml`
+
+## D73: SDD 追溯率 ≥80% 作为 Phase 退出条件
+- **日期**: 2026-07-22
+- **决定**: 每个 Phase 退出前必须验证 SDD 规范→测试的追溯率达到 ≥80%。追溯通过 `#[test]` 注释中的 `// SDD: <spec-id>` 标签自动统计。不满足则 Phase 不退出。
+- **理由**: SDD 规范（186 项）与测试之间的追溯链是零源代码阶段设计→实现的唯一可验证桥梁。≥80% 阈值来自 P0 测试优化分析——当前覆盖率乐观估计 55%，80% 是可达成且有意义的提升目标。
+- **参考**: `openspec/specs/` 6 份规范（186 项），`qa/check-sdd-traceability.sh`
+
+## D74: 每 Phase 内联测试任务（+18 总计）
+- **日期**: 2026-07-22
+- **决定**: 每个 P0/P1 子任务包中包含内联测试任务（如 T3.1→T3.1b、T3.5→T3.5b），测试任务与实现任务保持 1:1 配对。总计新增 18 个测试子任务。
+- **理由**: P0 测试分析发现 7 个模块无独立测试任务——测试依赖分散在实现任务中，完成后无人验证。内联配对确保每个模块有明确的「测试编写」和「测试验证」步骤，TDD 可执行化。
+- **参考**: `.sisyphus/plans/p0-testing-optimization/design.md` §3（任务结构重构）
+
+## D75: AI 生成代码须在同一个 PR 中包含测试
+- **日期**: 2026-07-22
+- **决定**: 所有由 AI 代理生成的代码必须在其提交的同一个 PR 中包含对应测试（单元测试或集成测试）。测试缺失则 PR 不可合并。AI 代理在 `task.md` 的 acceptance criteria 中明确列出所需测试。
+- **理由**: P0 测试优化分析发现 AI 生成的模块（LD 编译器、FBD 编译器、SFC 编辑器）测试覆盖率偏低，原因是 AI 优先完成功能代码、测试作为「后续任务」被跳过了。同 PR 提交强制 AI 代理在交付时承担测试责任。
+- **参考**: `.sisyphus/plans/p0-testing-optimization/design.md` §4（AI 代理测试约束）
+
+## D76: Phase 退出条件可自动验证（P4 签字除外）
+- **日期**: 2026-07-22
+- **决定**: 除 P4（生产部署签字）外，所有 Phase 退出条件必须可自动验证（CI 脚本检查）。退出条件包括但不限于：测试通过率、SDD 追溯率、覆盖率、性能基准。P4 签字是唯一的人类判断门。
+- **理由**: 手动审核不可重复、不可 CI 门禁化。可自动验证的退出条件使 Phase 边界成为真正的「绿灯/红灯」开关，减少人工审查认知负荷。P4 保留签字是因为生产部署需要安全判断、变更管理审批等不可自动化因素。
+- **参考**: `.sisyphus/plans/p0-testing-optimization/design.md` §5（Phase 退出自动化）

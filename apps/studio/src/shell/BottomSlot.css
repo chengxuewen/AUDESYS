@@ -1,0 +1,136 @@
+/* ── BottomSlot — resizable tabbed panel system ── */
+.shell-bottom-slot {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-1);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+/* ── Resize handle ── */
+
+.shell-bottom-slot__resize-handle {
+  height: 12px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 120ms ease-out;
+}
+}
+
+.shell-bottom-slot__resize-handle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-border);
+  transition: background 120ms ease-out, width 120ms ease-out;
+}
+
+.shell-bottom-slot__resize-handle:hover {
+  background: var(--color-surface-hover);
+}
+
+.shell-bottom-slot__resize-handle:hover::after {
+  background: var(--color-text-tertiary);
+  width: 48px;
+}
+
+/* ── Tab bar ── */
+
+.shell-bottom-slot__tab-bar {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+/* ── Tab ── */
+
+.shell-bottom-slot__tab {
+  height: 100%;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 400;
+  font-family: var(--font-body);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: color 100ms ease-out;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shell-bottom-slot__tab:hover {
+  color: var(--color-text-secondary);
+}
+
+/* Active tab — amber bottom indicator */
+
+.shell-bottom-slot__tab--active {
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--color-amber);
+}
+
+/* ── Close button ── */
+
+.shell-bottom-slot__tab-close {
+  background: none;
+  border: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 100ms ease-out;
+}
+
+.shell-bottom-slot__tab-close:hover {
+  color: var(--color-error);
+}
+
+/* ── Content area ── */
+
+.shell-bottom-slot__content {
+  flex: 1;
+  overflow: auto;
+}
+
+/* ── Panel ── */
+
+.shell-bottom-slot__panel {
+  display: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.shell-bottom-slot__panel--active {
+  display: flex;
+}
+
+/* ── Empty state ── */
+
+.shell-bottom-slot__empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
