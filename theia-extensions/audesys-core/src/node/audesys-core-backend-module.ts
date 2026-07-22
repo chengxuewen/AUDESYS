@@ -1,6 +1,14 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
+import { ConnectionHandler, JsonRpcConnectionHandler } from '@theia/core/lib/common';
+import { SignalBridgeServer } from './signal-bridge-service';
+import { SignalBridgeServicePath } from '../common/signal-bridge-protocol';
 
 export default new ContainerModule((bind) => {
-    // AUDESYS Studio backend contributions will be registered here in Phase 3-4
-    // This is a minimal stub for Phase 1 Task 1.1 verification
+    bind(SignalBridgeServer).toSelf().inSingletonScope();
+
+    bind(ConnectionHandler).toDynamicValue(ctx =>
+        new JsonRpcConnectionHandler(SignalBridgeServicePath, () =>
+            ctx.container.get(SignalBridgeServer)
+        )
+    ).inSingletonScope();
 });

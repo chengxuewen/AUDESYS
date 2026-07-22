@@ -1,0 +1,19 @@
+/* hmi-widgets.css — Widget namespace CSS (Layer 3)
+ * Reference: docs/plans/t3p5-lumino-conflict-resolution.md §4.3
+ */
+
+/* Override react-rnd inline z-index for resize handles (C3) */
+.hmiapp-canvas .react-resizable-handle {
+  z-index: 2147483647 !important;
+}
+
+/* Selection highlight */
+.hmiapp-canvas .hmiapp-widget-selected {
+  outline: 2px solid #FFB800;
+  outline-offset: 0;
+}
+
+/* Widget hover state in Edit mode */
+.hmiapp-canvas .hmiapp-widget-hover:not(.hmiapp-widget-selected) {
+  outline: 1px dashed rgba(255, 184, 0, 0.5);
+}

@@ -1,0 +1,21 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "src",
+      "name": "Source"
+    },
+    {
+      "path": "hmi",
+      "name": "HMI Layouts"
+    }
+  ],
+  "settings": {
+    "workbench.colorTheme": "AUDESYS Dark",
+    "editor.tabSize": 4,
+    "audesys.projectName": "AUDESYS Studio",
+    "audesys.projectVersion": "0.1.0"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "audesys-hmi-designer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUDESYS HMI Designer — Theia extension for visual HMI layout editing",
+  "license": "Apache-2.0",
+  "main": "lib/browser/index.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/hmi-designer-frontend-module"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "watch": "tsc -b -w",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lumino/widgets": "^2.5.0",
+    "@theia/core": "1.73.0",
+    "echarts": "^5.6.0",
+    "echarts-for-react": "^3.0.5",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-rnd": "^10.5.3"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/lodash": "^4.17.24",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^26.0.0",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^3.1.1"
+  }
+}

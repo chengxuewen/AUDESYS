@@ -1,0 +1,1 @@
+{"version":3,"file":"WidgetErrorOverlay.d.ts","sourceRoot":"","sources":["../../../src/browser/widgets/WidgetErrorOverlay.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,OAAO,CAAC;AAE1B,UAAU,uBAAuB;IAC/B,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,IAAI,CAAC;CACvB;AAED,MAAM,CAAC,OAAO,UAAU,kBAAkB,CAAC,EAAE,OAAO,EAAE,SAAS,EAAE,EAAE,uBAAuB,qBAoCzF"}

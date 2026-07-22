@@ -5,6 +5,11 @@
   "description": "AUDESYS FBD GLSP — GModel types, serialization, tool palette, and editor for IEC 61131-3 Function Block Diagram",
   "license": "Apache-2.0",
   "main": "lib/index.js",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/tool-palette/fbd-palette-frontend-module"
+    }
+  ],
   "scripts": {
     "build": "tsc -b",
     "clean": "rimraf lib",

@@ -1,0 +1,1 @@
+{"version":3,"file":"useTheiaHmiSignal.d.ts","sourceRoot":"","sources":["../../../src/browser/hooks/useTheiaHmiSignal.ts"],"names":[],"mappings":"AAEA,MAAM,WAAW,eAAe;IAC9B,KAAK,EAAE,MAAM,GAAG,IAAI,CAAC;IACrB,KAAK,EAAE,MAAM,GAAG,IAAI,CAAC;IACrB,UAAU,EAAE,MAAM,IAAI,CAAC;CACxB;AAED;;;;;;GAMG;AACH,wBAAgB,iBAAiB,CAAC,UAAU,CAAC,EAAE,MAAM,GAAG,eAAe,CAiCtE"}

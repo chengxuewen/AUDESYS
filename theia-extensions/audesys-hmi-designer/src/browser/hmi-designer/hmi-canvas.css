@@ -1,0 +1,31 @@
+/* hmi-canvas.css — Canvas boundary CSS isolation (Layer 2)
+ * Reference: docs/plans/t3p5-lumino-conflict-resolution.md §4.2
+ */
+
+.hmiapp-canvas {
+  /* Reset Theia/Lumino inherited styles at the boundary */
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0a0a0b;
+
+  /* CSS containment — prevents style leakage both ways (C3) */
+  contain: layout style;
+
+  /* Scroll isolation (C4) */
+  overscroll-behavior: contain;
+
+  /* Typography reset */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #e0e0e0;
+}
+
+.hmiapp-canvas *,
+.hmiapp-canvas *::before,
+.hmiapp-canvas *::after {
+  box-sizing: border-box;
+}

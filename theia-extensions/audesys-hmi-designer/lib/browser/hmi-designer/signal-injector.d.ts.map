@@ -1,0 +1,1 @@
+{"version":3,"file":"signal-injector.d.ts","sourceRoot":"","sources":["../../../src/browser/hmi-designer/signal-injector.tsx"],"names":[],"mappings":"AAAA,OAAO,KAA2C,MAAM,OAAO,CAAC;AAChE,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,cAAc,CAAC;AAEnD,UAAU,mBAAmB;IAC3B,OAAO,EAAE,cAAc,EAAE,CAAC;CAC3B;AAmBD,MAAM,CAAC,OAAO,UAAU,cAAc,CAAC,EAAE,OAAO,EAAE,EAAE,mBAAmB,qBA2FtE"}
