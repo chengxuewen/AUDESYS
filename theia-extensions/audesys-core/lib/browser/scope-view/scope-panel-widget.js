@@ -189,6 +189,8 @@ let ScopeViewWidget = ScopeViewWidget_1 = class ScopeViewWidget extends react_wi
     }
     // --- Actions ---
     async fetchAndPush() {
+        if (!this.signalBridge)
+            return;
         try {
             const signals = await this.signalBridge.signalSnapshot('*');
             this.setState({ error: null });
@@ -300,6 +302,7 @@ exports.ScopeViewWidget = ScopeViewWidget;
 ScopeViewWidget.ID = 'audesys.scope-view';
 ScopeViewWidget.LABEL = 'Scope View';
 __decorate([
+    (0, inversify_1.optional)(),
     (0, inversify_1.inject)(signal_bridge_protocol_1.SignalBridgeService),
     __metadata("design:type", Object)
 ], ScopeViewWidget.prototype, "signalBridge", void 0);

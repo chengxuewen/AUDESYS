@@ -184,6 +184,8 @@ let SignalBrowserWidget = SignalBrowserWidget_1 = class SignalBrowserWidget exte
         }, React.createElement('span', null, polling ? `\u25CF Live (${count})` : '\u25CB Idle'), React.createElement('span', null, `${this.treeModel.getGroups().length} groups, ${signals.length} signals`));
     }
     async fetchSignals() {
+        if (!this.signalBridge)
+            return;
         try {
             const signals = await this.signalBridge.signalSnapshot(this.state.pattern);
             this.setState({ signals, count: this.state.count + 1, error: null });
@@ -223,6 +225,7 @@ exports.SignalBrowserWidget = SignalBrowserWidget;
 SignalBrowserWidget.ID = 'audesys.signal-browser';
 SignalBrowserWidget.LABEL = 'Signal Browser';
 __decorate([
+    (0, inversify_1.optional)(),
     (0, inversify_1.inject)(signal_bridge_protocol_1.SignalBridgeService),
     __metadata("design:type", Object)
 ], SignalBrowserWidget.prototype, "signalBridge", void 0);
