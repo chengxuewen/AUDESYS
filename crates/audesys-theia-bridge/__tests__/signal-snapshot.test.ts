@@ -8,3 +8,11 @@ describe('signalSnapshot', () => {
     expect(() => bridge.signalSnapshot('/tmp/test.sock', 'secret', '*')).toThrow();
   });
 });
+
+  it('throws with empty socket path', () => {
+    expect(() => bridge.signalSnapshot('', 'secret', '*')).toThrow();
+  });
+
+  it('throws with empty secret', () => {
+    expect(() => bridge.signalSnapshot('/tmp/test.sock', '', '*')).toThrow();
+  });

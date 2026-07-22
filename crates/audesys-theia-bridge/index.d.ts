@@ -39,6 +39,35 @@ export declare function compileSfc(source: string): string
  */
 export declare function compileSt(source: string): string
 
+/**
+ * Check whether the Controller process is alive.
+ *
+ * Attempts a UDS connection to the stored socket path.
+ * Returns JSON: `{"alive": true, "pid": 12345, "uptime_sec": 120}`
+ */
+export declare function controllerHealth(): string
+
+/**
+ * Start the AUDESYS Controller as a child process.
+ *
+ * Spawns the binary at `binary_path`, then polls for the UDS socket at
+ * `socket_path` to become available (100ms interval, 10s timeout).
+ * Returns JSON: `{"pid": 12345, "socket": "/tmp/...", "status": "running"}`
+ */
+export declare function controllerStart(socketPath: string, binaryPath: string): string
+
+/**
+ * Stop the running Controller process.
+ *
+ * Sends SIGKILL to the child process and cleans up the UDS socket file.
+ * Returns JSON: `{"status": "stopped"}`
+ *
+ * ponytail: SIGTERM-first graceful shutdown is not implemented — the
+ * Controller is a local dev process, not a production server. Add SIGTERM
+ * when the Controller has a signal handler for in-flight program save.
+ */
+export declare function controllerStop(): string
+
 /** Set a breakpoint at the given instruction pointer. */
 export declare function debugAddBreakpoint(ip: number): string
 

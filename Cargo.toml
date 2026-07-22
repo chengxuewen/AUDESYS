@@ -16,7 +16,6 @@ members = [
   "crates/audesys-dap-adapter",
   "crates/audesys-il-compiler",
   "crates/audesys-ld-compiler",
-  "crates/audesys-ld-compiler",
   "crates/audesys-ld-layout",
   "crates/audesys-ld-semantics",
   "crates/audesys-sfc-compiler",

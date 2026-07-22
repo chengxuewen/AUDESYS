@@ -62,3 +62,71 @@ describe('stubs', () => {
     );
   });
 });
+
+// ── Additional edge-case tests for stubs ──────────────────────────
+
+describe('stubs — edge cases', () => {
+  it('compileFbd throws with empty source', () => {
+    expect(() => bridge.compileFbd('')).toThrow('not implemented');
+  });
+
+  it('compileFbd throws with null-like content', () => {
+    expect(() => bridge.compileFbd('undefined')).toThrow('not implemented');
+  });
+
+  it('compileGcode throws with empty source', () => {
+    expect(() => bridge.compileGcode('')).toThrow('not implemented');
+  });
+
+  it('compileGcode throws with partial command', () => {
+    expect(() => bridge.compileGcode('G')).toThrow('not implemented');
+  });
+
+  it('compileSfc throws with empty source', () => {
+    expect(() => bridge.compileSfc('')).toThrow('not implemented');
+  });
+
+  it('compileSfc throws with bogus input', () => {
+    expect(() => bridge.compileSfc('not a step')).toThrow('not implemented');
+  });
+
+  it('openProject throws with empty path', () => {
+    expect(() => bridge.openProject('')).toThrow('not implemented');
+  });
+
+  it('openProject throws with null-like path', () => {
+    expect(() => bridge.openProject('.')).toThrow('not implemented');
+  });
+
+  it('readProjectFile throws with empty path', () => {
+    expect(() => bridge.readProjectFile('')).toThrow('not implemented');
+  });
+
+  it('readProjectFile throws with extensionless path', () => {
+    expect(() => bridge.readProjectFile('config')).toThrow('not implemented');
+  });
+
+  it('saveHmiLayout throws with empty path', () => {
+    expect(() => bridge.saveHmiLayout('', 'layout: {}')).toThrow('not implemented');
+  });
+
+  it('saveHmiLayout throws with empty content', () => {
+    expect(() => bridge.saveHmiLayout('/tmp/test.yaml', '')).toThrow('not implemented');
+  });
+
+  it('loadHmiLayout throws with empty path', () => {
+    expect(() => bridge.loadHmiLayout('')).toThrow('not implemented');
+  });
+
+  it('loadHmiLayout throws with relative path', () => {
+    expect(() => bridge.loadHmiLayout('./layout.yaml')).toThrow('not implemented');
+  });
+
+  it('deployHmiLayout throws with empty path', () => {
+    expect(() => bridge.deployHmiLayout('', '', 'yaml: content')).toThrow('not implemented');
+  });
+
+  it('loadHalConfig throws with empty config', () => {
+    expect(() => bridge.loadHalConfig('/tmp/sock', 'secret', '')).toThrow('not implemented');
+  });
+});

@@ -24,3 +24,22 @@ describe('compileLd', () => {
     expect(() => bridge.compileLd('')).toThrow();
   });
 });
+
+  it('compiles a multi-network LD source', () => {
+    const ldSource = [
+      'NETWORK',
+      'TITLE = First',
+      'LD %IX0.0',
+      'ST %QX0.0',
+      '',
+      'NETWORK',
+      'TITLE = Second',
+      'LD %IX0.1',
+      'AND %IX0.2',
+      'ST %QX0.1',
+    ].join('\n');
+
+    const result = bridge.compileLd(ldSource);
+    expect(result).toBeTruthy();
+    expect(() => JSON.parse(result)).not.toThrow();
+  });

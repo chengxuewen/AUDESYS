@@ -17,3 +17,9 @@ describe('compileIl', () => {
     expect(result).toBeTruthy();
   });
 });
+
+  it('compiles a multi-line IL with JMP/LBL', () => {
+    const result = bridge.compileIl('LD %IX0.0\nJMPC label1\nLD 0\nST %QX0.0\nlabel1: LD 1\nST %QX0.1');
+    expect(result).toBeTruthy();
+    expect(() => JSON.parse(result)).not.toThrow();
+  });

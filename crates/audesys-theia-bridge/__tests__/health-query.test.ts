@@ -12,3 +12,7 @@ describe('healthQuery', () => {
     expect(() => bridge.healthQuery('', '')).toThrow();
   });
 });
+
+  it('throws with an invalid (non-existent) socket path', () => {
+    expect(() => bridge.healthQuery('/tmp/does-not-exist.sock', 'secret')).toThrow();
+  });

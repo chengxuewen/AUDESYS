@@ -12,3 +12,7 @@ describe('readSignal', () => {
     expect(() => bridge.readSignal('', '', '')).toThrow();
   });
 });
+
+  it('throws with invalid signal name containing special chars', () => {
+    expect(() => bridge.readSignal('/tmp/test.sock', 'secret', '../../../etc/passwd')).toThrow();
+  });

@@ -8,3 +8,11 @@ describe('deployProgram', () => {
     expect(() => bridge.deployProgram('/tmp/test.sock', 'secret', '{"program":{}}')).toThrow();
   });
 });
+
+  it('throws with empty socket path', () => {
+    expect(() => bridge.deployProgram('', 'secret', '{"program":{}}')).toThrow();
+  });
+
+  it('throws with invalid program JSON', () => {
+    expect(() => bridge.deployProgram('/tmp/test.sock', 'secret', 'not json')).toThrow();
+  });
