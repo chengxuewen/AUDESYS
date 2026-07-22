@@ -146,7 +146,8 @@ M30";
     }
 
     #[test]
-    fn test_unsupported_code() {
+    // SDD: CNC-LEX-07 unknown letter rejection
+fn test_unsupported_code() {
         let result = gcode_compile("G99 X10");
         assert!(result.is_err());
     }

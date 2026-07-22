@@ -27,6 +27,7 @@ export interface ValidationOptions {
   maxWidgets?: number;
 }
 
+// SDD: HMI-VAL-009 overlap detection (P2 — Phase 2 optional; Phase 1 allows overlapping)
 export function validateLayout(
   layout: HmiLayout,
   options?: ValidationOptions,

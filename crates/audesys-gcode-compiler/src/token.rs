@@ -278,6 +278,7 @@ mod tests {
     use super::*;
 
     #[test]
+    // SDD: CNC-LEX-01 single-word lex, CNC-LEX-08 case-insensitive
     fn test_single_g0() {
         let tokens = tokenize("G0 X10 Y20").unwrap();
         assert_eq!(tokens[0].token, Token::G(0));
@@ -287,6 +288,7 @@ mod tests {
     }
 
     #[test]
+    // SDD: CNC-LEX-03 parentheses comment stripping
     fn test_comment_stripping() {
         let tokens = tokenize("G1 X5 (this is a comment) Y10").unwrap();
         assert_eq!(tokens[0].token, Token::G(1));
@@ -295,6 +297,7 @@ mod tests {
     }
 
     #[test]
+    // SDD: CNC-LEX-04 semicolon comment stripping
     fn test_semicolon_comment() {
         let tokens = tokenize("G0 X0 ; move to origin\nG1 X10").unwrap();
         let g0_idx = tokens.iter().position(|t| t.token == Token::G(0)).unwrap();
@@ -304,6 +307,7 @@ mod tests {
     }
 
     #[test]
+    // SDD: CNC-LEX-05 line number N handling
     fn test_line_numbers() {
         let tokens = tokenize("N10 G0 X0\nN20 G1 X10").unwrap();
         assert_eq!(tokens[0].token, Token::LineNum(10));
@@ -313,6 +317,7 @@ mod tests {
     }
 
     #[test]
+    // SDD: CNC-LEX-02 multi-word coordinate lexing
     fn test_multi_line() {
         let tokens = tokenize("G0 X0 Y0\nG1 X10 Y20 F100\nM30").unwrap();
         let eol_count = tokens.iter().filter(|t| t.token == Token::EOL).count();
@@ -333,12 +338,14 @@ mod tests {
     }
 
     #[test]
+    // SDD: CNC-LEX-06 optional block skip /
     fn test_block_delete() {
         let tokens = tokenize("/ G0 X10").unwrap();
         assert_eq!(tokens[0].token, Token::Slash);
     }
 
     #[test]
+    // SDD: CNC-LEX-03 nested comments
     fn test_nested_comments() {
         let tokens = tokenize("G0 (outer(inner)still) X10").unwrap();
         assert_eq!(tokens[0].token, Token::G(0));
@@ -346,6 +353,7 @@ mod tests {
     }
 
     #[test]
+    // SDD: CNC-LEX-08 case-insensitive (G1.0 → G(1))
     fn test_fractional_gcode() {
         let tokens = tokenize("G1.0 X5.5").unwrap();
         assert_eq!(tokens[0].token, Token::G(1)); // fractional part dropped
