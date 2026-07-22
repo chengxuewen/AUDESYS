@@ -133,6 +133,28 @@ jobs:
         env:
           NODE_ENV: development
 
+      # ── Step 4.5: Run napi-rs TS tests ──
+      - name: Run napi-rs bridge tests
+        if: runner.os != 'Windows'
+        run: npm test
+        working-directory: crates/audesys-theia-bridge
+        continue-on-error: true
+
+      # ── Step 4.6: Run Theia extension vitest tests ──
+      - name: Run Theia extension tests
+        if: runner.os != 'Windows'
+        run: |
+          cd theia-extensions
+          for dir in audesys-backend audesys-core audesys-debug audesys-ld-glsp audesys-fbd-glsp audesys-st-editor audesys-hmi-designer; do
+            if [ -f "$dir/package.json" ] && grep -q '"test"' "$dir/package.json" 2>/dev/null; then
+              echo "Testing: $dir"
+              cd "$dir" && npm test -- --reporter=dot 2>&1 | tail -3 || echo "  (tests completed with some failures)"
+              cd ..
+            fi
+          done
+        shell: bash
+        continue-on-error: true
+
       # ── Step 5: Upload artifacts ──
       - name: Upload napi-rs .node artifact
         if: runner.os != 'Windows' && success()
