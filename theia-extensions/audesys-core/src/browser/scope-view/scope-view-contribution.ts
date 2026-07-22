@@ -32,6 +32,12 @@ export class ScopeViewContribution extends AbstractViewContribution<ScopeViewWid
 
     /** Auto-open the widget on application start. */
     async onStart(_app: FrontendApplication): Promise<void> {
-        this.openView({ reveal: true });
-    }
+        // ponytail: shell may not be ready during early init; catch prevents crash
+        try {
+            this.openView({ reveal: true });
+        } catch {
+            /* widget will open when user clicks Scope View in sidebar */
+        }
+}
+
 }

@@ -38,6 +38,12 @@ export class SignalBrowserContribution extends AbstractViewContribution<SignalBr
      * Open the widget on application start so it's always visible.
      */
     async onStart(_app: FrontendApplication): Promise<void> {
-        this.openView({ reveal: true });
-    }
+        // ponytail: shell may not be ready during early init; catch prevents crash
+        try {
+            this.openView({ reveal: true });
+        } catch {
+            /* widget will open when user clicks Signal Browser in sidebar */
+        }
+}
+
 }

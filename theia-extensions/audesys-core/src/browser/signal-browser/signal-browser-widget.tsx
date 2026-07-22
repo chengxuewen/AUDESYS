@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { injectable, inject, postConstruct } from '@theia/core/shared/inversify';
+import { injectable, inject, postConstruct, optional } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import type { Message } from '@theia/core/lib/browser';
 import { SignalBridgeService } from '../../common/signal-bridge-protocol';
@@ -22,8 +22,8 @@ export class SignalBrowserWidget extends ReactWidget {
     static readonly ID = 'audesys.signal-browser';
     static readonly LABEL = 'Signal Browser';
 
-    @inject(SignalBridgeService)
-    private readonly signalBridge!: SignalBridgeService;
+    @optional() @inject(SignalBridgeService)
+    private readonly signalBridge: SignalBridgeService | undefined;
 
     private treeModel = new SignalTreeModel();
     private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -202,6 +202,7 @@ export class SignalBrowserWidget extends ReactWidget {
     }
 
     private async fetchSignals(): Promise<void> {
+        if (!this.signalBridge) return;
         try {
             const signals = await this.signalBridge.signalSnapshot(this.state.pattern);
             this.setState({ signals, count: this.state.count + 1, error: null });

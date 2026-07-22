@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { injectable, inject, postConstruct } from '@theia/core/shared/inversify';
+import { injectable, inject, postConstruct, optional } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import type { Message } from '@theia/core/lib/browser';
 import { SignalBridgeService } from '../../common/signal-bridge-protocol';
@@ -33,8 +33,8 @@ export class ScopeViewWidget extends ReactWidget {
     static readonly ID = 'audesys.scope-view';
     static readonly LABEL = 'Scope View';
 
-    @inject(SignalBridgeService)
-    private readonly signalBridge!: SignalBridgeService;
+    @optional() @inject(SignalBridgeService)
+    private readonly signalBridge: SignalBridgeService | undefined;
 
     private pollTimer: ReturnType<typeof setInterval> | null = null;
     private buffer = new TimeSeriesBuffer(MAX_POINTS);
@@ -247,6 +247,7 @@ export class ScopeViewWidget extends ReactWidget {
     // --- Actions ---
 
     private async fetchAndPush(): Promise<void> {
+        if (!this.signalBridge) return;
         try {
             const signals: SignalEntry[] = await this.signalBridge.signalSnapshot('*');
             this.setState({ error: null });

@@ -19,11 +19,7 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge",
-    "@theia/core": "1.73.0",
-    "@theia/filesystem": "1.73.0",
-    "@theia/navigator": "1.73.0",
-    "@theia/workspace": "1.73.0"
+    "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
