@@ -260,7 +260,23 @@
 - **工作位置**: `apps/studio-theia-test/`（非 `apps/studio-theia/`）
 
 ### 遗留问题
+### 遗留问题
 - 需将修复从 `apps/studio-theia-test/` 移植回 `apps/studio-theia/`
+
+### 浏览器兼容性 (2026-07-22)
+- **问题**: Theia Electron 构建无法在浏览器中访问——安全令牌 403 + WindowMetadata API 缺失
+- **方案**: 4 个补丁实现双端可用
+  1. `lib/frontend/index.html` — 38 API electronTheiaCore polyfill
+  2. `lib/frontend/bundle.js` — WindowMetadata 可选链修复
+  3. `lib/backend/electron-main.js` — allowRequest 令牌绕过
+  4. `lib/backend/main.js` — 中间件令牌绕过
+- **自动化**: `postbuild.sh` 在每次 `theia build` 后自动应用补丁
+- **注意**: `npm install` 会重置 node_modules 令牌补丁
+
+### audesys 扩展浏览器初始化 (2026-07-22)
+- **问题**: audesys-core 的 IecNewFileContribution 在浏览器中因 Monaco async dep 崩溃
+- **方案**: 禁用 IecNewFileContribution + SignalBrowser/ScopeView 使用 try-catch + @optional() 延迟注入
+- **audesys-debug**: 就绪，无阻塞问题——仅 3 个非阻塞关注点
 
 ### F12 DevTools 不弹出
 - **问题**: Electron 窗口按下 F12 / Cmd+Option+I 无反应，DevTools 无法打开
