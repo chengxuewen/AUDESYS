@@ -128,3 +128,6 @@ crates/audesys-theia-bridge/index.js
 
 # Theia test sandbox (keep source, ignore build)
 apps/studio-theia-test/node_modules/
+
+# Playwright screenshots and test artifacts
+*.png
