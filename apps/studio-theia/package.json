@@ -50,6 +50,7 @@
     "audesys-gcode-editor": "file:../../theia-extensions/audesys-gcode-editor",
     "audesys-sfc-editor": "file:../../theia-extensions/audesys-sfc-editor",
     "audesys-ld-glsp": "file:../../theia-extensions/audesys-ld-glsp",
+    "audesys-fbd-glsp": "file:../../theia-extensions/audesys-fbd-glsp",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.5",
     "react-rnd": "^10.5.3"
