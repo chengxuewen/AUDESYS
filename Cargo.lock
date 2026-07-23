@@ -252,6 +252,7 @@ dependencies = [
  "audesys-ld-compiler",
  "audesys-runtime-common",
  "audesys-sfc-compiler",
+ "bincode",
  "napi",
  "napi-build",
  "napi-derive",

@@ -12,7 +12,7 @@
 //! | Debug        | 9     | all stub   |
 //! | Simulation   | 3     | all stub   |
 //! | Project      | 2     | all stub   |
-//! | Config/HMI   | 2     | all stub   |
+//! | HMI/Config   | 3     | save/load real, deploy real |
 
 use napi_derive::napi;
 use audesys_hal_binding_gen::compile;
@@ -39,11 +39,17 @@ static CONTROLLER: Mutex<Option<ControllerHandle>> = Mutex::new(None);
 static SOCKET_PATH: Mutex<Option<String>> = Mutex::new(None);
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-/// Serialize a serde-compatible value to JSON, mapping failure to napi::Error.
 fn to_json<T: serde::Serialize>(value: &T) -> napi::Result<String> {
     serde_json::to_string(value).map_err(|e| napi::Error::from_reason(format!("serialize: {e}")))
 }
 
+// Convert JSON HalProgram (from compiler output) to bincode for Controller deployment.
+fn json_to_bincode(json: &str) -> napi::Result<Vec<u8>> {
+    let program: audesys_hal_ir::program::HalProgram = serde_json::from_str(json)
+        .map_err(|e| napi::Error::from_reason(format!("deserialize: {e}")))?;
+    bincode::serialize(&program)
+        .map_err(|e| napi::Error::from_reason(format!("bincode: {e}")))
+}
 /// Create a one-shot controller connection, authenticate, run `f`, disconnect.
 /// `role_str`: "operator" | "engineer" | "supervisor" | "auditor" | "system"
 fn with_controller<F>(
@@ -179,8 +185,9 @@ pub fn deploy_program(
     secret: String,
     program_json: String,
 ) -> napi::Result<String> {
+    let program_bincode = json_to_bincode(&program_json)?;
     with_controller(&socket_path, &secret, Role::Engineer, |client| {
-        client.load_program(program_json.as_bytes())
+        client.load_program(&program_bincode)
     })
 }
 
@@ -316,11 +323,13 @@ pub fn controller_health() -> napi::Result<String> {
 /// Stub — DEPLOY_HMI_LAYOUT IPC available in Phase 1 follow-up.
 #[napi]
 pub fn deploy_hmi_layout(
-    _socket_path: String,
-    _secret: String,
-    _yaml: String,
+    socket_path: String,
+    secret: String,
+    yaml: String,
 ) -> napi::Result<String> {
-    stub("deploy_hmi_layout")
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.deploy_hmi_layout(yaml.as_bytes()).map(|generation| generation.to_string())
+    })
 }
 
 /// Load a HAL configuration (YAML) to a running Controller via IPC.
@@ -431,16 +440,20 @@ pub fn read_project_file(_file_path: String) -> napi::Result<String> {
     stub("read_project_file")
 }
 
-// ── HMI layout (stubs) ────────────────────────────────────────────────────
+// ── HMI layout ──────────────────────────────────────────────────────────
 
 /// Save HMI layout YAML to a local file.
 #[napi]
-pub fn save_hmi_layout(_path: String, _yaml: String) -> napi::Result<String> {
-    stub("save_hmi_layout")
+pub fn save_hmi_layout(path: String, yaml: String) -> napi::Result<String> {
+    fs::write(&path, &yaml)
+        .map_err(|e| napi::Error::from_reason(format!("write: {e}")))?;
+    Ok(format!(r#"{{"saved":"{}"}}"#, path))
 }
 
 /// Load HMI layout YAML from a local file.
 #[napi]
-pub fn load_hmi_layout(_path: String) -> napi::Result<String> {
-    stub("load_hmi_layout")
+pub fn load_hmi_layout(path: String) -> napi::Result<String> {
+    let yaml = fs::read_to_string(&path)
+        .map_err(|e| napi::Error::from_reason(format!("read: {e}")))?;
+    Ok(yaml)
 }

@@ -44,6 +44,8 @@
     "audesys-core": "file:../../theia-extensions/audesys-core",
     "audesys-debug": "file:../../theia-extensions/audesys-debug",
     "audesys-hmi-designer": "file:../../theia-extensions/audesys-hmi-designer",
+    "audesys-backend": "file:../../theia-extensions/audesys-backend"
+  ],
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.5",
     "react-rnd": "^10.5.3"

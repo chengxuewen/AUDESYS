@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 napi = { version = "3", features = ["napi4", "serde-json"] }
 napi-derive = "3"
 serde_json = "1"
+bincode = "1"
 serde = { version = "1", features = ["derive"] }
 audesys-hal-binding-gen = { path = "../audesys-hal-binding-gen" }
 audesys-il-compiler = { path = "../audesys-il-compiler" }
