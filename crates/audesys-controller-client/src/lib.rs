@@ -44,7 +44,9 @@ const METHOD_PREPARE_SWAP: u8 = 0x11;
 const METHOD_COMMIT_SWAP: u8 = 0x12;
 const METHOD_ROLLBACK_SWAP: u8 = 0x13;
 const METHOD_DEPLOY_HMI_LAYOUT: u8 = 0x17;
-
+const METHOD_SUBSCRIBE_SIGNAL: u8 = 0x14;
+const METHOD_UNSUBSCRIBE_SIGNAL: u8 = 0x15;
+pub const METHOD_SIGNAL_PUSH: u8 = 0x16;
 const STATUS_OK: u8 = 0x00;
 #[allow(dead_code)]
 const STATUS_ERROR: u8 = 0x01;
@@ -440,8 +442,38 @@ impl ControllerClient {
         Ok(generation)
     }
 
-    // ── Internal helpers ──
+    /// Subscribe to receive push notifications for a signal.
+    ///
+    /// After subscribing, the Controller will send unsolicited SIGNAL_PUSH (0x16)
+    /// frames with JSON payload `{"signal":"<name>","value":<value>}` every cycle.
+    /// Use a separate connection for receiving push frames to avoid
+    /// interference with request/response traffic on this connection.
+    pub fn subscribe_signal(&mut self, name: &str) -> Result<(), String> {
+        self.send_request(METHOD_SUBSCRIBE_SIGNAL, name.as_bytes())?;
+        Ok(())
+    }
 
+    /// Unsubscribe from push notifications for a signal.
+    pub fn unsubscribe_signal(&mut self, name: &str) -> Result<(), String> {
+        self.send_request(METHOD_UNSUBSCRIBE_SIGNAL, name.as_bytes())?;
+        Ok(())
+    }
+
+    /// Read any frame from the stream — for receiving unsolicited push frames (0x16).
+    ///
+    /// Returns (method_id, payload) without checking status. Call this in a
+    /// separate connection that is dedicated to push receiving (after subscribing).
+    /// Use `set_read_timeout` on the stream before calling to avoid blocking forever.
+    pub fn read_raw_frame(&mut self) -> io::Result<(u8, Vec<u8>)> {
+        read_raw_frame(&mut self.stream)
+    }
+
+    /// Set a read timeout on the underlying stream.
+    pub fn set_read_timeout(&mut self, timeout: Option<std::time::Duration>) -> io::Result<()> {
+        self.stream.set_read_timeout(timeout)
+    }
+
+    // ── Internal helpers ──
     /// Build a wire request frame, send it, read the response, and check status.
     fn send_request(&mut self, method_id: u8, payload: &[u8]) -> Result<Vec<u8>, String> {
         let token = self.session_token.as_deref().unwrap_or(&[0u8; TOKEN_WIRE_SIZE]);
@@ -479,6 +511,26 @@ fn read_exact(stream: &mut UnixStream, n: usize) -> io::Result<Vec<u8>> {
     let mut buf = vec![0u8; n];
     stream.read_exact(&mut buf)?;
     Ok(buf)
+}
+
+/// Read any frame from stream — returns (method_id, payload) without checking status.
+/// Used for unsolicited push frame (0x16) receiving.
+fn read_raw_frame(stream: &mut UnixStream) -> io::Result<(u8, Vec<u8>)> {
+    let len_bytes = read_exact(stream, 4)?;
+    let frame_len =
+        u32::from_le_bytes([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]]) as usize;
+    if frame_len < 6 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "frame too short"));
+    }
+    let payload_len = frame_len - 6;
+    let method_id = read_exact(stream, 1)?[0];
+    let _status = read_exact(stream, 1)?[0];
+    let payload = if payload_len > 0 {
+        read_exact(stream, payload_len)?
+    } else {
+        Vec::new()
+    };
+    Ok((method_id, payload))
 }
 
 /// Read a response frame: returns (method_id, status, payload).

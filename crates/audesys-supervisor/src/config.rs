@@ -38,8 +38,11 @@ pub struct ChildConfig {
     /// Command-line arguments.
     #[serde(default)]
     pub args: Vec<String>,
+    /// Process role for IPC authentication (defaults to System).
+    /// Use "hmi" for Panel processes, "supervisor" for Supervisor.
+    #[serde(default = "default_role")]
+    pub role: String,
 }
-
 // ── Defaults ──────────────────────────────────────────────────────────
 
 const DEFAULT_UDS_PATH: &str = "/tmp/audesys-controller.sock";
@@ -54,6 +57,10 @@ fn default_check_interval() -> u64 {
 
 fn default_shutdown_timeout() -> u64 {
     5000
+}
+
+fn default_role() -> String {
+    "system".into()
 }
 
 // ── Load ──────────────────────────────────────────────────────────────
