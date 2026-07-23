@@ -23,6 +23,7 @@ audesys-gcode-compiler = { path = "../audesys-gcode-compiler" }
 audesys-hal-ir = { path = "../audesys-hal-ir" }
 audesys-controller-client = { path = "../audesys-controller-client" }
 audesys-runtime-common = { path = "../audesys-runtime-common" }
+audesys-controller = { path = "../audesys-controller" }
 
 [build-dependencies]
 napi-build = "2"

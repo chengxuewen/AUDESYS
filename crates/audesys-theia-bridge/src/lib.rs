@@ -7,18 +7,22 @@
 //!
 //! | Category     | Count | Status     |
 //! |-------------|-------|------------|
-//! | Compilers    | 6     | 2 real, 4 stub |
-//! | Controller   | 7     | 4 IPC + 3 lifecycle |
+//! | Compilers    | 6     | all real  |
+//! | Controller   | 8     | 5 IPC + 3 lifecycle |
 //! | Debug        | 9     | all stub   |
-//! | Simulation   | 3     | all stub   |
-//! | Project      | 2     | all stub   |
-//! | HMI/Config   | 3     | save/load real, deploy real |
+//! | Simulation   | 3     | all real   |
+//! | Project      | 2     | all real   |
+//! | HMI/Config   | 3     | save/load/deploy real |
 
 use napi_derive::napi;
 use audesys_hal_binding_gen::compile;
 use audesys_il_compiler::il_compile;
 use audesys_ld_compiler::ld_compile;
+use audesys_fbd_compiler::fbd_compile;
+use audesys_sfc_compiler::sfc_compile;
+use audesys_gcode_compiler::gcode_compile;
 use audesys_controller_client::ControllerClient;
+use audesys_controller::simulation::SimulationHarness;
 use audesys_runtime_common::types::Role;
 use std::fs;
 use std::os::unix::net::UnixStream;
@@ -37,6 +41,7 @@ struct ControllerHandle {
 static CONTROLLER: Mutex<Option<ControllerHandle>> = Mutex::new(None);
 // ponytail: separate mutex for socket path avoids holding controller lock during cleanup.
 static SOCKET_PATH: Mutex<Option<String>> = Mutex::new(None);
+static SIM: Mutex<Option<SimulationHarness>> = Mutex::new(None);
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 fn to_json<T: serde::Serialize>(value: &T) -> napi::Result<String> {
@@ -121,26 +126,31 @@ pub fn compile_ld(source: String) -> napi::Result<String> {
 
 /// Compile IEC 61131-3 Function Block Diagram source into HalProgram JSON.
 ///
-/// Stub — FBD compiler → IL → HalProgram pipeline available in Phase 2a.
+/// Compiles FBD text (CFC format) via IL: FBD source → IL text → HalProgram.
 #[napi]
-pub fn compile_fbd(_source: String) -> napi::Result<String> {
-    stub("compile_fbd")
+pub fn compile_fbd(source: String) -> napi::Result<String> {
+    let il = fbd_compile(&source).map_err(|e| napi::Error::from_reason(e))?;
+    let program = il_compile(&il).map_err(|e| napi::Error::from_reason(e))?;
+    to_json(&program)
 }
 
 /// Compile IEC 61131-3 Sequential Function Chart source into HalProgram JSON.
 ///
-/// Stub — SFC compiler → IL → HalProgram pipeline available in Phase 2b.
+/// Compiles SFC text via IL: SFC source → IL text → HalProgram.
 #[napi]
-pub fn compile_sfc(_source: String) -> napi::Result<String> {
-    stub("compile_sfc")
+pub fn compile_sfc(source: String) -> napi::Result<String> {
+    let il = sfc_compile(&source).map_err(|e| napi::Error::from_reason(e))?;
+    let program = il_compile(&il).map_err(|e| napi::Error::from_reason(e))?;
+    to_json(&program)
 }
 
 /// Compile G-code (RS274/NGC subset) source into a HalProgram JSON string.
 ///
-/// Stub — G-code compiler available; enable when CNC Phase 2 begins.
+/// Returns the serialized `HalProgram` on success.
 #[napi]
-pub fn compile_gcode(_source: String) -> napi::Result<String> {
-    stub("compile_gcode")
+pub fn compile_gcode(source: String) -> napi::Result<String> {
+    let program = gcode_compile(&source).map_err(|e| napi::Error::from_reason(e.to_string()))?;
+    to_json(&program)
 }
 
 // ── PHASE 1 CORE — Controller IPC ────────────────────────────────────────
@@ -333,16 +343,16 @@ pub fn deploy_hmi_layout(
     })
 }
 
-/// Load a HAL configuration (YAML) to a running Controller via IPC.
-///
-/// Stub — config manager module deferred.
+/// Load a HAL configuration (YAML) to a running Controller via IPC method 0x08.
 #[napi]
 pub fn load_hal_config(
-    _socket_path: String,
-    _secret: String,
-    _yaml: String,
-) -> napi::Result<String> {
-    stub("load_hal_config")
+    socket_path: String,
+    secret: String,
+    yaml: String,
+    ) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.load_hal_config(yaml.as_bytes())
+    })
 }
 
 // ── PHASE 3 — Debug (all stubs) ──────────────────────────────────────────
@@ -407,38 +417,56 @@ pub fn debug_get_state() -> napi::Result<String> {
     stub("debug_get_state")
 }
 
-// ── Simulation (stubs) ────────────────────────────────────────────────────
+// ── Simulation ────────────────────────────────────────────────────────
 
-/// Create a new simulation environment.
+/// Create a new simulation environment with the given cycle interval (ms).
 #[napi]
-pub fn sim_create(_cycle_ms: i64) -> napi::Result<String> {
-    stub("sim_create")
+pub fn sim_create(cycle_ms: i64) -> napi::Result<String> {
+    let mut guard = SIM.lock().unwrap();
+    if guard.is_some() {
+        return Err(napi::Error::from_reason(
+            "simulation already active. Call sim_destroy() first.",
+        ));
+    }
+    let sim = SimulationHarness::new(cycle_ms as u64);
+    *guard = Some(sim);
+    Ok(serde_json::json!({"status": "created", "cycle_ms": cycle_ms}).to_string())
 }
 
 /// Destroy the current simulation environment.
 #[napi]
 pub fn sim_destroy() -> napi::Result<String> {
-    stub("sim_destroy")
+    let mut guard = SIM.lock().unwrap();
+    let _ = guard.take();
+    Ok(serde_json::json!({"status": "destroyed"}).to_string())
 }
 
-/// Step one simulation cycle. Returns signal states as JSON.
+/// Step one simulation cycle. Returns signal states as JSON array.
 #[napi]
 pub fn sim_step() -> napi::Result<String> {
-    stub("sim_step")
+    let mut guard = SIM.lock().unwrap();
+    let sim = guard.as_mut()
+        .ok_or_else(|| napi::Error::from_reason("no simulation active. Call sim_create() first."))?;
+    sim.run_cycles(1);
+    let snap = sim.signal_snapshot();
+    to_json(&snap)
 }
 
-// ── Project management (stubs) ────────────────────────────────────────────
+// ── Project management ─────────────────────────────────────────────────
 
 /// Open a project by reading its .audesys-project.yaml file.
 #[napi]
-pub fn open_project(_project_path: String) -> napi::Result<String> {
-    stub("open_project")
+pub fn open_project(project_path: String) -> napi::Result<String> {
+    let yaml_path = std::path::Path::new(&project_path).join(".audesys-project.yaml");
+    fs::read_to_string(&yaml_path)
+        .map_err(|e| napi::Error::from_reason(format!("read project: {e}")))
 }
 
-/// Read a project source file.
+/// Read a project source file by path.
 #[napi]
-pub fn read_project_file(_file_path: String) -> napi::Result<String> {
-    stub("read_project_file")
+pub fn read_project_file(file_path: String) -> napi::Result<String> {
+    fs::read_to_string(&file_path)
+        .map_err(|e| napi::Error::from_reason(format!("read file: {e}")))
 }
 
 // ── HMI layout ──────────────────────────────────────────────────────────

@@ -243,6 +243,7 @@ dependencies = [
 name = "audesys-theia-bridge"
 version = "0.1.0"
 dependencies = [
+ "audesys-controller",
  "audesys-controller-client",
  "audesys-fbd-compiler",
  "audesys-gcode-compiler",
