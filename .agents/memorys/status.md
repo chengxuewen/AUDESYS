@@ -15,7 +15,7 @@
 - **最新提交**: `f923088` — `perf(runtime): add criterion benchmarks for signal throughput, RPC, and registry ops`（当前会话未提交，含以下变更）
 - **提交历史**: 197 commits on main (2026-07-08 至 2026-07-20)
 - **源代码**: 24 crates（crates/）+ 2 Tauri 应用（apps/studio/ + apps/runtime-panel/）
-- **测试**: 799 `#[test]` 标注 + 17 个前端 vitest 组件测试文件 + 15 个 Playwright E2E UI 测试
+- **测试**: 799+ `#[test]` 标注 + 17 个 vitest 测试文件 (111 tests) + 15 个 Playwright E2E UI 测试
 - **SDD 规范**: 239 项（openspec/specs/7 份）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(41) + HMI(22) + Studio Theia(55)
 - **CI**: qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ GitHub Actions macOS+Linux 矩阵
 - **依赖**: `@colbymchenry/codegraph` (devDependency) + Rust toolchain stable
