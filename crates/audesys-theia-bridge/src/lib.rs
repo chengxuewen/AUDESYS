@@ -355,60 +355,76 @@ pub fn load_hal_config(
     })
 }
 
-// ── PHASE 3 — Debug (all stubs) ──────────────────────────────────────────
+// ── Debug ───────────────────────────────────────────────────────────────
 
-/// Connect to Controller for a persistent debug session.
+/// Connect to Controller for debugging (authenticate as Engineer).
 #[napi]
-pub fn debug_connect(_socket_path: String, _secret: String) -> napi::Result<String> {
-    stub("debug_connect")
+pub fn debug_connect(socket_path: String, secret: String) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |_client| {
+        Ok("connected".to_string())
+    })
 }
 
-/// Disconnect the persistent debug session.
+/// Disconnect — controller connection closed automatically.
 #[napi]
 pub fn debug_disconnect() -> napi::Result<String> {
-    stub("debug_disconnect")
+    Ok("disconnected".to_string())
 }
 
-/// Pause cycle execution on the Controller.
+/// Pause cycle execution.
 #[napi]
-pub fn debug_pause() -> napi::Result<String> {
-    stub("debug_pause")
+pub fn debug_pause(socket_path: String, secret: String) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.pause()
+    })
 }
 
-/// Resume cycle execution on the Controller.
+/// Resume cycle execution.
 #[napi]
-pub fn debug_resume() -> napi::Result<String> {
-    stub("debug_resume")
+pub fn debug_resume(socket_path: String, secret: String) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.resume()
+    })
 }
 
-/// Single-step one cycle on the Controller.
+/// Single-step one cycle.
 #[napi]
-pub fn debug_step() -> napi::Result<String> {
-    stub("debug_step")
+pub fn debug_step(socket_path: String, secret: String) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.step_cycle()
+    })
 }
 
-/// Read VM register values (r0–r13) from the Controller.
+/// Read VM register values (r0–r13).
 #[napi]
-pub fn debug_get_registers() -> napi::Result<String> {
-    stub("debug_get_registers")
+pub fn debug_get_registers(socket_path: String, secret: String) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.debug_state()
+    })
 }
 
 /// Set a breakpoint at the given instruction pointer.
 #[napi]
-pub fn debug_add_breakpoint(_ip: u32) -> napi::Result<String> {
-    stub("debug_add_breakpoint")
+pub fn debug_add_breakpoint(socket_path: String, secret: String, ip: u32) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.set_breakpoint(ip)
+    })
 }
 
 /// Clear a breakpoint at the given instruction pointer.
 #[napi]
-pub fn debug_remove_breakpoint(_ip: u32) -> napi::Result<String> {
-    stub("debug_remove_breakpoint")
+pub fn debug_remove_breakpoint(socket_path: String, secret: String, ip: u32) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.clear_breakpoint(ip)
+    })
 }
 
 /// List all active breakpoints.
 #[napi]
-pub fn debug_get_breakpoints() -> napi::Result<String> {
-    stub("debug_get_breakpoints")
+pub fn debug_get_breakpoints(socket_path: String, secret: String) -> napi::Result<String> {
+    with_controller(&socket_path, &secret, Role::Engineer, |client| {
+        client.list_breakpoints()
+    })
 }
 
 /// Get full debug state as a JSON string from the Controller.
