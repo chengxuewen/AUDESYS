@@ -6,8 +6,9 @@
  */
 import { ContainerModule } from "@theia/core/shared/inversify";
 import { CommandContribution } from "@theia/core";
-import { WidgetFactory } from "@theia/core/lib/browser";
+import { WidgetFactory, ApplicationShell } from "@theia/core/lib/browser";
 import { Command, CommandRegistry } from "@theia/core/lib/common";
+import { injectable, inject } from "@theia/core/shared/inversify";
 import { HmiDesignerWidget } from "./hmi-designer/hmi-designer-widget";
 
 // ponytail: CSS injected via style tag in widget onAfterAttach (avoids esbuild .css resolution)
@@ -25,11 +26,20 @@ export default new ContainerModule((bind) => {
   bind(HmiDesignerWidget).toSelf();
 });
 
+@injectable()
 class HmiDesignerCommandContribution implements CommandContribution {
-  registerCommands(registry: CommandRegistry): void {
-    registry.registerCommand(OPEN_HMI_DESIGNER, {
-      execute: () => { /* widget opened via factory */ },
-    });
-  }
+    @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
+    @inject(HmiDesignerWidget) protected readonly widget!: HmiDesignerWidget;
+
+    registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand(OPEN_HMI_DESIGNER, {
+            execute: () => {
+                if (!this.widget.isAttached) {
+                    this.shell.addWidget(this.widget, { area: 'main' });
+                }
+                this.shell.activateWidget(this.widget.id);
+            },
+        });
+    }
 }
 

@@ -19,8 +19,10 @@
   },
   "dependencies": {
     "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge",
-    "@theia/core": "1.73.0",
     "winston": "^3.11.0"
+  },
+  "peerDependencies": {
+    "@theia/core": "1.73.0"
   },
   "devDependencies": {
     "@types/winston": "^2.4.4",

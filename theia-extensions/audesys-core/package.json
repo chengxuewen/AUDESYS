@@ -21,6 +21,9 @@
   "dependencies": {
     "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge"
   },
+  "peerDependencies": {
+    "@theia/core": "1.73.0"
+  },
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

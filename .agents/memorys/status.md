@@ -33,7 +33,7 @@
 | Supervisor | ✅ 完成 | 子进程编排，指数退避，3 重试 |
 | IPC Server | ✅ 完成 | UDS 10 方法（0x01-0x17），HMAC 认证，5 角色 RBAC |
 | Studio IDE | ✅ Theia 迁移完成 | D71: Tauri+React → Eclipse Theia+Monaco+GLSP+napi-rs，迁移完成（2026-07-21） |
-| Studio Theia 迁移 | 🟡 3 扩展已集成 (apps/studio-theia-test/) | P3: audesys-core ✅, audesys-debug ✅ (8 文件/7 测试/DI 就绪), audesys-hmi-designer ✅。Workbench 在 Electron+browser 双端渲染正常，DevTools (F12) 可用，后端连接正常。待办: 移植回 apps/studio-theia/ + 集成 IDE 编辑器扩展 (ST/IL/LD/FBD/SFC/G-code) |
+| Studio Theia 迁移 | 🟡 3 扩展已集成 (apps/studio-theia/) | P3: audesys-core ✅, audesys-debug ✅, audesys-hmi-designer ✅。Electron+browser 双端渲染正常（token-patch.py + postbuild.sh 补丁已移植）。DevTools (F12) 可用。待办: 集成 IDE 编辑器扩展 (ST/IL/LD/FBD/SFC/G-code) |
 | LD GLSP Editor | ✅ 完成 | Eclipse GLSP 图形编辑器，LD 梯形图 → HalProgram |
 | FBD GLSP Editor | ✅ 完成 | Eclipse GLSP 图形编辑器，FBD 功能块图 → HalProgram |
 | ST Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，ST 结构化文本 |

@@ -308,4 +308,33 @@
 ### 历史参考标签长期未添加
 - **问题**: 7 月 15 日审计要求为 Machinekit/LabVIEW NXG/InTouch/GRBL 4 份参考文档添加历史参考标签，实际未执行
 - **方案**: 2026-07-23 已添加。后续新停滞产品需同步标注
+
+## Theia Studio 浏览器双端兼容（2026-07-23）
+
+### @theia/core 多份物理副本 — 模块身份分裂
+- **问题**: 6 个扩展有 `@theia/core` 物理副本（非 symlink），导致 `FrontendApplicationConfigProvider` 是不同单例。主应用 `set()` 后，扩展 `get()` 返回 null → 白屏
+- **原因**: 扩展的 `@theia/*` 声明为 `dependencies`（非 `peerDependencies`），各自 `npm install` 创建了独立物理副本
+- **方案**: (a) 将 `@theia/*` 改为 `peerDependencies`；(b) 删除扩展 `node_modules/@theia` 物理副本，symlink 到 app 的副本；(c) `npm dedupe` 全局去重
+
+### React 重复实例 — HMI Designer useState 返回 null
+- **问题**: HMI Designer 的 `node_modules/react` 是独立物理副本（React 18.3.1），与 app 的 React 19.2.8 不同实例。`React.createElement()` 在不同实例间无法共享 hooks 上下文
+- **原因**: `react` 声明为 `dependencies`，npm install 创建了独立副本
+- **方案**: 删除 HMI Designer `node_modules/react` 和 `react-dom`，symlink 到 app 副本
+
+### Electron 安全令牌三层验证
+- **问题**: 浏览器访问 Theia 时被 403/400 阻止。Theia 有三层 Electron 令牌验证：(1) Express `allowRequest` 中间件；(2) Socket.IO `allowRequest` 握手；(3) Socket.IO `allowConnect` 防御纵深
+- **方案**: `token-patch.py` 绕过全部三层（字符串替换 + Socket.IO 中间件替换）
+
+### electronTheiaCore polyfill 覆盖
+- **问题**: 浏览器端缺少 Electron 原生 `window.electronTheiaCore` API。初始 polyfill 仅 5 个 API，实际需要 ~38 个（`onAboutToClose`、`onKeyboardLayoutChanged`、`setBackgroundColor`、`isFullScreenable` 等）
+- **方案**: `postbuild.sh` + `index.html` 注入完整 38 API polyfill（从 studio-theia-test 移植）
+
+### HMI Designer 命令 execute 为空
+- **问题**: `audesys-hmi:open-designer` 命令注册了但 `execute` 为空——命令面板选中不打开任何 widget
+- **原因**: 原实现 `execute: () => { /* widget opened via factory */ }`
+- **方案**: 注入 `ApplicationShell` + `HmiDesignerWidget`，`execute` 中调用 `shell.addWidget(widget)` + `shell.activateWidget()`
+
+### npm dedupe 对嵌套 @theia 包不彻底
+- **问题**: `npm dedupe` 减少了重复包但未消除全部。`@theia/variable-resolver/node_modules/@theia/core` 等嵌套副本导致 DI 绑定冲突（`RawProcessFactory` 未绑定、`@injectable` 多次装饰）
+- **方案**: `find` 遍历所有嵌套 `node_modules/@theia/`，逐包 `rm -rf` + `ln -sfn` symlink 到 app 根 `node_modules/@theia/`
 - **位置**: `apps/studio-theia-test/` 已验证修复，`theia-extensions/audesys-core/`、`theia-extensions/audesys-debug/`、`theia-extensions/audesys-hmi-designer/` 三个扩展已集成并通过验证
