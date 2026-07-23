@@ -1,132 +1,93 @@
 import { describe, it, expect } from 'vitest';
-
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const bridge = require('../index.js');
 
-describe('stubs', () => {
-  it('compileFbd throws not-implemented', () => {
-    expect(() => bridge.compileFbd('SOME FBD')).toThrow('not implemented');
+describe('compiler — fbd', () => {
+  it('compiles TON block', () => {
+    const result = bridge.compileFbd('BLOCK ton1 TON');
+    const parsed = JSON.parse(result);
+    expect(parsed.instructions).toBeDefined();
   });
 
-  it('compileSfc throws not-implemented', () => {
-    expect(() => bridge.compileSfc('STEP step1: N S1; END_STEP')).toThrow(
-      'not implemented',
-    );
+  it('throws on empty source', () => {
+    expect(() => bridge.compileFbd('')).toThrow();
   });
 
-  it('compileGcode throws not-implemented', () => {
-    expect(() => bridge.compileGcode('G0 X10 Y20')).toThrow('not implemented');
-  });
-
-  it('deployHmiLayout throws not-implemented', () => {
-    expect(() =>
-      bridge.deployHmiLayout('/tmp/sock', 'secret', 'layout: {}'),
-    ).toThrow('not implemented');
-  });
-
-  it('loadHalConfig throws not-implemented', () => {
-    expect(() =>
-      bridge.loadHalConfig('/tmp/sock', 'secret', 'config: {}'),
-    ).toThrow('not implemented');
-  });
-
-  it('debugConnect throws not-implemented', () => {
-    expect(() => bridge.debugConnect('/tmp/sock', 'secret')).toThrow(
-      'not implemented',
-    );
-  });
-
-  it('simCreate throws not-implemented', () => {
-    expect(() => bridge.simCreate(100)).toThrow('not implemented');
-  });
-
-  it('openProject throws not-implemented', () => {
-    expect(() => bridge.openProject('/tmp/project')).toThrow('not implemented');
-  });
-
-  it('readProjectFile throws not-implemented', () => {
-    expect(() => bridge.readProjectFile('/tmp/file.st')).toThrow(
-      'not implemented',
-    );
-  });
-
-  it('saveHmiLayout throws not-implemented', () => {
-    expect(() => bridge.saveHmiLayout('/tmp/layout.yaml', 'layout: {}')).toThrow(
-      'not implemented',
-    );
-  });
-
-  it('loadHmiLayout throws not-implemented', () => {
-    expect(() => bridge.loadHmiLayout('/tmp/layout.yaml')).toThrow(
-      'not implemented',
-    );
+  it('throws on invalid syntax', () => {
+    expect(() => bridge.compileFbd('not a block')).toThrow();
   });
 });
 
-// ── Additional edge-case tests for stubs ──────────────────────────
-
-describe('stubs — edge cases', () => {
-  it('compileFbd throws with empty source', () => {
-    expect(() => bridge.compileFbd('')).toThrow('not implemented');
+describe('compiler — sfc', () => {
+  it('compiles single step with action', () => {
+    const sfc = 'STEP S1\n  ACTION N: x := 1;\nEND_STEP\n';
+    const result = bridge.compileSfc(sfc);
+    const parsed = JSON.parse(result);
+    expect(parsed.instructions).toBeDefined();
   });
 
-  it('compileFbd throws with null-like content', () => {
-    expect(() => bridge.compileFbd('undefined')).toThrow('not implemented');
+  it('throws on empty source', () => {
+    expect(() => bridge.compileSfc('')).toThrow();
+  });
+});
+
+describe('compiler — gcode', () => {
+  it('compiles G0 rapid move', () => {
+    const result = bridge.compileGcode('G0 X10 Y20 Z30\n');
+    const parsed = JSON.parse(result);
+    expect(parsed.instructions).toBeDefined();
   });
 
-  it('compileGcode throws with empty source', () => {
-    expect(() => bridge.compileGcode('')).toThrow('not implemented');
+  it('compiles empty program marker', () => {
+    const result = bridge.compileGcode('%\n');
+    const parsed = JSON.parse(result);
+    expect(parsed.instructions).toBeDefined();
+  });
+});
+
+describe('simulation — real implementations', () => {
+  it('simCreate succeeds with valid cycle', () => {
+    const result = bridge.simCreate(100);
+    const parsed = JSON.parse(result);
+    expect(parsed.status).toBe('created');
+    bridge.simDestroy();
   });
 
-  it('compileGcode throws with partial command', () => {
-    expect(() => bridge.compileGcode('G')).toThrow('not implemented');
+  it('simCreate rejects invalid args', () => {
+    expect(() => bridge.simCreate('bad')).toThrow();
   });
 
-  it('compileSfc throws with empty source', () => {
-    expect(() => bridge.compileSfc('')).toThrow('not implemented');
+  it('simStep returns snapshot', () => {
+    bridge.simCreate(100);
+    const result = bridge.simStep();
+    expect(result).toBeDefined();
+    bridge.simDestroy();
+  });
+});
+
+describe('project — real implementations', () => {
+  it('openProject throws on nonexistent path', () => {
+    expect(() => bridge.openProject('/nonexistent/path')).toThrow();
   });
 
-  it('compileSfc throws with bogus input', () => {
-    expect(() => bridge.compileSfc('not a step')).toThrow('not implemented');
+  it('readProjectFile throws on nonexistent file', () => {
+    expect(() => bridge.readProjectFile('/nonexistent/file.st')).toThrow();
+  });
+});
+
+describe('hmi layout — real implementations', () => {
+  it('saveHmiLayout writes to file', () => {
+    const result = bridge.saveHmiLayout('/tmp/test-hmi.yaml', 'layout: {}');
+    expect(result).toBeDefined();
   });
 
-  it('openProject throws with empty path', () => {
-    expect(() => bridge.openProject('')).toThrow('not implemented');
+  it('loadHmiLayout reads file', () => {
+    bridge.saveHmiLayout('/tmp/test-hmi-read.yaml', 'layout: {}');
+    const result = bridge.loadHmiLayout('/tmp/test-hmi-read.yaml');
+    expect(result).toContain('layout');
   });
 
-  it('openProject throws with null-like path', () => {
-    expect(() => bridge.openProject('.')).toThrow('not implemented');
-  });
-
-  it('readProjectFile throws with empty path', () => {
-    expect(() => bridge.readProjectFile('')).toThrow('not implemented');
-  });
-
-  it('readProjectFile throws with extensionless path', () => {
-    expect(() => bridge.readProjectFile('config')).toThrow('not implemented');
-  });
-
-  it('saveHmiLayout throws with empty path', () => {
-    expect(() => bridge.saveHmiLayout('', 'layout: {}')).toThrow('not implemented');
-  });
-
-  it('saveHmiLayout throws with empty content', () => {
-    expect(() => bridge.saveHmiLayout('/tmp/test.yaml', '')).toThrow('not implemented');
-  });
-
-  it('loadHmiLayout throws with empty path', () => {
-    expect(() => bridge.loadHmiLayout('')).toThrow('not implemented');
-  });
-
-  it('loadHmiLayout throws with relative path', () => {
-    expect(() => bridge.loadHmiLayout('./layout.yaml')).toThrow('not implemented');
-  });
-
-  it('deployHmiLayout throws with empty path', () => {
-    expect(() => bridge.deployHmiLayout('', '', 'yaml: content')).toThrow('not implemented');
-  });
-
-  it('loadHalConfig throws with empty config', () => {
-    expect(() => bridge.loadHalConfig('/tmp/sock', 'secret', '')).toThrow('not implemented');
+  it('loadHmiLayout throws on nonexistent', () => {
+    expect(() => bridge.loadHmiLayout('/nonexistent.yaml')).toThrow();
   });
 });

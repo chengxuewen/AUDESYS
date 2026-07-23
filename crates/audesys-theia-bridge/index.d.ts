@@ -3,14 +3,14 @@
 /**
  * Compile IEC 61131-3 Function Block Diagram source into HalProgram JSON.
  *
- * Stub — FBD compiler → IL → HalProgram pipeline available in Phase 2a.
+ * Compiles FBD text (CFC format) via IL: FBD source → IL text → HalProgram.
  */
 export declare function compileFbd(source: string): string
 
 /**
  * Compile G-code (RS274/NGC subset) source into a HalProgram JSON string.
  *
- * Stub — G-code compiler available; enable when CNC Phase 2 begins.
+ * Returns the serialized `HalProgram` on success.
  */
 export declare function compileGcode(source: string): string
 
@@ -27,7 +27,7 @@ export declare function compileLd(source: string): string
 /**
  * Compile IEC 61131-3 Sequential Function Chart source into HalProgram JSON.
  *
- * Stub — SFC compiler → IL → HalProgram pipeline available in Phase 2b.
+ * Compiles SFC text via IL: SFC source → IL text → HalProgram.
  */
 export declare function compileSfc(source: string): string
 
@@ -69,34 +69,34 @@ export declare function controllerStart(socketPath: string, binaryPath: string):
 export declare function controllerStop(): string
 
 /** Set a breakpoint at the given instruction pointer. */
-export declare function debugAddBreakpoint(ip: number): string
+export declare function debugAddBreakpoint(socketPath: string, secret: string, ip: number): string
 
-/** Connect to Controller for a persistent debug session. */
+/** Connect to Controller for debugging (authenticate as Engineer). */
 export declare function debugConnect(socketPath: string, secret: string): string
 
-/** Disconnect the persistent debug session. */
+/** Disconnect — controller connection closed automatically. */
 export declare function debugDisconnect(): string
 
 /** List all active breakpoints. */
-export declare function debugGetBreakpoints(): string
+export declare function debugGetBreakpoints(socketPath: string, secret: string): string
 
-/** Read VM register values (r0–r13) from the Controller. */
-export declare function debugGetRegisters(): string
+/** Read VM register values (r0–r13). */
+export declare function debugGetRegisters(socketPath: string, secret: string): string
 
 /** Get full debug state as a JSON string from the Controller. */
 export declare function debugGetState(): string
 
-/** Pause cycle execution on the Controller. */
-export declare function debugPause(): string
+/** Pause cycle execution. */
+export declare function debugPause(socketPath: string, secret: string): string
 
 /** Clear a breakpoint at the given instruction pointer. */
-export declare function debugRemoveBreakpoint(ip: number): string
+export declare function debugRemoveBreakpoint(socketPath: string, secret: string, ip: number): string
 
-/** Resume cycle execution on the Controller. */
-export declare function debugResume(): string
+/** Resume cycle execution. */
+export declare function debugResume(socketPath: string, secret: string): string
 
-/** Single-step one cycle on the Controller. */
-export declare function debugStep(): string
+/** Single-step one cycle. */
+export declare function debugStep(socketPath: string, secret: string): string
 
 /**
  * Deploy HMI layout YAML to a running Controller via IPC method 0x17.
@@ -121,11 +121,7 @@ export declare function deployProgram(socketPath: string, secret: string, progra
  */
 export declare function healthQuery(socketPath: string, secret: string): string
 
-/**
- * Load a HAL configuration (YAML) to a running Controller via IPC.
- *
- * Stub — config manager module deferred.
- */
+/** Load a HAL configuration (YAML) to a running Controller via IPC method 0x08. */
 export declare function loadHalConfig(socketPath: string, secret: string, yaml: string): string
 
 /** Load HMI layout YAML from a local file. */
@@ -134,7 +130,7 @@ export declare function loadHmiLayout(path: string): string
 /** Open a project by reading its .audesys-project.yaml file. */
 export declare function openProject(projectPath: string): string
 
-/** Read a project source file. */
+/** Read a project source file by path. */
 export declare function readProjectFile(filePath: string): string
 
 /**
@@ -155,11 +151,11 @@ export declare function saveHmiLayout(path: string, yaml: string): string
  */
 export declare function signalSnapshot(socketPath: string, secret: string, pattern: string): string
 
-/** Create a new simulation environment. */
+/** Create a new simulation environment with the given cycle interval (ms). */
 export declare function simCreate(cycleMs: number): string
 
 /** Destroy the current simulation environment. */
 export declare function simDestroy(): string
 
-/** Step one simulation cycle. Returns signal states as JSON. */
+/** Step one simulation cycle. Returns signal states as JSON array. */
 export declare function simStep(): string

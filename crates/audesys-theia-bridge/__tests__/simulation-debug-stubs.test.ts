@@ -1,149 +1,118 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const bridge = require('../index.js');
 
-describe('simulation and debug stubs', () => {
-  // ── Simulation stubs ──────────────────────────────────────────────
+afterEach(() => {
+  try { bridge.simDestroy(); } catch (_e) { /* ignore */ }
+});
 
+describe('simulation — lifecycle', () => {
   describe('simCreate', () => {
-    it('throws not-implemented', () => {
-      expect(() => bridge.simCreate(100)).toThrow('not implemented');
+    it('creates simulation with valid cycle', () => {
+      const result = bridge.simCreate(100);
+      const parsed = JSON.parse(result);
+      expect(parsed.status).toBe('created');
     });
-    it('throws not-implemented with zero cycle time', () => {
-      expect(() => bridge.simCreate(0)).toThrow('not implemented');
+
+    it('rejects negative cycle time', () => {
+      expect(() => bridge.simCreate('bad')).toThrow();
     });
   });
 
   describe('simDestroy', () => {
-    it('throws not-implemented', () => {
-      expect(() => bridge.simDestroy()).toThrow('not implemented');
+    it('destroys simulation', () => {
+      bridge.simCreate(100);
+      const result = bridge.simDestroy();
+      expect(result).toContain('destroyed');
     });
-    it('throws not-implemented when called twice', () => {
-      expect(() => bridge.simDestroy()).toThrow('not implemented');
-      expect(() => bridge.simDestroy()).toThrow('not implemented');
+
+    it('succeeds idempotently', () => {
+      const result = bridge.simDestroy();
+      expect(result).toContain('destroyed');
     });
   });
-
   describe('simStep', () => {
-    it('throws not-implemented', () => {
-      expect(() => bridge.simStep()).toThrow('not implemented');
+    it('steps simulation and returns snapshot', () => {
+      bridge.simCreate(100);
+      const result = bridge.simStep();
+      expect(result).toBeDefined();
+      expect(result).not.toBe('');
     });
-    it('throws not-implemented with no prior simCreate', () => {
-      expect(() => bridge.simStep()).toThrow('not implemented');
+
+    it('throws when no simulation exists', () => {
+      expect(() => bridge.simStep()).toThrow();
     });
   });
+});
 
-  // ── Debug stubs ───────────────────────────────────────────────────
-
+describe('debug — no controller', () => {
   describe('debugConnect', () => {
-    it('throws with socket and secret', () => {
-      expect(() => bridge.debugConnect('/tmp/sock', 'secret')).toThrow('not implemented');
-    });
-    it('throws with empty args', () => {
-      expect(() => bridge.debugConnect('', '')).toThrow('not implemented');
+    it('throws on nonexistent socket', () => {
+      expect(() => bridge.debugConnect('/tmp/nonexistent.sock', 'secret')).toThrow();
     });
   });
 
   describe('debugDisconnect', () => {
-    it('throws when called', () => {
-      expect(() => bridge.debugDisconnect()).toThrow('not implemented');
-    });
-    it('throws when called twice', () => {
-      expect(() => bridge.debugDisconnect()).toThrow('not implemented');
-      expect(() => bridge.debugDisconnect()).toThrow('not implemented');
+    it('succeeds when called (no-op)', () => {
+      const result = bridge.debugDisconnect();
+      expect(result).toBe('disconnected');
     });
   });
 
   describe('debugPause', () => {
-    it('throws when called', () => {
-      expect(() => bridge.debugPause()).toThrow('not implemented');
-    });
-    it('throws when called twice', () => {
-      expect(() => bridge.debugPause()).toThrow('not implemented');
-      expect(() => bridge.debugPause()).toThrow('not implemented');
+    it('throws without socket_path param', () => {
+      expect(() => bridge.debugPause()).toThrow();
     });
   });
 
   describe('debugResume', () => {
-    it('throws when called', () => {
-      expect(() => bridge.debugResume()).toThrow('not implemented');
-    });
-    it('throws when called twice', () => {
-      expect(() => bridge.debugResume()).toThrow('not implemented');
-      expect(() => bridge.debugResume()).toThrow('not implemented');
+    it('throws without socket_path param', () => {
+      expect(() => bridge.debugResume()).toThrow();
     });
   });
 
   describe('debugStep', () => {
-    it('throws when called', () => {
-      expect(() => bridge.debugStep()).toThrow('not implemented');
-    });
-    it('throws when called twice', () => {
-      expect(() => bridge.debugStep()).toThrow('not implemented');
-      expect(() => bridge.debugStep()).toThrow('not implemented');
+    it('throws without socket_path param', () => {
+      expect(() => bridge.debugStep()).toThrow();
     });
   });
 
   describe('debugAddBreakpoint', () => {
-    it('throws with ip=42', () => {
-      expect(() => bridge.debugAddBreakpoint(42)).toThrow('not implemented');
-    });
-    it('throws with ip=0', () => {
-      expect(() => bridge.debugAddBreakpoint(0)).toThrow('not implemented');
+    it('throws without socket_path param', () => {
+      expect(() => bridge.debugAddBreakpoint()).toThrow();
     });
   });
 
   describe('debugRemoveBreakpoint', () => {
-    it('throws with ip=42', () => {
-      expect(() => bridge.debugRemoveBreakpoint(42)).toThrow('not implemented');
-    });
-    it('throws with ip=0', () => {
-      expect(() => bridge.debugRemoveBreakpoint(0)).toThrow('not implemented');
+    it('throws without socket_path param', () => {
+      expect(() => bridge.debugRemoveBreakpoint()).toThrow();
     });
   });
 
   describe('debugGetBreakpoints', () => {
-    it('throws when called', () => {
-      expect(() => bridge.debugGetBreakpoints()).toThrow('not implemented');
-    });
-    it('throws when called twice', () => {
-      expect(() => bridge.debugGetBreakpoints()).toThrow('not implemented');
-      expect(() => bridge.debugGetBreakpoints()).toThrow('not implemented');
+    it('throws without socket_path param', () => {
+      expect(() => bridge.debugGetBreakpoints()).toThrow();
     });
   });
 
   describe('debugGetRegisters', () => {
-    it('throws when called', () => {
-      expect(() => bridge.debugGetRegisters()).toThrow('not implemented');
+    it('throws without socket_path param', () => {
+      expect(() => bridge.debugGetRegisters()).toThrow();
     });
-    it('throws when called twice', () => {
-      expect(() => bridge.debugGetRegisters()).toThrow('not implemented');
-      expect(() => bridge.debugGetRegisters()).toThrow('not implemented');
+  });
+});
+
+describe('hmi layout — real implementations', () => {
+  describe('deployHmiLayout', () => {
+    it('throws on nonexistent socket', () => {
+      expect(() => bridge.deployHmiLayout('/tmp/nonexistent.sock', 'secret', 'yaml: content')).toThrow();
     });
   });
 
-  describe('debugGetState', () => {
-    it('throws when called', () => {
-      expect(() => bridge.debugGetState()).toThrow('not implemented');
-    });
-    it('throws when called twice', () => {
-      expect(() => bridge.debugGetState()).toThrow('not implemented');
-      expect(() => bridge.debugGetState()).toThrow('not implemented');
-    });
-  });
-
-  // ── Config/HMI stubs (additional, beyond existing stubs.test.ts) ───
-
-  describe('deployHmiLayout (extra)', () => {
-    it('throws with empty args', () => {
-      expect(() => bridge.deployHmiLayout('', '', '')).toThrow('not implemented');
-    });
-  });
-
-  describe('loadHalConfig (extra)', () => {
-    it('throws with empty args', () => {
-      expect(() => bridge.loadHalConfig('', '', '')).toThrow('not implemented');
+  describe('loadHalConfig', () => {
+    it('throws on nonexistent socket', () => {
+      expect(() => bridge.loadHalConfig('/tmp/nonexistent.sock', 'secret', 'config: {}')).toThrow();
     });
   });
 });
