@@ -68,6 +68,7 @@ const METHOD_ROLLBACK_SWAP: u8 = 0x13;
 const METHOD_DEPLOY_HMI_LAYOUT: u8 = 0x17;
 const METHOD_SUBSCRIBE_SIGNAL: u8 = 0x14;
 const METHOD_UNSUBSCRIBE_SIGNAL: u8 = 0x15;
+const METHOD_SIGNAL_PUSH: u8 = 0x16;
 // ── Response status ──
 
 const STATUS_OK: u8 = 0x00;
@@ -244,6 +245,42 @@ fn build_error_response(method_id: u8, msg: &str) -> Vec<u8> {
 fn build_ok_response(method_id: u8, payload: &[u8]) -> Vec<u8> {
     build_response(method_id, STATUS_OK, payload)
 }
+/// Build an unsolicited push frame (0x16) with JSON payload.
+/// Format: {"signal":"<name>","value":<hal-value-json>}
+pub(crate) fn build_push_frame(signal_name: &str, value: &HalValue) -> Vec<u8> {
+    let json = format!(r#"{{"signal":"{}","value":{}}}"#, signal_name, hal_value_to_json(value));
+    build_response(METHOD_SIGNAL_PUSH, 0x00, json.as_bytes())
+}
+
+/// ponytail: manual HalValue->JSON; use serde Serialize if HalValue derives it later.
+fn hal_value_to_json(value: &HalValue) -> String {
+    match value {
+        HalValue::Bool(v) => v.to_string(),
+        HalValue::S8(v) => v.to_string(),
+        HalValue::U8(v) => v.to_string(),
+        HalValue::S16(v) => v.to_string(),
+        HalValue::U16(v) => v.to_string(),
+        HalValue::S32(v) => v.to_string(),
+        HalValue::U32(v) => v.to_string(),
+        HalValue::S64(v) => v.to_string(),
+        HalValue::U64(v) => v.to_string(),
+        HalValue::F32(v) => format!("{:e}", v),
+        HalValue::F64(v) => format!("{:e}", v),
+        HalValue::Blob(data) => {
+            let hex: String = data.iter().map(|b| format!("{:02x}", b)).collect();
+            format!("\"{}\"", hex)
+        }
+        HalValue::String(s) => {
+            let escaped = s.replace('\\', "\\\\").replace('"', "\\\"");
+            format!("\"{}\"", escaped)
+        }
+        HalValue::Array { element_type, data } => {
+            let hex: String = data.iter().map(|b| format!("{:02x}", b)).collect();
+            format!(r#"{{"type":"{:?}","data":"{}"}}"#, element_type, hex)
+        }
+    }
+}
+
 
 fn read_exact(stream: &mut UnixStream, n: usize) -> io::Result<Vec<u8>> {
     let mut buf = vec![0u8; n];
@@ -435,6 +472,7 @@ pub struct IpcServer {
     token_secret: Vec<u8>,
     running: Arc<AtomicBool>,
     whitelist: HashMap<Role, Vec<u32>>,
+    subscriptions: Arc<Mutex<HashMap<String, Vec<(u64, Arc<Mutex<UnixStream>>)>>>>,
 }
 
 impl IpcServer {
@@ -442,12 +480,16 @@ impl IpcServer {
     pub fn new(socket_path: &str, engine: Arc<Engine>) -> Self {
         let mut secret = vec![0u8; 32];
         rand::thread_rng().fill(&mut secret[..]);
+        let subscriptions: Arc<Mutex<HashMap<String, Vec<(u64, Arc<Mutex<UnixStream>>)>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        engine.set_signal_push_targets(Arc::clone(&subscriptions));
         Self {
             socket_path: socket_path.to_string(),
             engine,
             token_secret: secret,
             running: Arc::new(AtomicBool::new(false)),
             whitelist: default_whitelist(),
+            subscriptions,
         }
     }
 
@@ -463,6 +505,8 @@ impl IpcServer {
         let engine = Arc::clone(&self.engine);
         let token_secret = self.token_secret.clone();
         let whitelist = self.whitelist.clone();
+        let subscriptions = Arc::clone(&self.subscriptions);
+
 
         let handle = thread::spawn(move || {
             let poll = Duration::from_millis(100);
@@ -472,9 +516,10 @@ impl IpcServer {
                         let engine = Arc::clone(&engine);
                         let token_secret = token_secret.clone();
                         let whitelist = whitelist.clone();
+                        let subscriptions = Arc::clone(&subscriptions);
                         let next_sid = Arc::new(Mutex::new(1u64));
                         thread::spawn(move || {
-                            handle_connection(stream, engine, &token_secret, &whitelist, &next_sid);
+                            handle_connection(stream, engine, &token_secret, &whitelist, &next_sid, subscriptions);
                         });
                     }
                     Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -508,6 +553,7 @@ fn handle_connection(
     token_secret: &[u8],
     whitelist: &HashMap<Role, Vec<u32>>,
     next_session_id: &Mutex<u64>,
+    subscriptions: Arc<Mutex<HashMap<String, Vec<(u64, Arc<Mutex<UnixStream>>)>>>>,
 ) {
     if stream.set_read_timeout(Some(Duration::from_millis(500))).is_err() {
         return;
@@ -1131,6 +1177,78 @@ fn handle_connection(
                 }
             }
 
+
+            METHOD_SUBSCRIBE_SIGNAL => {
+                let role = session.as_ref().map(|s| &s.role);
+                let sid = session.as_ref().map(|s| s.session_id).unwrap_or(0);
+                if !can_read(role) {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_SUBSCRIBE_SIGNAL, "unauthorized"),
+                    );
+                    continue;
+                }
+                let signal_name = String::from_utf8_lossy(&payload).to_string();
+                if signal_name.is_empty() {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_SUBSCRIBE_SIGNAL, "empty signal name"),
+                    );
+                    continue;
+                }
+                match stream.try_clone() {
+                    Ok(cloned) => {
+                        let mut subs = subscriptions.lock().unwrap();
+                        subs.entry(signal_name.clone())
+                            .or_default()
+                            .push((sid, Arc::new(Mutex::new(cloned))));
+                        let _ = write_all(
+                            &mut stream,
+                            &build_ok_response(METHOD_SUBSCRIBE_SIGNAL, b"subscribed"),
+                        );
+                    }
+                    Err(e) => {
+                        let _ = write_all(
+                            &mut stream,
+                            &build_error_response(METHOD_SUBSCRIBE_SIGNAL, &e.to_string()),
+                        );
+                    }
+                }
+            }
+
+            METHOD_UNSUBSCRIBE_SIGNAL => {
+                let role = session.as_ref().map(|s| &s.role);
+                let sid = session.as_ref().map(|s| s.session_id).unwrap_or(0);
+                if !can_read(role) {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_UNSUBSCRIBE_SIGNAL, "unauthorized"),
+                    );
+                    continue;
+                }
+                let signal_name = String::from_utf8_lossy(&payload).to_string();
+                if signal_name.is_empty() {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_UNSUBSCRIBE_SIGNAL, "empty signal name"),
+                    );
+                    continue;
+                }
+                {
+                    let mut subs = subscriptions.lock().unwrap();
+                    if let Some(streams) = subs.get_mut(&signal_name) {
+                        streams.retain(|(s, _)| *s != sid);
+                        if streams.is_empty() {
+                            subs.remove(&signal_name);
+                        }
+                    }
+                }
+                let _ = write_all(
+                    &mut stream,
+                    &build_ok_response(METHOD_UNSUBSCRIBE_SIGNAL, b"unsubscribed"),
+                );
+            }
+
             _ => {
                 let _ = write_all(
                     &mut stream,
@@ -1140,6 +1258,15 @@ fn handle_connection(
                     ),
                 );
             }
+        }
+        // Cleanup: remove all subscriptions for this session on disconnect
+        if let Some(ref sess) = session {
+            let sid = sess.session_id;
+            let mut subs = subscriptions.lock().unwrap();
+            for streams in subs.values_mut() {
+                streams.retain(|(s, _)| *s != sid);
+            }
+            subs.retain(|_, v| !v.is_empty());
         }
     }
 }

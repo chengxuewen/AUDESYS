@@ -18,6 +18,9 @@ use audesys_hal_ir::Executor;
 use audesys_hal_ir::program::HalProgram;
 use audesys_hal_ir::types::Direction;
 use audesys_runtime_common::types::{HealthCheck, HealthCheckRegistry, HealthStatus, SourceId};
+use std::collections::HashMap;
+use std::io::Write;
+use std::os::unix::net::UnixStream;
 use std::sync::{
     Arc, Mutex, RwLock,
     atomic::{AtomicBool, Ordering},
@@ -72,6 +75,8 @@ pub struct Engine {
     hmi_layout_generation: Arc<AtomicU64>,
     /// Active HMI layout (available for Panel read)
     hmi_layout: Arc<RwLock<Option<(Vec<u8>, u64)>>>,
+    /// Signal push targets for IPC subscriptions (signal_name → [(session_id, stream)])
+    signal_push_targets: RwLock<Option<Arc<Mutex<HashMap<String, Vec<(u64, Arc<Mutex<UnixStream>>)>>>>>>,
 }
 
 impl Engine {
@@ -102,6 +107,7 @@ impl Engine {
             pending_hmi_layout: Arc::new(RwLock::new(None)),
             hmi_layout_generation: Arc::new(AtomicU64::new(0)),
             hmi_layout: Arc::new(RwLock::new(None)),
+            signal_push_targets: RwLock::new(None),
         }
     }
 
@@ -158,6 +164,8 @@ impl Engine {
         let hal_executor = Arc::clone(&self.hal_executor);
         let paused = Arc::clone(&self.paused);
         let step_requested = Arc::clone(&self.step_requested);
+        let signal_push_targets = self.signal_push_targets.read().unwrap().clone();
+
 
         thread::spawn(move || {
             let interval = Duration::from_millis(cycle_interval_ms);
@@ -289,6 +297,30 @@ impl Engine {
 
                 cycle_count.fetch_add(1, Ordering::Relaxed);
                 metrics.record_cycle();
+
+                // 4.5 PUSH SUBSCRIBED SIGNALS — send current values to IPC subscribers
+                if let Some(ref subs_arc) = signal_push_targets {
+                    let subs = subs_arc.lock().unwrap();
+                    if !subs.is_empty() {
+                        let snapshot: HashMap<String, HalValue> = signals
+                            .read()
+                            .unwrap()
+                            .list_snapshots()
+                            .into_iter()
+                            .map(|s| (s.name, s.value))
+                            .collect();
+                        for (signal_name, streams) in subs.iter() {
+                            if let Some(value) = snapshot.get(signal_name) {
+                                let frame = crate::ipc::build_push_frame(signal_name, value);
+                                for (_sid, stream_mutex) in streams {
+                                    let mut s = stream_mutex.lock().unwrap();
+                                    let _ = s.write_all(&frame);
+                                }
+                            }
+                        }
+                    }
+                }
+
 
                 // Record cycle jitter for Studio jitter panel
                 let cycle_elapsed = cycle_start.elapsed().as_micros() as u64;
@@ -469,6 +501,16 @@ impl Engine {
             .map(|s| (s.name, s.value))
             .collect()
     }
+
+    /// Set signal push targets for IPC signal subscription push.
+    pub fn set_signal_push_targets(
+        &self,
+        targets: Arc<Mutex<HashMap<String, Vec<(u64, Arc<Mutex<UnixStream>>)>>>>,
+    ) {
+        *self.signal_push_targets.write().unwrap() = Some(targets);
+    }
+
+    /// Get runtime metrics.
 
     /// Get runtime metrics.
     pub fn metrics(&self) -> Arc<RuntimeMetrics> {
