@@ -1,3 +1,4 @@
 packages:
   - "packages/studio-core"
-  - "apps/studio"
+  # - "apps/studio"  # temporarily disabled — playwright version issue
+  - "apps/runtime-panel"

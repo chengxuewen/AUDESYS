@@ -1,11 +1,15 @@
-import React from "react";
+/**
+ * Shared error overlay for HMI widgets.
+ * Displays an error message with a dismiss button in Preview mode.
+ * Used by all 7 HMI widgets when signal reading fails.
+ */
 
 interface WidgetErrorOverlayProps {
-  message: string;
+  error: string;
   onDismiss: () => void;
 }
 
-export default function WidgetErrorOverlay({ message, onDismiss }: WidgetErrorOverlayProps) {
+export function WidgetErrorOverlay({ error, onDismiss }: WidgetErrorOverlayProps) {
   return (
     <div
       onClick={onDismiss}
@@ -37,7 +41,7 @@ export default function WidgetErrorOverlay({ message, onDismiss }: WidgetErrorOv
           whiteSpace: "nowrap",
         }}
       >
-        {message}
+        {error}
       </span>
     </div>
   );

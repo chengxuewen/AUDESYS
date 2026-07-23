@@ -8,14 +8,17 @@
     "sourceMap": true,
     "strict": true,
     "esModuleInterop": true,
-    "jsx": "react",
+    "jsx": "react-jsx",
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "lib",
-    "rootDir": "src",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@audesys/studio-core/*": ["../../packages/studio-core/src/*"]
+    }
   },
   "include": ["src"],
   "references": []

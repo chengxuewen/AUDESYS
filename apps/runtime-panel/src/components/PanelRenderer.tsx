@@ -1,12 +1,13 @@
-import type { HmiLayout, HmiWidgetType } from "../types/hmi";
+import type { HmiLayout, HmiWidgetType, HmiWidgetState } from "../types/hmi";
+import { useHmiSignal } from "../hooks/useHmiSignal";
 
-import GaugeWidget from "../widgets/GaugeWidget";
-import ButtonWidget from "../widgets/ButtonWidget";
-import TextWidget from "../widgets/TextWidget";
-import IndicatorWidget from "../widgets/IndicatorWidget";
-import TrendWidget from "../widgets/TrendWidget";
-import TankWidget from "../widgets/TankWidget";
-import DisplayWidget from "../widgets/DisplayWidget";
+import { GaugeWidget } from "../widgets/GaugeWidget";
+import { ButtonWidget } from "../widgets/ButtonWidget";
+import { TextWidget } from "../widgets/TextWidget";
+import { IndicatorWidget } from "../widgets/IndicatorWidget";
+import { TrendWidget } from "../widgets/TrendWidget";
+import { TankWidget } from "../widgets/TankWidget";
+import { DisplayWidget } from "../widgets/DisplayWidget";
 
 interface WidgetProps {
   id: string;
@@ -17,6 +18,9 @@ interface WidgetProps {
   height: number;
   isSelected: boolean;
   isPreview: boolean;
+  signalValue?: number | boolean | string | null;
+  error?: string | null;
+  onDismissError?: () => void;
 }
 
 // ponytail: mirrors HmiCanvas WIDGET_COMPONENTS map
@@ -34,6 +38,28 @@ interface PanelRendererProps {
   layout: HmiLayout;
 }
 
+// Signal-injecting wrapper: uses local hook, passes signalValue to pure-UI widget
+function WidgetWithSignal({ w }: { w: HmiWidgetState }) {
+  const { value, error, clearError } = useHmiSignal(w.signal);
+  const Widget = WIDGET_COMPONENTS[w.type];
+  if (!Widget) return null;
+  return (
+    <Widget
+      id={w.id}
+      label={w.label}
+      signal={w.signal}
+      config={w.config}
+      width={w.size.width}
+      height={w.size.height}
+      isSelected={false}
+      isPreview={true}
+      signalValue={value}
+      error={error}
+      onDismissError={clearError}
+    />
+  );
+}
+
 export default function PanelRenderer({ layout }: PanelRendererProps) {
   return (
     <div
@@ -46,8 +72,6 @@ export default function PanelRenderer({ layout }: PanelRendererProps) {
       }}
     >
       {layout.widgets.map((w) => {
-        const Widget = WIDGET_COMPONENTS[w.type];
-        if (!Widget) return null;
         return (
           <div
             key={w.id}
@@ -59,16 +83,7 @@ export default function PanelRenderer({ layout }: PanelRendererProps) {
               height: w.size.height,
             }}
           >
-            <Widget
-              id={w.id}
-              label={w.label}
-              signal={w.signal}
-              config={w.config}
-              width={w.size.width}
-              height={w.size.height}
-              isSelected={false}
-              isPreview={true}
-            />
+            <WidgetWithSignal w={w} />
           </div>
         );
       })}

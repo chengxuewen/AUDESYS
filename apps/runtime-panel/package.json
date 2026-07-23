@@ -12,6 +12,7 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@audesys/studio-core": "workspace:*",
     "@tauri-apps/api": "^2",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",

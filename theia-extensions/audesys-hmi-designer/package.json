@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@audesys/studio-core": "file:../../packages/studio-core",
     "@lumino/widgets": "^2.5.0",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.5",

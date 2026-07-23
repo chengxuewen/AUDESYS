@@ -6,17 +6,18 @@
  * but stripped of outer wrapper — WidgetPalette, toolbar, SignalInjector are
  * handled by HmiDesignerTool.
  */
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import { Rnd } from "react-rnd";
 import type { HmiWidgetState, HmiWidgetType } from "../../types/hmi";
+import { useTheiaHmiSignal } from "../../hooks/useTheiaHmiSignal";
 
-import GaugeWidget from "../../widgets/GaugeWidget";
-import ButtonWidget from "../../widgets/ButtonWidget";
-import TextWidget from "../../widgets/TextWidget";
-import IndicatorWidget from "../../widgets/IndicatorWidget";
-import TrendWidget from "../../widgets/TrendWidget";
-import TankWidget from "../../widgets/TankWidget";
-import DisplayWidget from "../../widgets/DisplayWidget";
+import { GaugeWidget } from "../../widgets/GaugeWidget";
+import { ButtonWidget } from "../../widgets/ButtonWidget";
+import { TextWidget } from "../../widgets/TextWidget";
+import { IndicatorWidget } from "../../widgets/IndicatorWidget";
+import { TrendWidget } from "../../widgets/TrendWidget";
+import { TankWidget } from "../../widgets/TankWidget";
+import { DisplayWidget } from "../../widgets/DisplayWidget";
 
 type HmiCanvasProps = {
   widgets: HmiWidgetState[];
@@ -32,6 +33,9 @@ const WIDGET_COMPONENTS: Record<HmiWidgetType, React.FC<{
   config: Record<string, unknown>;
   width: number; height: number;
   isSelected: boolean; isPreview: boolean;
+  signalValue?: number | boolean | string | null;
+  error?: string | null;
+  onDismissError?: () => void;
 }>> = {
   gauge: GaugeWidget,
   button: ButtonWidget,
@@ -41,6 +45,32 @@ const WIDGET_COMPONENTS: Record<HmiWidgetType, React.FC<{
   tank: TankWidget,
   display: DisplayWidget,
 };
+
+// Signal-injecting wrapper: uses theia hook, passes signalValue to pure-UI widget
+function WidgetWithSignal({ widget, isSelected, isPreview }: {
+  widget: HmiWidgetState;
+  isSelected: boolean;
+  isPreview: boolean;
+}) {
+  const { value, error, clearError } = useTheiaHmiSignal(widget.signal);
+  const Widget = WIDGET_COMPONENTS[widget.type];
+  if (!Widget) return null;
+  return (
+    <Widget
+      id={widget.id}
+      label={widget.label}
+      signal={widget.signal}
+      config={widget.config}
+      width={widget.size.width}
+      height={widget.size.height}
+      isSelected={isSelected}
+      isPreview={isPreview}
+      signalValue={value}
+      error={error}
+      onDismissError={clearError}
+    />
+  );
+}
 
 export default function HmiCanvas({
   widgets, selectedWidgetId, editMode,
@@ -74,7 +104,6 @@ export default function HmiCanvas({
       }}
     >
       {widgets.map((widget) => {
-        const Widget = WIDGET_COMPONENTS[widget.type];
         const isSelected = selectedWidgetId === widget.id;
         return (
           <Rnd
@@ -103,22 +132,11 @@ export default function HmiCanvas({
               background: "transparent",
             }}
           >
-            {Widget ? (
-              <Widget
-                id={widget.id}
-                label={widget.label}
-                signal={widget.signal}
-                config={widget.config}
-                width={widget.size.width}
-                height={widget.size.height}
-                isSelected={isSelected}
-                isPreview={isPreview}
-              />
-            ) : (
-              <div style={{ padding: 8, fontSize: 12, color: "#a0a0b0" }}>
-                Unknown: {widget.type}
-              </div>
-            )}
+            <WidgetWithSignal
+              widget={widget}
+              isSelected={isSelected}
+              isPreview={isPreview}
+            />
           </Rnd>
         );
       })}

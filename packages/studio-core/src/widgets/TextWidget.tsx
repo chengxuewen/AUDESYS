@@ -1,18 +1,11 @@
-import React from "react";
-import { useStudioHmiSignal as useHmiSignal } from "../hooks/useStudioHmiSignal";
-import WidgetErrorOverlay from "./WidgetErrorOverlay";
-interface TextWidgetProps {
-  id: string; label: string; signal?: string;
-  config: Record<string, unknown>;
-  width: number; height: number;
-  isSelected: boolean; isPreview: boolean;
-}
+import { WidgetErrorOverlay } from "./WidgetErrorOverlay";
+import type { SharedWidgetProps } from "./types";
 
-export default function TextWidget({ label, signal, config, width, height, isPreview }: TextWidgetProps) {
-  const { value, error, clearError } = useHmiSignal(isPreview ? signal : undefined);
+export function TextWidget({ label, config, width, height, isPreview, signalValue, error, onDismissError }: SharedWidgetProps) {
+  const rawValue = signalValue != null ? String(signalValue) : null;
   const fontSize = (config.fontSize as number) ?? 14;
   const color = (config.color as string) ?? "#e8e8ed";
-  const displayText = isPreview && value !== null ? value : label;
+  const displayText = isPreview && rawValue !== null ? rawValue : label;
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -24,8 +17,9 @@ export default function TextWidget({ label, signal, config, width, height, isPre
       </text>
       </svg>
       {isPreview && error && (
-        <WidgetErrorOverlay message={error} onDismiss={clearError} />
+        <WidgetErrorOverlay error={error} onDismiss={onDismissError ?? (() => {})} />
       )}
     </div>
   );
 }
+

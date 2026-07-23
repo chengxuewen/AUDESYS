@@ -1,16 +1,9 @@
-import React, { useState } from "react";
-import { useStudioHmiSignal as useHmiSignal } from "../hooks/useStudioHmiSignal";
-import WidgetErrorOverlay from "./WidgetErrorOverlay";
+import { useState } from "react";
+import { WidgetErrorOverlay } from "./WidgetErrorOverlay";
+import type { SharedWidgetProps } from "./types";
 
-interface ButtonWidgetProps {
-  id: string; label: string; signal?: string;
-  config: Record<string, unknown>;
-  width: number; height: number;
-  isSelected: boolean; isPreview: boolean;
-}
-
-export default function ButtonWidget({ label, signal, config, width, height, isSelected, isPreview }: ButtonWidgetProps) {
-  const { value: rawValue, error, clearError } = useHmiSignal(isPreview ? signal : undefined);
+export function ButtonWidget({ label, config, width, height, isSelected, isPreview, signalValue, error, onDismissError }: SharedWidgetProps) {
+  const rawValue = signalValue != null ? String(signalValue) : null;
   const isOn = rawValue !== null && rawValue !== "0" && rawValue !== "false";
   const [pressed, setPressed] = useState(false);
 
@@ -37,8 +30,9 @@ export default function ButtonWidget({ label, signal, config, width, height, isS
       </text>
       </svg>
       {isPreview && error && (
-        <WidgetErrorOverlay message={error} onDismiss={clearError} />
+        <WidgetErrorOverlay error={error} onDismiss={onDismissError ?? (() => {})} />
       )}
     </div>
   );
 }
+

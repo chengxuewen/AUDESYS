@@ -1,17 +1,10 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import ReactECharts from "echarts-for-react";
-import { useStudioHmiSignal as useHmiSignal } from "../hooks/useStudioHmiSignal";
-import WidgetErrorOverlay from "./WidgetErrorOverlay";
+import { WidgetErrorOverlay } from "./WidgetErrorOverlay";
+import type { SharedWidgetProps } from "./types";
 
-interface TrendWidgetProps {
-  id: string; label: string; signal?: string;
-  config: Record<string, unknown>;
-  width: number; height: number;
-  isSelected: boolean; isPreview: boolean;
-}
-
-export default function TrendWidget({ label, signal, config, width, height, isPreview }: TrendWidgetProps) {
-  const { value: rawValue, error, clearError } = useHmiSignal(isPreview ? signal : undefined);
+export function TrendWidget({ label, config, isPreview, signalValue, error, onDismissError }: SharedWidgetProps) {
+  const rawValue = signalValue != null ? String(signalValue) : null;
   const history = (config.history as number) ?? 60;
   const chartColor = (config.color as string) ?? "#FFB800";
 
@@ -57,8 +50,9 @@ export default function TrendWidget({ label, signal, config, width, height, isPr
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       <ReactECharts option={option} style={{ width: "100%", height: "100%" }} notMerge />
       {isPreview && error && (
-        <WidgetErrorOverlay message={error} onDismiss={clearError} />
+        <WidgetErrorOverlay error={error} onDismiss={onDismissError ?? (() => {})} />
       )}
     </div>
   );
 }
+
