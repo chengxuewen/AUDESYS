@@ -57,6 +57,7 @@ fn role_to_u8(role: &Role) -> u8 {
         Role::Engineer => 1,
         Role::Supervisor => 2,
         Role::Auditor => 3,
+        Role::Hmi => 5,
         Role::System => 4,
     }
 }

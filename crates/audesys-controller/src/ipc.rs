@@ -66,6 +66,8 @@ const METHOD_COMMIT_SWAP: u8 = 0x12;
 const METHOD_ROLLBACK_SWAP: u8 = 0x13;
 
 const METHOD_DEPLOY_HMI_LAYOUT: u8 = 0x17;
+const METHOD_SUBSCRIBE_SIGNAL: u8 = 0x14;
+const METHOD_UNSUBSCRIBE_SIGNAL: u8 = 0x15;
 // ── Response status ──
 
 const STATUS_OK: u8 = 0x00;
@@ -377,6 +379,7 @@ fn role_to_u8(role: &Role) -> u8 {
         Role::Engineer => 1,
         Role::Supervisor => 2,
         Role::Auditor => 3,
+        Role::Hmi => 5,
         Role::System => 4,
     }
 }
@@ -411,7 +414,7 @@ fn can_read(role: Option<&Role>) -> bool {
 }
 
 fn can_write(role: Option<&Role>) -> bool {
-    matches!(role, Some(Role::Engineer) | Some(Role::Supervisor) | Some(Role::System))
+    matches!(role, Some(Role::Engineer) | Some(Role::Supervisor) | Some(Role::System) | Some(Role::Hmi))
 }
 
 // ── IpcServer ──

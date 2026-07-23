@@ -20,6 +20,8 @@ pub enum Role {
     Supervisor,
     /// Security auditor — read-only access to audit logs
     Auditor,
+    /// HMI panel operator — writeSignal limited to button-bound signals (D64)
+    Hmi,
     /// System daemon — full access for internal services
     System,
 }

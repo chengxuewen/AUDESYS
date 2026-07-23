@@ -77,6 +77,7 @@ fn parse_role(s: &str) -> napi::Result<Role> {
         "engineer" => Ok(Role::Engineer),
         "supervisor" => Ok(Role::Supervisor),
         "auditor" => Ok(Role::Auditor),
+        "hmi" => Ok(Role::Hmi),
         "system" => Ok(Role::System),
         other => Err(napi::Error::from_reason(format!("unknown role: {other}"))),
     }
