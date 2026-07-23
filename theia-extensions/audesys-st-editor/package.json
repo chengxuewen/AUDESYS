@@ -2,7 +2,7 @@
   "name": "audesys-st-editor",
   "version": "0.1.0",
   "private": true,
-  "description": "AUDESYS Structured Text Editor — Theia extension with Monarch tokenizer for IEC 61131-3 ST",
+  "description": "AUDESYS Structured Text Editor \u2014 Theia extension with Monarch tokenizer for IEC 61131-3 ST",
   "license": "Apache-2.0",
   "keywords": [
     "theia-extension"
@@ -19,14 +19,15 @@
     "watch": "tsc -b -w",
     "lint": "eslint src --ext .ts"
   },
-  "dependencies": {
-    "@theia/core": "1.73.0",
-    "@theia/monaco": "1.73.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^26.1.1",
     "rimraf": "^5.0.0",
     "typescript": "^5.4.0",
     "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "@theia/core": "1.73.0",
+    "@theia/monaco": "1.73.0"
   }
 }

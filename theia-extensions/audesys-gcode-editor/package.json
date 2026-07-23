@@ -2,7 +2,7 @@
   "name": "audesys-gcode-editor",
   "version": "0.1.0",
   "private": true,
-  "description": "AUDESYS G-code Editor — Monarch tokenizer, completion, and language support for RS274/NGC",
+  "description": "AUDESYS G-code Editor \u2014 Monarch tokenizer, completion, and language support for RS274/NGC",
   "license": "Apache-2.0",
   "main": "lib/browser/index.js",
   "theiaExtensions": [
@@ -16,12 +16,13 @@
     "watch": "tsc -b -w",
     "lint": "eslint src --ext .ts"
   },
-  "dependencies": {
-    "@theia/core": "1.73.0",
-    "@theia/monaco": "1.73.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "rimraf": "^5.0.0",
     "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "@theia/core": "1.73.0",
+    "@theia/monaco": "1.73.0"
   }
 }
