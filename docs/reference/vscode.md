@@ -440,7 +440,7 @@ export interface ICommandService {
 
 **DAP 核心消息**: `initialize`, `launch`, `attach`, `setBreakpoints`, `continue`, `next`, `stepIn`, `stepOut`, `threads`, `stackTrace`, `scopes`, `variables`, `evaluate`
 
-AUDESYS 当前已实现 DAP（12 命令），可与 VS Code 生态完全互操作。LSP Server 可通过 `audesys-st-compiler` 等编译器扩展实现。
+AUDESYS 当前已实现 DAP（12 命令），可与 VS Code 生态完全互操作。LSP Server 可通过 `audesys-hal-binding-gen` 等编译器扩展实现。
 
 ---
 

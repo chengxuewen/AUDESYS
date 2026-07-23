@@ -91,7 +91,7 @@
 
 ```typescript
 interface PluginManifest {
-  id: string;                    // "audesys.st-compiler" (小写.分隔)
+  id: string;                    // "audesys.hal-binding-gen" (小写.分隔)
   displayName: string;           // "ST Compiler"
   version: string;               // SemVer
   engines: { studio: string };   // 最低 Studio 版本
@@ -285,7 +285,7 @@ class CommandRegistry {
 
 ```typescript
 interface PanelDescriptor {
-  id: string;                         // "audesys.st-compiler.editor"
+  id: string;                         // "audesys.hal-binding-gen.editor"
   title: string;                      // "ST Editor"
   icon: string;                       // Lucide icon name
   defaultPosition: PanelPosition;

@@ -331,7 +331,7 @@
 - **日期**: 2026-07-19
 - **决定**: 记录 D22 决策与实际实现的偏离。D22 原定 Phase 1 使用 RuSTy（Rust+LLVM IEC 61131-3 编译器）编译 ST 源码，HAL Binding Generator 映射到 HAL 原语。实际实现路径：直接自研 5 种 IEC 61131-3 编译器（ST/IL/LD/FBD/SFC），全部编译到 HalProgram 后端，零外部依赖。
 - **理由**: RuSTy 评估后发现集成复杂度高于自研。自研编译器与 HAL IR/VM 共享类型系统，接口零摩擦。CODESYS 的「所有图形语言编译为 ST 内部表示」模式已通过 LD→IL→HalProgram 两步转换实现，完全等价。
-- **参考**: D22, `crates/audesys-st-compiler/`, `crates/audesys-il-compiler/`, `crates/audesys-ld-compiler/`, `crates/audesys-fbd-compiler/`, `crates/audesys-sfc-compiler/`
+- **参考**: D22, `crates/audesys-hal-binding-gen/` (ST 编译器), `crates/audesys-il-compiler/`, `crates/audesys-ld-compiler/`, `crates/audesys-fbd-compiler/`, `crates/audesys-sfc-compiler/`
 
 ## D57: Studio 编程模式偏差 = ST Only→6 语言全实现
 - **日期**: 2026-07-19

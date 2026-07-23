@@ -34,7 +34,7 @@
 - **Input**:
   - `apps/studio/src-tauri/src/lib.rs`（审计 34 个 Tauri 命令签名）
   - `openspec/specs/studio-theia-spec.md` STH-BRIDGE (001-010)
-  - 现有 crate：`audesys-st-compiler/`、`audesys-gecode-compiler/` 等公开 API
+  - 现有 crate：`audesys-hal-binding-gen/`、`audesys-gecode-compiler/` 等公开 API
 - **Steps**:
   1. `napi new` 创建 bridge crate
   2. 审计 34 Tauri 命令 → 确定 ~25 个 napi-rs 函数签名

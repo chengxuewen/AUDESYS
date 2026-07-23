@@ -121,7 +121,6 @@
 - **问题**: 4 项参考文档对应产品已停滞/停售：Machinekit（社区分裂，活跃度低）、LabVIEW NXG（NI 已停售，回归 LabVIEW 经典版）、InTouch（品牌碎片化，Aveva 多次重构）、GRBL（自 2019 年无更新）
 - **原因**: 参考文档库仅记录产品架构快照，未标注产品生命周期状态
 - **方案**: 在对应参考文档中标注「历史参考」标签，注明最后一次活跃年份或停售时间点。活跃产品标注「活跃参考」以作区分
-- **方案**: 在对应参考文档中标注「历史参考」标签，注明最后一次活跃年份或停售时间点。活跃产品标注「活跃参考」以作区分
 
 ## CNC 系统相关
 
@@ -289,4 +288,24 @@
 - **问题**: `@theia/plugin-ext` 在加载 audesys 自定义扩展时出现 TDZ (Temporal Dead Zone) 错误，扩展 DI 绑定在类引用被访问时尚未完成初始化
 - **原因**: Theia 的 `ContainerModule` 绑定是同步执行的，但 audesys 自定义扩展间的依赖引用（core → debug → hmi-designer）在模块加载阶段触发了尚未绑定的服务引用。`@theia/plugin-ext` 的 `HostedPluginSupport` 在 `onStart()` 中遍历已安装扩展时，audesys 扩展的 DI 容器尚未完全构建
 - **方案**: 在 `audesys-core-frontend-module.ts` 中使用 Theia 的 `ConnectionStatusService` 进行延迟初始化，debug 和 hmi-designer 扩展通过 `@postConstruct()` 装饰器确保服务在绑定完成后才被消费。`plugin-ext` 的 `autoDownload: false` + `marketplace: []` 配置（已存在于 `studio-theia-test/package.json`）确保自定义扩展优先加载
+
+## 全量文档审计相关（2026-07-23）
+
+### fbd-compiler 未加入 workspace members
+- **问题**: `crates/audesys-fbd-compiler/` 目录和 Cargo.toml 存在，但根 Cargo.toml workspace members 中缺失此项。cargo build --workspace 不会编译/测试 FBD 编译器
+- **原因**: FBD 编译器后添加时遗漏了更新 workspace members
+- **方案**: 在根 Cargo.toml workspace members 中添加 `crates/audesys-fbd-compiler`
+
+### st-compiler 命名实际位置为 hal-binding-gen
+- **问题**: architecture.md、decisions.md、vscode.md 等多处引用 `crates/audesys-st-compiler/`，但该目录不存在。ST 编译功能实际在 `crates/audesys-hal-binding-gen/` 中
+- **原因**: hal-binding-gen 原定为 Phase 1 的 HAL Binding Generator（D22），后扩展为完整 ST→HalProgram 编译器，但 crate 名未重命名
+- **方案**: (a) 将 architecture.md 等文档中的 st-compiler 引用改为 hal-binding-gen；(b) 若未来需要独立 crate，可创建 audesys-st-compiler 并从 hal-binding-gen 中提取
+
+### 架构文档 Tauri→Theia 迁移滞后
+- **问题**: D71 将 Studio 从 Tauri+React 迁移到 Eclipse Theia（2026-07-21），但 architecture.md 中仍有 60+ 处 Tauri 引用（L1540 桌面端框架=Tauri 等）
+- **方案**: P1 全面更新 architecture.md 的 Studio 相关章节（§三、§六），Panel 章节保留 Tauri（D65 独立 Tauri app 不受 D71 影响）
+
+### 历史参考标签长期未添加
+- **问题**: 7 月 15 日审计要求为 Machinekit/LabVIEW NXG/InTouch/GRBL 4 份参考文档添加历史参考标签，实际未执行
+- **方案**: 2026-07-23 已添加。后续新停滞产品需同步标注
 - **位置**: `apps/studio-theia-test/` 已验证修复，`theia-extensions/audesys-core/`、`theia-extensions/audesys-debug/`、`theia-extensions/audesys-hmi-designer/` 三个扩展已集成并通过验证

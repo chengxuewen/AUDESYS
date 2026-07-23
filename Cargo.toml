@@ -19,6 +19,7 @@ members = [
   "crates/audesys-ld-layout",
   "crates/audesys-ld-semantics",
   "crates/audesys-sfc-compiler",
+  "crates/audesys-fbd-compiler",
   "crates/audesys-gcode-compiler",
   "crates/audesys-cnc-motion",
   "crates/audesys-cnc-axis-group",
