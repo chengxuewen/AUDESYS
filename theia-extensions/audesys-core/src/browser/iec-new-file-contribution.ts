@@ -80,17 +80,18 @@ export class IecNewFileContribution implements CommandContribution, MenuContribu
                         return;
                     }
                     try {
-                        const fileUri = workspaceRoot.resource.resolve(`untitled${entry.ext}`);
-                        const exists = await this.fileService.exists(fileUri);
-                        if (!exists) {
-                            await this.fileService.createFile(
-                                fileUri,
-                                BinaryBuffer.fromString(entry.template)
-                            );
-                            this.messageService.info(`Created: ${fileUri.displayName}`);
-                        } else {
-                            this.messageService.warn(`File already exists: ${fileUri.displayName}`);
-                        }
+                        // Auto-increment: untitled.ld → untitled-1.ld → untitled-2.ld ...
+                        let counter = 0;
+                        let fileUri;
+                        do {
+                            const name = counter === 0 ? `untitled${entry.ext}` : `untitled-${counter}${entry.ext}`;
+                            fileUri = workspaceRoot.resource.resolve(name);
+                            counter++;
+                        } while (await this.fileService.exists(fileUri) && counter < 100);
+                            fileUri,
+                            BinaryBuffer.fromString(entry.template)
+                        );
+                        this.messageService.info(`Created: ${fileUri.displayName}`);
                     } catch (e) {
                         this.messageService.error(`Failed to create file: ${String(e)}`);
                     }
