@@ -7,7 +7,7 @@ const common_1 = require("@theia/core/lib/common");
 const browser_1 = require("@theia/core/lib/browser");
 const iec_navigator_decorator_1 = require("./iec-navigator-decorator");
 const iec_icons_1 = require("./iec-icons");
-// [DISABLED - requires @theia/workspace async init] import { IecNewFileContribution } from './iec-new-file-contribution';
+const iec_new_file_contribution_1 = require("./iec-new-file-contribution");
 const iec_context_menu_1 = require("./iec-context-menu");
 const window_title_contribution_1 = require("./window-title-contribution");
 const signal_browser_contribution_1 = require("./signal-browser/signal-browser-contribution");
@@ -19,8 +19,8 @@ exports.default = new inversify_1.ContainerModule((bind) => {
     // IEC 61131-3 file icon theme
     bind(icon_theme_contribution_1.IconThemeContribution).to(iec_icons_1.IecFileIconTheme).inSingletonScope();
     // New File wizard entries for IEC languages + HMI + CNC
-    // [DISABLED - requires @theia/workspace async init]     bind(CommandContribution).to(IecNewFileContribution).inSingletonScope();
-    // [DISABLED - requires @theia/workspace async init]     bind(MenuContribution).to(IecNewFileContribution).inSingletonScope();
+    bind(common_1.CommandContribution).to(iec_new_file_contribution_1.IecNewFileContribution).inSingletonScope();
+    bind(common_1.MenuContribution).to(iec_new_file_contribution_1.IecNewFileContribution).inSingletonScope();
     // Context menu: Compile / Deploy / Validate (right-click in navigator)
     bind(common_1.CommandContribution).to(iec_context_menu_1.IecContextMenuContribution).inSingletonScope();
     bind(common_1.MenuContribution).to(iec_context_menu_1.IecContextMenuContribution).inSingletonScope();

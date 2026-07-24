@@ -5,7 +5,7 @@ import { CommandContribution, MenuContribution } from '@theia/core/lib/common';
 import { WebSocketConnectionProvider, WidgetFactory, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { IecNavigatorDecorator } from './iec-navigator-decorator';
 import { IecFileIconTheme } from './iec-icons';
-// [DISABLED - requires @theia/workspace async init] import { IecNewFileContribution } from './iec-new-file-contribution';
+import { IecNewFileContribution } from './iec-new-file-contribution';
 import { IecContextMenuContribution } from './iec-context-menu';
 import { WindowTitleContribution } from './window-title-contribution';
 import { SignalBrowserContribution } from './signal-browser/signal-browser-contribution';
@@ -20,8 +20,8 @@ export default new ContainerModule((bind) => {
     bind(IconThemeContribution).to(IecFileIconTheme).inSingletonScope();
 
     // New File wizard entries for IEC languages + HMI + CNC
-// [DISABLED - requires @theia/workspace async init]     bind(CommandContribution).to(IecNewFileContribution).inSingletonScope();
-// [DISABLED - requires @theia/workspace async init]     bind(MenuContribution).to(IecNewFileContribution).inSingletonScope();
+    bind(CommandContribution).to(IecNewFileContribution).inSingletonScope();
+    bind(MenuContribution).to(IecNewFileContribution).inSingletonScope();
 
     // Context menu: Compile / Deploy / Validate (right-click in navigator)
     bind(CommandContribution).to(IecContextMenuContribution).inSingletonScope();
