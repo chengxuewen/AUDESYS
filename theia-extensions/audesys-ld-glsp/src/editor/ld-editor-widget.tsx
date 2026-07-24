@@ -79,10 +79,12 @@ const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, onSel
 
     // Sync tool selection
     React.useEffect(() => {
+        console.debug('[LdEditor] subscribing to toolState.onDidChangeTool');
         const sub = toolState.onDidChangeTool((t: LdToolType | null) => {
+            console.debug('[LdEditor] onDidChangeTool fired:', t);
             setToolType(t);
         });
-        return () => sub.dispose();
+        return () => { console.debug('[LdEditor] unsubscribing from toolState'); sub.dispose(); };
     }, [toolState]);
 
     // Refresh graph + notify dirty on re-render
@@ -113,8 +115,9 @@ const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, onSel
     // ── Canvas Click ───────────────────────────────────────────
 
     const handleCanvasClick = (e: React.MouseEvent<SVGSVGElement>): void => {
+        console.debug('[LdEditor] handleCanvasClick', { button: e.button, toolType, targetTag: (e.target as Element).tagName, currentTag: e.currentTarget.tagName, sameTarget: e.target === e.currentTarget });
         // Right-click handled separately
-        if (e.button !== 0) return;
+        if (e.button !== 0) { console.debug('[LdEditor] non-left-click, ignoring'); return; }
 
         // If context menu open, close it
         if (contextMenu.visible) {
@@ -130,6 +133,7 @@ const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, onSel
 
         // If a tool is active, create element
         if (toolType) {
+            console.debug('[LdEditor] tool active:', toolType);
             const svg = e.currentTarget;
             const pt = svg.createSVGPoint();
             pt.x = e.clientX;
@@ -143,11 +147,15 @@ const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, onSel
             if (graph.rungs.length === 0
                 && (toolType.startsWith('no-') || toolType.startsWith('nc-') || toolType === 'coil'
                     || toolType.startsWith('negated-') || toolType.startsWith('set-') || toolType.startsWith('reset-'))) {
-                currentGraph = handler.addRung(graph, { position: { x: 0, y: 0 } });
+                console.debug('[LdEditor] auto-creating first rung (graph has 0 rungs)');
+                currentGraph = handler.addRung(graph);
                 refreshGraph(currentGraph);
+                console.debug('[LdEditor] rung created, now', currentGraph.rungs.length, 'rungs');
             }
 
+
             const targetRung = findRungByY(currentGraph, world.y);
+            console.debug('[LdEditor] findRungByY at y=', world.y, 'result:', targetRung?.id ?? 'undefined');
             if (!targetRung) return;
             try {
                 let next: LdGraph;

@@ -23,11 +23,6 @@ export declare class LdToolState {
      * Fires `onDidChangeTool` event.
      */
     selectTool(type: LdToolType): void;
-    /**
-     * Deselect the current tool (cursor mode).
-     * Fires `onDidChangeTool` with null.
-     */
-    deselectTool(): void;
     /** Get the currently selected tool, or null if none. */
     getSelectedTool(): LdToolType | null;
     /** Whether any tool is currently selected. */

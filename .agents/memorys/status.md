@@ -15,7 +15,7 @@
 - **最新提交**: `f923088` — `perf(runtime): add criterion benchmarks for signal throughput, RPC, and registry ops`（当前会话未提交，含以下变更）
 - **提交历史**: 197 commits on main (2026-07-08 至 2026-07-20)
 - **源代码**: 24 crates（crates/）+ 2 Tauri 应用（apps/studio/ + apps/runtime-panel/）
-- **测试**: 799+ `#[test]` 标注 + 17 个 vitest 测试文件 (111 tests) + 15 个 Playwright E2E UI 测试
+- **测试**: 799 `#[test]` 标注 + 19 个 vitest 测试文件 (134 tests) + 19 个 Playwright E2E UI 测试 (ld-editor.spec.ts 26 tests) |
 - **SDD 规范**: 239 项（openspec/specs/7 份）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(41) + HMI(22) + Studio Theia(55)
 - **CI**: qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ GitHub Actions macOS+Linux 矩阵
 - **依赖**: `@colbymchenry/codegraph` (devDependency) + Rust toolchain stable
@@ -34,7 +34,7 @@
 | IPC Server | ✅ 完成 | UDS 10 方法（0x01-0x17），HMAC 认证，5 角色 RBAC |
 | Studio IDE | ✅ Theia 迁移完成 | D71: Tauri+React → Eclipse Theia+Monaco+GLSP+napi-rs，迁移完成（2026-07-21） |
 | Studio Theia 迁移 | ✅ 10/11 扩展集成 (apps/studio-theia/) | 2026-07-23: core, debug, hmi-designer, backend, st-editor, il-editor, gcode-editor, sfc-editor, ld-glsp, fbd-glsp 全部可用。Electron+browser 双端正常（3层token+38API polyfill）。theia-bridge 21/30 函数真实实现（6编译器+7控制器+3模拟+2项目管理）。0测试。待办: 9 debug stub + widget 复用
-| LD GLSP Editor | ✅ 完成 | Eclipse GLSP 图形编辑器，LD 梯形图 → HalProgram |
+| LD GLSP Editor | ✅ 完成 | SVG 编辑器 + tool palette，触点/线圈放置，auto-rung，右键菜单。GLSP 迁移决定（2026-07-24）
 | FBD GLSP Editor | ✅ 完成 | Eclipse GLSP 图形编辑器，FBD 功能块图 → HalProgram |
 | ST Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，ST 结构化文本 |
 | IL Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，IL 指令表 |

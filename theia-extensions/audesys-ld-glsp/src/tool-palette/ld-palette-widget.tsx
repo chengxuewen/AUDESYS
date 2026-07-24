@@ -80,13 +80,17 @@ const Palette: React.FC<PaletteProps> = ({ toolState }: PaletteProps) => {
     const [selected, setSelected] = React.useState<LdToolType | null>(null);
 
     React.useEffect(() => {
+        console.debug('[LdPalette] subscribing to toolState.onDidChangeTool');
         const sub = toolState.onDidChangeTool((tool: LdToolType | null) => {
+            console.debug('[LdPalette] onDidChangeTool fired:', tool);
             setSelected(tool);
         });
-        return () => sub.dispose();
+        return () => { console.debug('[LdPalette] unsubscribing from toolState'); sub.dispose(); };
     }, [toolState]);
 
     const handleSelect = (type: LdToolType): void => {
+        console.debug('[LdPalette] handleSelect:', type, 'currently selected:', selected);
+        if (selected === type) {
         if (selected === type) {
             toolState.deselectTool();
         } else {

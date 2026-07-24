@@ -338,3 +338,26 @@
 - **问题**: `npm dedupe` 减少了重复包但未消除全部。`@theia/variable-resolver/node_modules/@theia/core` 等嵌套副本导致 DI 绑定冲突（`RawProcessFactory` 未绑定、`@injectable` 多次装饰）
 - **方案**: `find` 遍历所有嵌套 `node_modules/@theia/`，逐包 `rm -rf` + `ln -sfn` symlink 到 app 根 `node_modules/@theia/`
 - **位置**: `apps/studio-theia-test/` 已验证修复，`theia-extensions/audesys-core/`、`theia-extensions/audesys-debug/`、`theia-extensions/audesys-hmi-designer/` 三个扩展已集成并通过验证
+
+## LD/FBD GLSP 编辑器集成（2026-07-24）
+
+### ReactWidget 通过 new 创建 → @postConstruct 不触发 → 组件空白
+- **问题**: `LdPaletteWidget`、`FbdPaletteWidget`、`LdEditorWidget`、`FbdEditorWidget` 四个组件通过 `new` 而非 DI 容器创建，导致 `@postConstruct()` 装饰器不触发，`ReactWidget.render()` 从未调用，组件 body 为空（仅 Perfect Scrollbar rail）
+- **原因**: Theia 的 `ReactWidget` 依赖 `@postConstruct()` 中的 `this.update()` 触发 `onUpdateRequest → nodeRoot.render(this.render())`。通过 `new` 创建的对象不会触发装饰器生命周期
+- **方案**: 在 `onAfterAttach(msg)` 中调用 `this.update()`，替代 `@postConstruct` 触发渲染
+
+### LD 编辑器触点/线圈显示 ?? — 变量名硬编码
+- **问题**: `ld-operation-handler.ts` 中 `addContact()` 和 `addCoil()` 硬编码 `variableName = '??'`
+- **修复**: 自动递增命名：触点 `IN{n}`，线圈 `OUT{n}`
+
+### LD 编辑器 SVG 不可见 — CSS 变量未定义
+- **问题**: `ld-editor-widget.tsx` 的 `injectCssContent()` 只定义了布局类，未定义 `--ld-contact-no-fill`、`--ld-power-rail-color` 等 SVG 渲染变量
+- **修复**: 在 `.ld-editor` 类中添加 14 个 CSS 变量（light + dark theme）
+
+### E2E 测试覆盖不足 — 未验证渲染闭环
+- **问题**: 自动测试仅验证按钮存在（TC-01~09），未验证元素放置后的 SVG 渲染（TC-10+），导致 ?? 标签和 CSS 变量缺失未被发现
+- **方案**: 扩展测试到 5 层 26 测试，覆盖 L1 启动 → L2 元素创建 → L3 交互 → L4 状态 → L5 编译。约束：后续所有功能必须有对应测试
+
+### LD 编辑器空画布点击无反应 — 需先创建 rung
+- **问题**: 空 LD 模板 `rungs:[]`，点击触点/线圈工具后 canvas click handler 中 `findRungByY` 返回 null → 静默失败
+- **修复**: 空画布时自动创建 rung（仅限触点/线圈类工具）

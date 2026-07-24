@@ -48,18 +48,20 @@ export class LdToolState {
      * Fires `onDidChangeTool` event.
      */
     selectTool(type: LdToolType): void {
+        console.debug('[LdToolState] selectTool:', type, 'current:', this.currentTool);
         if (this.currentTool === type) {
+            console.debug('[LdToolState] no-op: same tool already selected');
             return; // ponytail: no-op on re-select, prevents spurious events
         }
         this.currentTool = type;
         this.onDidChangeToolEmitter.fire(type);
-    }
 
     /**
      * Deselect the current tool (cursor mode).
      * Fires `onDidChangeTool` with null.
      */
     deselectTool(): void {
+        console.debug('[LdToolState] deselectTool, current:', this.currentTool);
         if (this.currentTool === null) {
             return;
         }
