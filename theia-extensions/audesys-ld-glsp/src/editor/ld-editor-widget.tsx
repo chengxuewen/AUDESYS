@@ -798,7 +798,31 @@ export class LdEditorWidget extends ReactWidget {
         // The CSS content is bundled; for simplicity, inject known rules
         // In production, this should be a proper CSS import
         style.textContent = `
-          .ld-editor { width:100%; height:100%; overflow:auto; background:var(--theia-editor-background,#1e1e1e); cursor:default; }
+          /* LD Editor — CSS Variables (light theme defaults) */
+          .ld-editor {
+            --ld-power-rail-color: #2196f3;
+            --ld-contact-no-fill: #4caf50;
+            --ld-contact-nc-fill: #f44336;
+            --ld-coil-normal-fill: #4caf50;
+            --ld-coil-set-fill: #ff9800;
+            --ld-coil-reset-fill: #f44336;
+            --ld-rung-label-color: #888;
+            --ld-selection-color: #2196f3;
+            --ld-wire-color: #666;
+            --ld-grid-color: #333;
+            --ld-fb-fill: #37474f;
+            --ld-fb-stroke: #4caf50;
+            width:100%; height:100%; overflow:auto; background:var(--theia-editor-background,#1e1e1e); cursor:default;
+          }
+          /* Dark theme overrides */
+          .theia-dark .ld-editor, .theia-dark.ld-editor {
+            --ld-power-rail-color: #64b5f6;
+            --ld-contact-no-fill: #81c784;
+            --ld-wire-color: #888;
+            --ld-grid-color: #555;
+            --ld-rung-label-color: #aaa;
+            --ld-fb-fill: #455a64;
+          }
           .ld-editor svg { display:block; min-width:100%; min-height:100%; }
           .ld-editor--tool-active { cursor:crosshair; }
           .ld-context-menu { position:fixed; z-index:10000; background:var(--theia-menu-background,#252526); border:1px solid var(--theia-menu-border,#454545); border-radius:4px; padding:4px 0; min-width:160px; box-shadow:0 2px 8px rgba(0,0,0,0.36); }

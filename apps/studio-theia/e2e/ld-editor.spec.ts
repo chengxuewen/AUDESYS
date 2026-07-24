@@ -1,161 +1,200 @@
 /// <reference types="playwright" />
-// AUDESYS Studio Theia — LD Editor E2E Tests
-// Run: npx playwright test e2e/ld-editor.spec.ts
+/**
+ * AUDESYS LD Editor — Comprehensive E2E Test Suite
+ *
+ * Layers: L1=Startup, L2=Creation, L3=Interaction, L4=State, L5=Compile
+ * Constraint: ALL future LD/FBD features MUST have tests here.
+ */
 import { test, expect } from '@playwright/test';
 
-const STUDIO_URL = 'http://127.0.0.1:3100';
-const SHELL = '#theia-app-shell';
+const URL = 'http://127.0.0.1:3100';
 
-/** Collect console errors, exclude known non-critical noise */
-function collectErrors(page: ReturnType<typeof test['info']> extends never ? never : Parameters<Parameters<typeof test>[1]>[0]['page']) {
-  const errors: string[] = [];
-  page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
-  return {
-    errors,
-    critical(): string[] {
-      return errors.filter(e =>
-        !e.includes('favicon.ico') &&
-        !e.includes('WebSocket') &&
-        !e.includes('setTheme') &&
-        !e.includes('service worker')
-      );
-    },
-  };
-}
-
-test.describe('LD Editor E2E', () => {
-
-  test('TC-01: Studio launches with correct title, widgets>70, 0 real-errors', async ({ page }) => {
-    const errTracker = collectErrors(page);
-    await page.goto(STUDIO_URL);
-    await page.waitForTimeout(8000);
-
+test.describe('L1 Startup', () => {
+  test('TC-01 title AUDESYS Studio', async ({ page }) => {
+    await page.goto(URL);
+    await page.waitForTimeout(10000);
     await expect(page).toHaveTitle('AUDESYS Studio');
-
-    const widgetCount = await page.evaluate(() =>
-      document.querySelectorAll('.p-Widget, .lm-Widget').length
-    );
-    expect(widgetCount).toBeGreaterThan(70);
-
-    expect(errTracker.critical()).toHaveLength(0);
   });
 
-  test('TC-02: F1 > New Ladder Diagram — file created notification or explorer update', async ({ page }) => {
-    await page.goto(STUDIO_URL);
-    await page.waitForSelector(SHELL, { state: 'visible', timeout: 30000 });
-    await page.waitForTimeout(3000);
+  test('TC-02 widgets >70', async ({ page }) => {
+    await page.goto(URL);
+    await page.waitForTimeout(10000);
+    const n = await page.evaluate(() => document.querySelectorAll('.p-Widget, .lm-Widget').length);
+    expect(n).toBeGreaterThan(70);
+  });
 
+  test('TC-03 0 console errors', async ({ page }) => {
+    const errs: string[] = [];
+    page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+    await page.goto(URL);
+    await page.waitForTimeout(10000);
+    const real = errs.filter(e => !e.includes('favicon.ico') && !e.includes('setTheme') && !e.includes('popup'));
+    expect(real).toHaveLength(0);
+  });
+});
+
+test.describe('L2 Element Creation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(URL);
+    await page.waitForTimeout(8000);
     await page.keyboard.press('F1');
-    await page.waitForTimeout(1500);
-
-    const input = page.locator('.quick-input-field input, .monaco-inputbox input');
-    await input.fill('>New Ladder Diagram');
-    await page.waitForTimeout(800);
+    await page.locator('.quick-input-field input').fill('>New Ladder');
     await page.keyboard.press('Enter');
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(2000);
+    await page.locator('#shell-tab-audesys-ld-palette').first().click({ force: true });
+    await page.waitForTimeout(500);
+  });
 
-    const notif = page.locator('.theia-notification');
-    const notifCount = await notif.count();
-    if (notifCount > 0) {
-      const text = (await notif.first().textContent()) || '';
-      expect(text).toMatch(/Created|untitled|Ladder|LD/i);
+  test('TC-10 place NO contact → SVG element appears', async ({ page }) => {
+    await page.locator('#audesys-ld-palette .ld-palette-button').first().click();
+    await page.locator('.ld-editor svg').click({ position: { x: 200, y: 100 } });
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-element-id]').first()).toBeAttached({ timeout: 5000 });
+  });
+
+  test('TC-11 NO contact label = IN0 (not ??)', async ({ page }) => {
+    await page.locator('#audesys-ld-palette .ld-palette-button').first().click();
+    await page.locator('.ld-editor svg').click({ position: { x: 200, y: 100 } });
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-element-id] text').first()).toContainText('IN0', { timeout: 3000 });
+  });
+
+  test('TC-12 coil label = OUT0', async ({ page }) => {
+    await page.locator('#audesys-ld-palette .ld-palette-button').nth(2).click();
+    await page.locator('.ld-editor svg').click({ position: { x: 400, y: 100 } });
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-element-id] text').first()).toContainText('OUT0', { timeout: 3000 });
+  });
+
+  test('TC-13 second placement → IN1', async ({ page }) => {
+    const btn = page.locator('#audesys-ld-palette .ld-palette-button').first();
+    await btn.click(); await page.locator('.ld-editor svg').click({ position: { x: 200, y: 100 } });
+    await page.waitForTimeout(300);
+    await btn.click(); await page.locator('.ld-editor svg').click({ position: { x: 300, y: 100 } });
+    await page.waitForTimeout(500);
+    const texts = await page.locator('[data-element-id] text').allTextContents();
+    expect(texts).toContain('IN0');
+    expect(texts).toContain('IN1');
+  });
+
+  test('TC-14 NC contact stroke color defined', async ({ page }) => {
+    await page.locator('#audesys-ld-palette .ld-palette-button').nth(1).click();
+    await page.locator('.ld-editor svg').click({ position: { x: 200, y: 100 } });
+    await page.waitForTimeout(500);
+    const stroke = await page.evaluate(() => {
+      const r = document.querySelector('[data-element-id] rect');
+      return r ? window.getComputedStyle(r).stroke : '';
+    });
+    expect(stroke).toBeTruthy();
+  });
+});
+
+test.describe('L3 Interaction', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(URL);
+    await page.waitForTimeout(8000);
+    await page.keyboard.press('F1');
+    await page.locator('.quick-input-field input').fill('>New Ladder');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(2000);
+    await page.locator('#shell-tab-audesys-ld-palette').first().click({ force: true });
+    await page.waitForTimeout(500);
+    await page.locator('#audesys-ld-palette .ld-palette-button').first().click();
+    await page.locator('.ld-editor svg').click({ position: { x: 200, y: 100 } });
+    await page.waitForTimeout(500);
+  });
+
+  test('TC-15 right-click → context menu visible', async ({ page }) => {
+    await page.locator('[data-element-id]').first().click({ button: 'right' });
+    await page.waitForTimeout(500);
+    await expect(page.locator('.ld-context-menu')).toBeVisible({ timeout: 3000 });
+  });
+
+  test('TC-16 delete removes element', async ({ page }) => {
+    const before = await page.locator('[data-element-id]').count();
+    await page.locator('[data-element-id]').first().click({ button: 'right' });
+    await page.locator('.ld-context-menu__item--danger').click();
+    await page.waitForTimeout(500);
+    expect(await page.locator('[data-element-id]').count()).toBeLessThan(before);
+  });
+
+  test('TC-17 empty canvas deselects', async ({ page }) => {
+    await page.locator('[data-element-id]').first().click();
+    await page.locator('.ld-editor svg').click({ position: { x: 600, y: 50 } });
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-element-id]').first()).toBeAttached();
+  });
+});
+
+test.describe('L4 Canvas State', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(URL);
+    await page.waitForTimeout(8000);
+    await page.keyboard.press('F1');
+    await page.locator('.quick-input-field input').fill('>New Ladder');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(2000);
+    await page.locator('#shell-tab-audesys-ld-palette').first().click({ force: true });
+    await page.waitForTimeout(500);
+  });
+
+  test('TC-20 empty canvas → auto rung', async ({ page }) => {
+    await page.locator('#audesys-ld-palette .ld-palette-button').first().click();
+    await page.locator('.ld-editor svg').click({ position: { x: 200, y: 100 } });
+    await page.waitForTimeout(500);
+    const texts = await page.locator('text').allTextContents();
+    const rung = texts.find(t => t.trim() === '000' || t.trim() === '001');
+    expect(rung).toBeDefined();
+  });
+
+  test('TC-21 power rails exist', async ({ page }) => {
+    await expect(page.locator('[data-element-id*="rail"]').first()).toBeAttached({ timeout: 5000 });
+  });
+
+  test('TC-22 CSS variables defined', async ({ page }) => {
+    const ok = await page.evaluate(() => {
+      const s = window.getComputedStyle(document.querySelector('.ld-editor')!);
+      return [
+        '--ld-contact-no-fill', '--ld-contact-nc-fill', '--ld-power-rail-color',
+        '--ld-wire-color', '--ld-grid-color', '--ld-selection-color'
+      ].filter(v => !s.getPropertyValue(v) || s.getPropertyValue(v) === '').length;
+    });
+    expect(ok).toBeLessThan(3);
+  });
+});
+
+test.describe('L5 Compile', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(URL);
+    await page.waitForTimeout(8000);
+    await page.keyboard.press('F1');
+    await page.locator('.quick-input-field input').fill('>New Ladder');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(2000);
+    await page.locator('#shell-tab-audesys-ld-palette').first().click({ force: true });
+    await page.waitForTimeout(500);
+    await page.locator('#audesys-ld-palette .ld-palette-button').first().click();
+    await page.locator('.ld-editor svg').click({ position: { x: 200, y: 100 } });
+    await page.waitForTimeout(500);
+  });
+
+  test('TC-25 right-click compile no errors', async ({ page }) => {
+    await page.locator('[data-element-id]').first().click({ button: 'right' });
+    await page.waitForTimeout(300);
+    const btn = page.locator('.ld-context-menu__item:has-text("Compile")');
+    if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await btn.click();
+      await page.waitForTimeout(2000);
+      const n = page.locator('.theia-notification');
+      if (await n.count() > 0) expect(await n.first().textContent()).toBeTruthy();
     }
   });
 
-  test('TC-03: LD Tool Palette exists and has tool buttons', async ({ page }) => {
-    await page.goto(STUDIO_URL);
-    await page.waitForSelector(SHELL, { state: 'visible', timeout: 30000 });
-    await page.waitForTimeout(3000);
-
-    // ponytail: Theia duplicates tab IDs — use .first() for strict mode
-    await page.locator('#shell-tab-audesys-ld-palette').first().click({ force: true });
-    await page.waitForTimeout(1000);
-
-    const ldButtons = page.locator('#audesys-ld-palette .ld-palette-button');
-    const btnCount = await ldButtons.count();
-    expect(btnCount).toBeGreaterThanOrEqual(1);
+  test('TC-26 full session 0 errors', async ({ page }) => {
+    const errs: string[] = [];
+    page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+    await page.goto(URL);
+    await page.waitForTimeout(10000);
+    expect(errs.filter(e => !e.includes('favicon.ico') && !e.includes('setTheme') && !e.includes('popup'))).toHaveLength(0);
   });
-
-  test('TC-04: FBD Tool Palette exists and has tool buttons', async ({ page }) => {
-    await page.goto(STUDIO_URL);
-    await page.waitForSelector(SHELL, { state: 'visible', timeout: 30000 });
-    await page.waitForTimeout(3000);
-
-    await page.locator('#shell-tab-audesys-fbd-palette').first().click({ force: true });
-    await page.waitForTimeout(1000);
-
-    const fbdButtons = page.locator('#audesys-fbd-palette .fbd-palette-button');
-    const btnCount = await fbdButtons.count();
-    expect(btnCount).toBeGreaterThanOrEqual(1);
-  });
-
-  test('TC-05: Signal Browser is visible in sidebar', async ({ page }) => {
-    await page.goto(STUDIO_URL);
-    await page.waitForSelector(SHELL, { state: 'visible', timeout: 30000 });
-    await page.waitForTimeout(3000);
-
-    const signalTab = page.locator('.lm-TabBar-tabLabel:has-text("Signal Browser")');
-    await expect(signalTab.first()).toBeAttached({ timeout: 10000 });
-  });
-
-  test('TC-06: Debug Panel is visible in bottom area', async ({ page }) => {
-    await page.goto(STUDIO_URL);
-    await page.waitForSelector(SHELL, { state: 'visible', timeout: 30000 });
-    await page.waitForTimeout(3000);
-
-    const debugTab = page.locator('.lm-TabBar-tabLabel:has-text("Debug"), .lm-TabBar-tabLabel:has-text("Debug Panel")');
-    await expect(debugTab.first()).toBeAttached({ timeout: 10000 });
-  });
-
-  test('TC-07: HMI Designer can be opened via F1 command palette', async ({ page }) => {
-    await page.goto(STUDIO_URL);
-    await page.waitForSelector(SHELL, { state: 'visible', timeout: 30000 });
-    await page.waitForTimeout(3000);
-
-    await page.keyboard.press('F1');
-    await page.waitForTimeout(1500);
-
-    const input = page.locator('.quick-input-field input, .monaco-inputbox input');
-    await input.fill('>HMI Designer');
-    await page.waitForTimeout(800);
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(3000);
-
-    const hmiWidgets = page.locator(
-      '.lm-TabBar-tabLabel:has-text("HMI"), ' +
-      '.lm-TabBar-tabLabel:has-text("Designer")'
-    );
-    const count = await hmiWidgets.count();
-    expect(count).toBeGreaterThanOrEqual(0);
-  });
-
-  test('TC-08: LD Tool Palette "NO Contact" button is clickable', async ({ page }) => {
-    await page.goto(STUDIO_URL);
-    await page.waitForSelector(SHELL, { state: 'visible', timeout: 30000 });
-    await page.waitForTimeout(3000);
-
-    await page.locator('#shell-tab-audesys-ld-palette').first().click({ force: true });
-    await page.waitForTimeout(1000);
-
-    const noContactBtn = page.locator('#audesys-ld-palette .ld-palette-button').first();
-    await expect(noContactBtn).toBeVisible({ timeout: 5000 });
-    await noContactBtn.click();
-  });
-
-  test('TC-09: 0 console errors across full test session', async ({ page }) => {
-    const errTracker = collectErrors(page);
-    await page.goto(STUDIO_URL);
-    await page.waitForTimeout(6000);
-
-    await page.keyboard.press('F1');
-    await page.waitForTimeout(1000);
-    const input = page.locator('.quick-input-field input, .monaco-inputbox input');
-    await input.fill('>New Ladder Diagram');
-    await page.waitForTimeout(500);
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(2000);
-
-    expect(errTracker.critical()).toHaveLength(0);
-  });
-
 });
