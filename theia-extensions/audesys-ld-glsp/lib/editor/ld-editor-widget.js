@@ -93,21 +93,29 @@ const LdEditor = ({ toolState, modelState, handler, onSelectionChange, onDirtyCh
             if (!ctm)
                 return;
             const world = pt.matrixTransform(ctm.inverse());
-            const targetRung = findRungByY(graph, world.y);
+            // Auto-create first rung if canvas is empty
+            let currentGraph = graph;
+            if (graph.rungs.length === 0
+                && (toolType.startsWith('no-') || toolType.startsWith('nc-') || toolType === 'coil'
+                    || toolType.startsWith('negated-') || toolType.startsWith('set-') || toolType.startsWith('reset-'))) {
+                currentGraph = handler.addRung(graph, { position: { x: 0, y: 0 } });
+                refreshGraph(currentGraph);
+            }
+            const targetRung = findRungByY(currentGraph, world.y);
             if (!targetRung)
                 return;
             try {
                 let next;
                 switch (toolType) {
                     case 'no-contact':
-                        next = handler.addContact(graph, {
+                        next = handler.addContact(currentGraph, {
                             rungId: targetRung.id,
                             position: { x: world.x - CANVAS_PADDING, y: targetRung.rungNumber * RUNG_OFFSET },
                             type: nodes_1.ContactType.NO,
                         });
                         break;
                     case 'nc-contact':
-                        next = handler.addContact(graph, {
+                        next = handler.addContact(currentGraph, {
                             rungId: targetRung.id,
                             position: { x: world.x - CANVAS_PADDING, y: targetRung.rungNumber * RUNG_OFFSET },
                             type: nodes_1.ContactType.NC,
@@ -123,7 +131,7 @@ const LdEditor = ({ toolState, modelState, handler, onSelectionChange, onDirtyCh
                             'set-coil': nodes_1.CoilType.Set,
                             'reset-coil': nodes_1.CoilType.Reset,
                         };
-                        next = handler.addCoil(graph, {
+                        next = handler.addCoil(currentGraph, {
                             rungId: targetRung.id,
                             position: { x: world.x - CANVAS_PADDING, y: targetRung.rungNumber * RUNG_OFFSET },
                             type: ct[toolType],
@@ -131,10 +139,10 @@ const LdEditor = ({ toolState, modelState, handler, onSelectionChange, onDirtyCh
                         break;
                     }
                     case 'rung':
-                        next = handler.addRung(graph);
+                        next = handler.addRung(currentGraph);
                         break;
                     default:
-                        return; // Other tools not implemented in editor P1
+                        return;
                 }
                 modelState.applyOperation(() => next);
                 refreshGraph(next);
