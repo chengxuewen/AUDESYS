@@ -36,7 +36,8 @@ export default new ContainerModule((bind) => {
     bind(FbdGModelState).toSelf().inSingletonScope();
     bind(FbdOperationHandler).toSelf().inSingletonScope();
 
-    // ── Editor ─────────────────────────────────────────────────
+    // OpenHandler: opens .fbd files in the FBD editor
+    bind(FbdEditorOpenHandler).toSelf();
     bind(OpenHandler).to(FbdEditorOpenHandler);
     bind(CommandContribution).to(FbdEditorCommandContribution);
     bind(MenuContribution).to(FbdEditorCommandContribution);

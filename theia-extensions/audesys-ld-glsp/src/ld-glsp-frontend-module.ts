@@ -47,6 +47,7 @@ export default new ContainerModule((bind) => {
     // ── Editor ─────────────────────────────────────────────────
 
     // OpenHandler: opens .ld files in the LD editor
+    bind(LdEditorOpenHandler).toSelf();
     bind(OpenHandler).to(LdEditorOpenHandler);
 
     // CommandContribution: Compile, Undo, Redo, Save, Add Rung

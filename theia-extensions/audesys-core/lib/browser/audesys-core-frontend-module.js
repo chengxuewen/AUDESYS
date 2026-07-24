@@ -9,6 +9,7 @@ const iec_navigator_decorator_1 = require("./iec-navigator-decorator");
 const iec_icons_1 = require("./iec-icons");
 // [DISABLED - requires @theia/workspace async init] import { IecNewFileContribution } from './iec-new-file-contribution';
 const iec_context_menu_1 = require("./iec-context-menu");
+const window_title_contribution_1 = require("./window-title-contribution");
 const signal_browser_contribution_1 = require("./signal-browser/signal-browser-contribution");
 const scope_view_contribution_1 = require("./scope-view/scope-view-contribution");
 const signal_bridge_protocol_1 = require("../common/signal-bridge-protocol");
@@ -31,6 +32,10 @@ exports.default = new inversify_1.ContainerModule((bind) => {
     bind(scope_view_contribution_1.ScopeViewContribution).toSelf().inSingletonScope();
     bind(browser_1.WidgetFactory).toService(scope_view_contribution_1.ScopeViewContribution);
     bind(browser_1.FrontendApplicationContribution).toService(scope_view_contribution_1.ScopeViewContribution);
+    // Window title — always show "AUDESYS Studio" regardless of workspace folder
+    bind(window_title_contribution_1.WindowTitleContribution).toSelf().inSingletonScope();
+    bind(browser_1.FrontendApplicationContribution).toService(window_title_contribution_1.WindowTitleContribution);
+    // Signal Bridge RPC proxy — connects to backend native bridge.
     // Signal Bridge RPC proxy — connects to backend native bridge.
     // ponytail: fallback stub prevents crash when backend isn't ready during init.
     // Use toDynamicValue for lazy resolution; createProxy is deferred until first inject.

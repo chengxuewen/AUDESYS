@@ -159,6 +159,7 @@ class FbdPaletteWidget extends react_widget_1.ReactWidget {
         this.toolState = toolState;
         this.id = FbdPaletteWidget.ID;
         this.title.label = FbdPaletteWidget.LABEL;
+        this.title.iconClass = 'codicon codicon-symbol-interface';
         this.title.caption = 'Function Block Diagram tool palette';
         this.title.closable = true;
     }

@@ -56,7 +56,7 @@ interface ToolButtonProps {
     isSelected: boolean;
     onSelect: (type: LdToolType) => void;
 }
-const ToolButton: React.FC<ToolButtonProps> = ({ item, isSelected, onSelect }) => {
+const ToolButton: React.FC<ToolButtonProps> = ({ item, isSelected, onSelect }: ToolButtonProps) => {
     const handleClick = (): void => {
         onSelect(item.type);
     };
@@ -76,7 +76,7 @@ const ToolButton: React.FC<ToolButtonProps> = ({ item, isSelected, onSelect }) =
 };
 
 /** Main palette React component. */
-const Palette: React.FC<PaletteProps> = ({ toolState }) => {
+const Palette: React.FC<PaletteProps> = ({ toolState }: PaletteProps) => {
     const [selected, setSelected] = React.useState<LdToolType | null>(null);
 
     React.useEffect(() => {
@@ -226,6 +226,7 @@ export class LdPaletteWidget extends ReactWidget {
         this.toolState = toolState;
         this.id = LdPaletteWidget.ID;
         this.title.label = LdPaletteWidget.LABEL;
+        this.title.iconClass = 'codicon codicon-symbol-boolean';
         this.title.caption = 'Ladder Diagram tool palette';
         this.title.closable = true;
     }
@@ -260,6 +261,6 @@ interface SectionHeaderProps {
     title: string;
 }
 
-const SectionHeader: React.FC<SectionHeaderProps> = ({ title }) => (
+const SectionHeader: React.FC<SectionHeaderProps> = ({ title }: SectionHeaderProps) => (
     <div className="ld-palette-section-header" dangerouslySetInnerHTML={{ __html: title }} />
 );

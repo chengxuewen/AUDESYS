@@ -30,7 +30,8 @@ exports.default = new inversify_1.ContainerModule((bind) => {
     // ── Shared state (singletons) ──────────────────────────────
     bind(fbd_gmodel_state_1.FbdGModelState).toSelf().inSingletonScope();
     bind(fbd_operation_handler_1.FbdOperationHandler).toSelf().inSingletonScope();
-    // ── Editor ─────────────────────────────────────────────────
+    // OpenHandler: opens .fbd files in the FBD editor
+    bind(fbd_editor_contribution_1.FbdEditorOpenHandler).toSelf();
     bind(opener_service_1.OpenHandler).to(fbd_editor_contribution_1.FbdEditorOpenHandler);
     bind(core_1.CommandContribution).to(fbd_editor_contribution_1.FbdEditorCommandContribution);
     bind(core_1.MenuContribution).to(fbd_editor_contribution_1.FbdEditorCommandContribution);

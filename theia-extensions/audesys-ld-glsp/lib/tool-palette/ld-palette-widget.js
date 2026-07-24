@@ -161,6 +161,7 @@ class LdPaletteWidget extends react_widget_1.ReactWidget {
         this.toolState = toolState;
         this.id = LdPaletteWidget.ID;
         this.title.label = LdPaletteWidget.LABEL;
+        this.title.iconClass = 'codicon codicon-symbol-boolean';
         this.title.caption = 'Ladder Diagram tool palette';
         this.title.closable = true;
     }

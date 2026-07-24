@@ -55,7 +55,7 @@ interface ToolButtonProps {
     onSelect: (type: FbdToolType) => void;
 }
 
-const ToolButton: React.FC<ToolButtonProps> = ({ item, isSelected, onSelect }) => {
+const ToolButton: React.FC<ToolButtonProps> = ({ item, isSelected, onSelect }: ToolButtonProps) => {
     const handleClick = (): void => {
         onSelect(item.type);
     };
@@ -75,7 +75,7 @@ const ToolButton: React.FC<ToolButtonProps> = ({ item, isSelected, onSelect }) =
 };
 
 /** Main palette React component. */
-const Palette: React.FC<PaletteProps> = ({ toolState }) => {
+const Palette: React.FC<PaletteProps> = ({ toolState }: PaletteProps) => {
     const [selected, setSelected] = React.useState<FbdToolType | null>(null);
 
     React.useEffect(() => {
@@ -225,6 +225,7 @@ export class FbdPaletteWidget extends ReactWidget {
         this.toolState = toolState;
         this.id = FbdPaletteWidget.ID;
         this.title.label = FbdPaletteWidget.LABEL;
+        this.title.iconClass = 'codicon codicon-symbol-interface';
         this.title.caption = 'Function Block Diagram tool palette';
         this.title.closable = true;
     }
@@ -259,6 +260,6 @@ interface SectionHeaderProps {
     title: string;
 }
 
-const SectionHeader: React.FC<SectionHeaderProps> = ({ title }) => (
+const SectionHeader: React.FC<SectionHeaderProps> = ({ title }: SectionHeaderProps) => (
     <div className="fbd-palette-section-header" dangerouslySetInnerHTML={{ __html: title }} />
 );

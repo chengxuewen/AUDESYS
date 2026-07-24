@@ -7,6 +7,7 @@ import { IecNavigatorDecorator } from './iec-navigator-decorator';
 import { IecFileIconTheme } from './iec-icons';
 // [DISABLED - requires @theia/workspace async init] import { IecNewFileContribution } from './iec-new-file-contribution';
 import { IecContextMenuContribution } from './iec-context-menu';
+import { WindowTitleContribution } from './window-title-contribution';
 import { SignalBrowserContribution } from './signal-browser/signal-browser-contribution';
 import { ScopeViewContribution } from './scope-view/scope-view-contribution';
 import { SignalBridgeService, SignalBridgeServicePath } from '../common/signal-bridge-protocol';
@@ -35,7 +36,11 @@ export default new ContainerModule((bind) => {
     bind(ScopeViewContribution).toSelf().inSingletonScope();
     bind(WidgetFactory).toService(ScopeViewContribution);
     bind(FrontendApplicationContribution).toService(ScopeViewContribution);
+    // Window title — always show "AUDESYS Studio" regardless of workspace folder
+    bind(WindowTitleContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(WindowTitleContribution);
 
+    // Signal Bridge RPC proxy — connects to backend native bridge.
     // Signal Bridge RPC proxy — connects to backend native bridge.
     // ponytail: fallback stub prevents crash when backend isn't ready during init.
     // Use toDynamicValue for lazy resolution; createProxy is deferred until first inject.

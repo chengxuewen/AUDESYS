@@ -35,6 +35,7 @@ exports.default = new inversify_1.ContainerModule((bind) => {
     bind(browser_1.FrontendApplicationContribution).to(ld_palette_contribution_1.LdPaletteContribution);
     // ── Editor ─────────────────────────────────────────────────
     // OpenHandler: opens .ld files in the LD editor
+    bind(ld_editor_contribution_1.LdEditorOpenHandler).toSelf();
     bind(opener_service_1.OpenHandler).to(ld_editor_contribution_1.LdEditorOpenHandler);
     // CommandContribution: Compile, Undo, Redo, Save, Add Rung
     bind(core_1.CommandContribution).to(ld_editor_contribution_1.LdEditorCommandContribution);
