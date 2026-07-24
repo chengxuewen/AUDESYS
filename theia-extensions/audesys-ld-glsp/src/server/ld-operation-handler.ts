@@ -242,12 +242,12 @@ export class LdOperationHandler {
       throw new ValidationError('Contact must be left of the coil');
     }
 
-    // Create the contact
-    const contact = createContact(params.type, '??', {
+    // Create the contact with auto-generated variable name
+    const contactCount = graph.nodes.filter(n => n.type === 'node:contact').length;
+    const contact = createContact(params.type, `IN${contactCount}`, {
       x: snapped.x,
       y: snapped.y,
     });
-
     // Build updated graph
     const next = cloneGraph(graph);
     next.nodes.push(contact);
@@ -326,7 +326,8 @@ export class LdOperationHandler {
       throw new ValidationError('Coil must be placed to the right of all contacts');
     }
 
-    const coil = createCoil(params.type, '??', { x: snapped.x, y: snapped.y });
+    const coilCount = graph.nodes.filter(n => n.type === 'node:coil').length;
+    const coil = createCoil(params.type, `OUT${coilCount}`, { x: snapped.x, y: snapped.y });
 
     const next = cloneGraph(graph);
     next.nodes.push(coil);

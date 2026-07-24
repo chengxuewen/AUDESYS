@@ -132,8 +132,9 @@ class LdOperationHandler {
         if (coilNode && snapped.x >= coilNode.position.x) {
             throw new ValidationError('Contact must be left of the coil');
         }
-        // Create the contact
-        const contact = (0, model_1.createContact)(params.type, '??', {
+        // Create the contact with auto-generated variable name
+        const contactCount = graph.nodes.filter(n => n.type === 'node:contact').length;
+        const contact = (0, model_1.createContact)(params.type, `IN${contactCount}`, {
             x: snapped.x,
             y: snapped.y,
         });
@@ -207,7 +208,8 @@ class LdOperationHandler {
         if (snapped.x <= rightmostX) {
             throw new ValidationError('Coil must be placed to the right of all contacts');
         }
-        const coil = (0, model_1.createCoil)(params.type, '??', { x: snapped.x, y: snapped.y });
+        const coilCount = graph.nodes.filter(n => n.type === 'node:coil').length;
+        const coil = (0, model_1.createCoil)(params.type, `OUT${coilCount}`, { x: snapped.x, y: snapped.y });
         const next = cloneGraph(graph);
         next.nodes.push(coil);
         // Add to end of rung element list
