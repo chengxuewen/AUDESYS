@@ -3,7 +3,7 @@
  *
  * Registers:
  * - OpenHandler: opens .fbd files in the FBD editor widget
- * - CommandContribution: Compile, Save, Undo, Redo commands
+ * - CommandContribution: Compile, Deploy, Save, Undo, Redo commands
  * - Wires tool palette selection → editor actions
  *
  * Ponytail: one class, multiple contribution interfaces. Clone of LD pattern.
@@ -19,6 +19,11 @@ import { FbdOperationHandler } from '../server/fbd-operation-handler';
 import { FbdEditorWidget } from './fbd-editor-widget';
 export declare const FBD_EDITOR_COMMANDS: {
     COMPILE: {
+        id: string;
+        label: string;
+        category: string;
+    };
+    DEPLOY: {
         id: string;
         label: string;
         category: string;
@@ -61,6 +66,7 @@ export declare class FbdEditorCommandContribution implements CommandContribution
     registerCommands(registry: CommandRegistry): void;
     registerMenus(menus: MenuModelRegistry): void;
     private compile;
+    private deploy;
     private save;
     private undo;
     private redo;

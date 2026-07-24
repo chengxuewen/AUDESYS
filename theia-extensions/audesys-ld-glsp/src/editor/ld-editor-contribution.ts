@@ -3,7 +3,7 @@
  *
  * Registers:
  * - OpenHandler: opens .ld files in the LD editor widget
- * - CommandContribution: Compile, Save, Undo, Redo toolbar commands
+ * - CommandContribution: Compile, Deploy, Save, Undo, Redo toolbar commands
  * - Wires tool palette selection → editor actions
  *
  * Ponytail: one class, multiple contribution interfaces. No separate handler classes.
@@ -38,6 +38,11 @@ export const LD_EDITOR_COMMANDS = {
     COMPILE: {
         id: 'audesys.ld.compile',
         label: 'LD: Compile',
+        category: 'Ladder Diagram',
+    },
+    DEPLOY: {
+        id: 'audesys.ld.deploy',
+        label: 'LD: Deploy',
         category: 'Ladder Diagram',
     },
     SAVE: {
@@ -163,6 +168,11 @@ export class LdEditorCommandContribution implements CommandContribution, MenuCon
             execute: () => this.compile(),
         });
 
+        // Deploy
+        registry.registerCommand(LD_EDITOR_COMMANDS.DEPLOY, {
+            execute: () => this.deploy(),
+        });
+
         // Save
         registry.registerCommand(LD_EDITOR_COMMANDS.SAVE, {
             execute: () => this.save(),
@@ -192,6 +202,11 @@ export class LdEditorCommandContribution implements CommandContribution, MenuCon
             commandId: LD_EDITOR_COMMANDS.COMPILE.id,
             label: 'LD: Compile',
             order: 'z',
+        });
+        menus.registerMenuAction(CommonMenus.EDIT, {
+            commandId: LD_EDITOR_COMMANDS.DEPLOY.id,
+            label: 'LD: Deploy',
+            order: 'z0',
         });
         menus.registerMenuAction(CommonMenus.EDIT, {
             commandId: LD_EDITOR_COMMANDS.UNDO.id,
@@ -224,6 +239,46 @@ export class LdEditorCommandContribution implements CommandContribution, MenuCon
             this.messageService.error(
                 `Compilation failed with ${result.diagnostics.length} error(s):\n\n${diag}`
             );
+        }
+    }
+
+    // ── Deploy ─────────────────────────────────────────────────
+
+    private deploy(): void {
+        const graph = this.modelState.graph;
+        const result: CompileResult = this.operationHandler.compile(graph);
+
+        if (!result.success) {
+            const diag = result.diagnostics
+                .map((d) => `[${d.severity}] ${d.message} (${d.code})`)
+                .join('\n');
+            this.messageService.error(
+                `Deploy aborted — compilation failed with ${result.diagnostics.length} error(s):\n\n${diag}`
+            );
+            return;
+        }
+
+        // ponytail: env var or well-known default, same as iec-context-menu.ts
+        const socketPath = process.env.AUDESYS_SOCKET ?? '/tmp/audesys-controller.sock';
+        const secret = process.env.AUDESYS_HMAC_SECRET ?? 'audesys-dev-secret';
+
+        try {
+            const bridge = require('@audesys/theia-bridge');
+            bridge.deployProgram(socketPath, secret, result.programJson);
+            this.modelState.markClean();
+            this.messageService.info(
+                `Deployed LD program to Controller at ${socketPath}\n` +
+                `Program size: ${result.programJson.length} bytes`
+            );
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes('ECONNREFUSED') || msg.includes('ENOENT')) {
+                this.messageService.error(
+                    `Deploy failed: No Controller running at ${socketPath}. Start the Controller first.`
+                );
+            } else {
+                this.messageService.error(`Deploy failed: ${msg}`);
+            }
         }
     }
 

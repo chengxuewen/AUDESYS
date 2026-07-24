@@ -3,7 +3,7 @@
  *
  * Registers:
  * - OpenHandler: opens .ld files in the LD editor widget
- * - CommandContribution: Compile, Save, Undo, Redo toolbar commands
+ * - CommandContribution: Compile, Deploy, Save, Undo, Redo toolbar commands
  * - Wires tool palette selection → editor actions
  *
  * Ponytail: one class, multiple contribution interfaces. No separate handler classes.
@@ -19,6 +19,11 @@ import { LdOperationHandler } from '../server/ld-operation-handler';
 import { LdEditorWidget } from './ld-editor-widget';
 export declare const LD_EDITOR_COMMANDS: {
     COMPILE: {
+        id: string;
+        label: string;
+        category: string;
+    };
+    DEPLOY: {
         id: string;
         label: string;
         category: string;
@@ -65,6 +70,7 @@ export declare class LdEditorCommandContribution implements CommandContribution,
     registerCommands(registry: CommandRegistry): void;
     registerMenus(menus: MenuModelRegistry): void;
     private compile;
+    private deploy;
     private save;
     private undo;
     private redo;

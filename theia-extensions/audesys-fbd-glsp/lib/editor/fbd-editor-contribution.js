@@ -4,7 +4,7 @@
  *
  * Registers:
  * - OpenHandler: opens .fbd files in the FBD editor widget
- * - CommandContribution: Compile, Save, Undo, Redo commands
+ * - CommandContribution: Compile, Deploy, Save, Undo, Redo commands
  * - Wires tool palette selection → editor actions
  *
  * Ponytail: one class, multiple contribution interfaces. Clone of LD pattern.
@@ -42,6 +42,11 @@ exports.FBD_EDITOR_COMMANDS = {
     COMPILE: {
         id: 'audesys.fbd.compile',
         label: 'FBD: Compile',
+        category: 'Function Block Diagram',
+    },
+    DEPLOY: {
+        id: 'audesys.fbd.deploy',
+        label: 'FBD: Deploy',
         category: 'Function Block Diagram',
     },
     SAVE: {
@@ -151,6 +156,9 @@ let FbdEditorCommandContribution = class FbdEditorCommandContribution {
         registry.registerCommand(exports.FBD_EDITOR_COMMANDS.COMPILE, {
             execute: () => this.compile(),
         });
+        registry.registerCommand(exports.FBD_EDITOR_COMMANDS.DEPLOY, {
+            execute: () => this.deploy(),
+        });
         registry.registerCommand(exports.FBD_EDITOR_COMMANDS.SAVE, {
             execute: () => this.save(),
         });
@@ -168,6 +176,11 @@ let FbdEditorCommandContribution = class FbdEditorCommandContribution {
             commandId: exports.FBD_EDITOR_COMMANDS.COMPILE.id,
             label: 'FBD: Compile',
             order: 'z',
+        });
+        menus.registerMenuAction(common_menus_1.CommonMenus.EDIT, {
+            commandId: exports.FBD_EDITOR_COMMANDS.DEPLOY.id,
+            label: 'FBD: Deploy',
+            order: 'z0',
         });
         menus.registerMenuAction(common_menus_1.CommonMenus.EDIT, {
             commandId: exports.FBD_EDITOR_COMMANDS.UNDO.id,
@@ -194,6 +207,37 @@ let FbdEditorCommandContribution = class FbdEditorCommandContribution {
                 .map((d) => `[${d.severity}] ${d.message} (${d.code})`)
                 .join('\n');
             this.messageService.error(`Compilation failed with ${result.diagnostics.length} error(s):\n\n${diag}`);
+        }
+    }
+    // ── Deploy ─────────────────────────────────────────────────
+    deploy() {
+        const graph = this.modelState.graph;
+        const result = this.operationHandler.compile(graph);
+        if (!result.success) {
+            const diag = result.diagnostics
+                .map((d) => `[${d.severity}] ${d.message} (${d.code})`)
+                .join('\n');
+            this.messageService.error(`Deploy aborted — compilation failed with ${result.diagnostics.length} error(s):\n\n${diag}`);
+            return;
+        }
+        // ponytail: env var or well-known default, same as iec-context-menu.ts
+        const socketPath = process.env.AUDESYS_SOCKET ?? '/tmp/audesys-controller.sock';
+        const secret = process.env.AUDESYS_HMAC_SECRET ?? 'audesys-dev-secret';
+        try {
+            const bridge = require('@audesys/theia-bridge');
+            bridge.deployProgram(socketPath, secret, result.programJson);
+            this.modelState.markClean();
+            this.messageService.info(`Deployed FBD program to Controller at ${socketPath}\n` +
+                `Program size: ${result.programJson.length} bytes`);
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes('ECONNREFUSED') || msg.includes('ENOENT')) {
+                this.messageService.error(`Deploy failed: No Controller running at ${socketPath}. Start the Controller first.`);
+            }
+            else {
+                this.messageService.error(`Deploy failed: ${msg}`);
+            }
         }
     }
     // ── Save ───────────────────────────────────────────────────
