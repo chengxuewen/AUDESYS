@@ -233,6 +233,7 @@ export class FbdPaletteWidget extends ReactWidget {
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
         this.injectStyles();
+        this.update(); // trigger React render when manually created via new
     }
 
     protected render(): React.ReactNode {

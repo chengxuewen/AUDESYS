@@ -166,6 +166,7 @@ class FbdPaletteWidget extends react_widget_1.ReactWidget {
     onAfterAttach(msg) {
         super.onAfterAttach(msg);
         this.injectStyles();
+        this.update(); // trigger React render when manually created via new
     }
     render() {
         return react_1.default.createElement(Palette, { toolState: this.toolState });
