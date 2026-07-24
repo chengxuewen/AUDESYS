@@ -91,7 +91,6 @@ const Palette: React.FC<PaletteProps> = ({ toolState }: PaletteProps) => {
     const handleSelect = (type: LdToolType): void => {
         console.debug('[LdPalette] handleSelect:', type, 'currently selected:', selected);
         if (selected === type) {
-        if (selected === type) {
             toolState.deselectTool();
         } else {
             toolState.selectTool(type);

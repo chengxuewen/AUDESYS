@@ -55,6 +55,8 @@ export class LdToolState {
         }
         this.currentTool = type;
         this.onDidChangeToolEmitter.fire(type);
+    }
+
 
     /**
      * Deselect the current tool (cursor mode).

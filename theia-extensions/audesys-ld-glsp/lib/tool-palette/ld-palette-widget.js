@@ -51,22 +51,15 @@ const Palette = ({ toolState }) => {
         });
         return () => { console.debug('[LdPalette] unsubscribing from toolState'); sub.dispose(); };
     }, [toolState]);
-    const sub = toolState.onDidChangeTool((tool) => {
-        setSelected(tool);
-    });
-    return () => sub.dispose();
-}, [toolState];
-const handleSelect = (type) => {
-    console.debug('[LdPalette] handleSelect:', type, 'currently selected:', selected);
-    if (selected === type) {
+    const handleSelect = (type) => {
+        console.debug('[LdPalette] handleSelect:', type, 'currently selected:', selected);
         if (selected === type) {
             toolState.deselectTool();
         }
         else {
             toolState.selectTool(type);
         }
-    }
-    ;
+    };
     const contactsItems = TOOL_ITEMS.filter((i) => i.section === 'contacts-coils');
     const structureItems = TOOL_ITEMS.filter((i) => i.section === 'structure');
     return (react_1.default.createElement("div", { className: "ld-palette" },

@@ -36,16 +36,14 @@ class LdToolState {
         }
         this.currentTool = type;
         this.onDidChangeToolEmitter.fire(type);
-        /**
-         * Deselect the current tool (cursor mode).
-         * Fires `onDidChangeTool` with null.
-         */
-        deselectTool();
-        void {
-            console, : .debug('[LdToolState] deselectTool, current:', this.currentTool),
-            : .currentTool === null
-        };
-        {
+    }
+    /**
+     * Deselect the current tool (cursor mode).
+     * Fires `onDidChangeTool` with null.
+     */
+    deselectTool() {
+        console.debug('[LdToolState] deselectTool, current:', this.currentTool);
+        if (this.currentTool === null) {
             return;
         }
         this.currentTool = null;
