@@ -2,7 +2,7 @@
 
 **创建日期**: 2026-07-21  
 **决策**: 从 Tauri+React 自建架构迁移到 Eclipse Theia 框架  
-**状态**: 设计完成，三审修订（arch-auditor + theia-expert + migration-feasibility，15 项 MUST-FIX）
+**状态**: 已完成。内容已吸收至 2026-07-24-robotics-architecture-design.md §47。本文档为历史参考。
 **前置决策**: Fork VS Code 已排除（周发版维护不可行），CodeBlitz 已排除（无调试/无 Rust LSP）
 
 ---
