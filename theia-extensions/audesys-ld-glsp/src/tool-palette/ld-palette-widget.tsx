@@ -21,26 +21,17 @@ interface ToolItem {
     type: LdToolType;
     icon: string;
     label: string;
-    section: 'contacts-coils' | 'structure';
 }
 
 /** All palette tool items, ordered for display. */
 const TOOL_ITEMS: ToolItem[] = [
-    // Section: Contacts & Coils
-    { type: 'no-contact',        icon: '─┤ ├─',   label: 'NO Contact',        section: 'contacts-coils' },
-    { type: 'nc-contact',        icon: '─┤/├─',   label: 'NC Contact',        section: 'contacts-coils' },
-    { type: 'coil',              icon: '─( )─',   label: 'Coil',              section: 'contacts-coils' },
-    { type: 'negated-coil',      icon: '─(/ )─',  label: 'Negated Coil',      section: 'contacts-coils' },
-    { type: 'set-coil',          icon: '─(S)─',   label: 'Set Coil',          section: 'contacts-coils' },
-    { type: 'reset-coil',        icon: '─(R)─',   label: 'Reset Coil',        section: 'contacts-coils' },
-    { type: 'fb-placeholder',    icon: '[FB]',    label: 'FB Placeholder',    section: 'contacts-coils' },
-
-    // Section: Structure
-    { type: 'horizontal-wire',   icon: '───',     label: 'Horizontal Wire',   section: 'structure' },
-    { type: 'vertical-wire',     icon: '│',       label: 'Vertical Wire',     section: 'structure' },
-    { type: 'power-rail-left',   icon: '╟─',      label: 'Power Rail Left',   section: 'structure' },
-    { type: 'power-rail-right',  icon: '─╢',      label: 'Power Rail Right',  section: 'structure' },
-    { type: 'rung',              icon: '☰',       label: 'Rung',              section: 'structure' },
+    { type: 'no-contact',        icon: '─┤ ├─',   label: 'NO Contact' },
+    { type: 'nc-contact',        icon: '─┤/├─',   label: 'NC Contact' },
+    { type: 'coil',              icon: '─( )─',   label: 'Normal Coil' },
+    { type: 'negated-coil',      icon: '─(/ )─',  label: 'Negated Coil' },
+    { type: 'set-coil',          icon: '─(S)─',   label: 'Set (Latch) Coil' },
+    { type: 'reset-coil',        icon: '─(R)─',   label: 'Reset Coil' },
+    { type: 'rung',              icon: '☰',       label: 'Add Rung' },
 ];
 
 // ============================================================================
@@ -97,23 +88,9 @@ const Palette: React.FC<PaletteProps> = ({ toolState }: PaletteProps) => {
         }
     };
 
-    const contactsItems = TOOL_ITEMS.filter((i) => i.section === 'contacts-coils');
-    const structureItems = TOOL_ITEMS.filter((i) => i.section === 'structure');
-
     return (
         <div className="ld-palette">
-            <SectionHeader title="Contacts &amp; Coils" />
-            {contactsItems.map((item) => (
-                <ToolButton
-                    key={item.type}
-                    item={item}
-                    isSelected={selected === item.type}
-                    onSelect={handleSelect}
-                />
-            ))}
-
-            <SectionHeader title="Structure" />
-            {structureItems.map((item) => (
+            {TOOL_ITEMS.map((item) => (
                 <ToolButton
                     key={item.type}
                     item={item}
@@ -261,10 +238,3 @@ export class LdPaletteWidget extends ReactWidget {
 // Section Header Component
 // ============================================================================
 
-interface SectionHeaderProps {
-    title: string;
-}
-
-const SectionHeader: React.FC<SectionHeaderProps> = ({ title }: SectionHeaderProps) => (
-    <div className="ld-palette-section-header" dangerouslySetInnerHTML={{ __html: title }} />
-);

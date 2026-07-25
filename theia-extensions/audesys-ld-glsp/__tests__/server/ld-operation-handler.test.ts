@@ -128,7 +128,7 @@ describe('LdOperationHandler', () => {
       expect(result.nodes[0].type).toBe('node:contact');
     });
 
-    it('sets default variable name to "??"', () => {
+    it('sets auto-generated variable name', () => {
       const graph = graphWithRung();
       const rung = graph.rungs[0];
 
@@ -139,7 +139,7 @@ describe('LdOperationHandler', () => {
       });
 
       const contact = result.nodes[0] as { variableName: string };
-      expect(contact.variableName).toBe('??');
+      expect(contact.variableName).toBe('IN0');
     });
 
     it('maintains left-to-right ordering by x position', () => {
@@ -664,6 +664,98 @@ describe('LdOperationHandler', () => {
 
       expect(result.success).toBe(false);
       expect(result.diagnostics[0].message).toBe('Bridge unavailable');
+    });
+  });
+  
+  // ── Compilation Pipeline Tests ────────────────────────
+
+  describe('LD text generation (graphToLdText)', () => {
+    /** Mock compile that captures the source text */
+    let capturedSource: string = '';
+    function capturingCompile(source: string): string {
+      capturedSource = source;
+      return mockCompile(source);
+    }
+
+    it('generates correct LD text for NO contact + Normal coil', () => {
+      const handler2 = new LdOperationHandler(capturingCompile);
+      const graph = graphWithContactAndCoil();
+      handler2.compile(graph);
+      expect(capturedSource).toContain('NETWORK');
+      expect(capturedSource).toContain('NO X1');
+      expect(capturedSource).toContain('OUT Y1');
+    });
+
+    it('generates correct LD text for NC contact + Set coil', () => {
+      const handler2 = new LdOperationHandler(capturingCompile);
+      const graph = createLdGraph();
+      const rung = createRung(1, []);
+      const contact = createContact(ContactType.NC, 'sensor', { x: 100, y: 40 });
+      const coil = createCoil(CoilType.Set, 'motor', { x: 520, y: 40 });
+      const g: LdGraph = {
+        ...graph,
+        nodes: [contact, coil],
+        edges: [],
+        rungs: [{ ...rung, elementIds: [contact.id, coil.id] }],
+      };
+      handler2.compile(g);
+      expect(capturedSource).toContain('NC sensor');
+      expect(capturedSource).toContain('SET motor');
+    });
+
+    it('generates correct LD text for Reset coil', () => {
+      const handler2 = new LdOperationHandler(capturingCompile);
+      const graph = createLdGraph();
+      const contact = createContact(ContactType.NO, 'X1', { x: 100, y: 40 });
+      const coil = createCoil(CoilType.Reset, 'alarm', { x: 520, y: 40 });
+      const rung = createRung(1, [contact.id, coil.id]);
+      const g: LdGraph = {
+        ...graph,
+        nodes: [contact, coil],
+        edges: [],
+        rungs: [rung],
+      };
+      handler2.compile(g);
+      expect(capturedSource).toContain('RESET alarm');
+    });
+
+    it('generates correct LD text for Negated coil (maps to OUT)', () => {
+      const handler2 = new LdOperationHandler(capturingCompile);
+      const graph = createLdGraph();
+      const contact = createContact(ContactType.NO, 'X1', { x: 100, y: 40 });
+      const coil = createCoil(CoilType.Negated, 'Y1', { x: 520, y: 40 });
+      const rung = createRung(1, [contact.id, coil.id]);
+      const g: LdGraph = {
+        ...graph,
+        nodes: [contact, coil],
+        edges: [],
+        rungs: [rung],
+      };
+      handler2.compile(g);
+      expect(capturedSource).toContain('OUT Y1');
+    });
+
+    it('generates multi-element network correctly', () => {
+      const handler2 = new LdOperationHandler(capturingCompile);
+      const graph = createLdGraph();
+      const c1 = createContact(ContactType.NO, 'X1', { x: 100, y: 40 });
+      const c2 = createContact(ContactType.NC, 'X2', { x: 220, y: 40 });
+      const c3 = createContact(ContactType.NO, 'X3', { x: 340, y: 40 });
+      const coil = createCoil(CoilType.Normal, 'Y1', { x: 520, y: 40 });
+      const rung = createRung(1, [c1.id, c2.id, c3.id, coil.id]);
+      const g: LdGraph = {
+        ...graph,
+        nodes: [c1, c2, c3, coil],
+        edges: [],
+        rungs: [rung],
+      };
+      handler2.compile(g);
+      const lines = capturedSource.split('\n');
+      expect(lines[0]).toBe('NETWORK');
+      expect(lines[1]).toContain('NO X1');
+      expect(lines[2]).toContain('NC X2');
+      expect(lines[3]).toContain('NO X3');
+      expect(lines[4]).toContain('OUT Y1');
     });
   });
 });

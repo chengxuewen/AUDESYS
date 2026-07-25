@@ -27,6 +27,7 @@ import { LdToolState } from '../tool-palette/ld-tool-state';
 import { LdGModelState } from '../server/ld-gmodel-state';
 import { LdOperationHandler, CompileResult } from '../server/ld-operation-handler';
 import { LdEditorWidget, LdEditorSelection } from './ld-editor-widget';
+import { LdPropertyState } from '../property-view/ld-property-state';
 import { fromJSON, toJSON } from '../gmodel/serialization';
 import { LdGraph } from '../gmodel/model';
 
@@ -81,6 +82,7 @@ export class LdEditorOpenHandler implements OpenHandler {
         @inject(LdGModelState) private readonly modelState: LdGModelState,
         @inject(LdOperationHandler) private readonly handler: LdOperationHandler,
         @inject(FileService) private readonly fileService: FileService,
+        @inject(LdPropertyState) private readonly propertyState: LdPropertyState,
     ) {}
 
     canHandle(uri: URI): number {
@@ -114,7 +116,7 @@ export class LdEditorOpenHandler implements OpenHandler {
         this.modelState.markClean();
 
         // Create editor widget
-        const widget = new LdEditorWidget(this.toolState, this.modelState, this.handler);
+        const widget = new LdEditorWidget(this.toolState, this.modelState, this.handler, this.propertyState);
         widget.title.label = uri.displayName;
         widget.title.caption = uri.path.toString();
         widget.title.closable = true;

@@ -8,7 +8,7 @@
  * - LdPaletteContribution (left panel palette widget)
  * - LdEditorOpenHandler (opens .ld files)
  * - LdEditorCommandContribution (Compile, Undo, Redo, Save commands)
- *
+ * - LdSprottyDiagramWidget (Sprotty-based diagram renderer, exported for direct use)
  * This replaces the old ld-palette-frontend-module as the package's single
  * theiaExtensions entry point.
  */
@@ -30,6 +30,11 @@ import { LdPaletteWidget } from './tool-palette/ld-palette-widget';
 import { LdGModelState } from './server/ld-gmodel-state';
 import { LdOperationHandler } from './server/ld-operation-handler';
 
+// Property View
+import { LdPropertyState } from './property-view/ld-property-state';
+
+// Editor
+
 // Editor
 import { LdEditorOpenHandler, LdEditorCommandContribution } from './editor/ld-editor-contribution';
 
@@ -39,6 +44,7 @@ export default new ContainerModule((bind) => {
     bind(LdToolState).toSelf().inSingletonScope();
     bind(LdGModelState).toSelf().inSingletonScope();
     bind(LdOperationHandler).toSelf().inSingletonScope();
+    bind(LdPropertyState).toSelf().inSingletonScope();
 
     // ── Tool Palette ───────────────────────────────────────────
 
@@ -56,3 +62,7 @@ export default new ContainerModule((bind) => {
     // MenuContribution: LD commands in Edit menu
     bind(MenuContribution).to(LdEditorCommandContribution);
 });
+
+// ── Sprotty Diagram Widget (created programmatically, not DI-bound) ──
+export { LdSprottyDiagramWidget } from './ld-diagram-widget';
+export { LD_NODE_TYPES } from './ld-diagram-config';

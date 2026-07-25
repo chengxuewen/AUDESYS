@@ -129,16 +129,27 @@ function rungToLdText(rung: Rung, graph: LdGraph): string {
       lines.push(`  ${c.contactType} ${c.variableName}`);
     } else if (node.type === 'node:coil') {
       const c = node as CoilNode;
-      lines.push(`  ${c.coilType} ${c.variableName}`);
+      const token = mapCoilTypeToLdToken(c.coilType);
+      lines.push(`  ${token} ${c.variableName}`);
     }
   }
   return lines.join('\n');
+}
+
+function mapCoilTypeToLdToken(coilType: CoilType): string {
+  switch (coilType) {
+    case CoilType.Normal:  return 'OUT';
+    case CoilType.Set:     return 'SET';
+    case CoilType.Reset:   return 'RESET';
+    case CoilType.Negated: return 'OUT'; // ponytail: LD text has no OUTN; maps to OUT
+  }
 }
 
 function graphToLdText(graph: LdGraph): string {
   if (graph.rungs.length === 0) return 'NETWORK\n';
   return graph.rungs.map((r) => rungToLdText(r, graph)).join('\n\n');
 }
+
 
 // ============================================================================
 // Compile Wrapper

@@ -17,6 +17,10 @@ import { Message } from '@lumino/messaging';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { LdToolState, LdToolType } from '../tool-palette/ld-tool-state';
 import { LdGModelState } from '../server/ld-gmodel-state';
+import { LdOperationHandler } from '../server/ld-operation-handler';
+import { LdPropertyState, PropertyChangeEvent } from '../property-view/ld-property-state';
+import { LdGraph, Rung } from '../gmodel/model';
+import { LdGModelState } from '../server/ld-gmodel-state';
 import { LdOperationHandler, AddContactParams, AddCoilParams, DeleteElementParams, ChangeContactTypeParams } from '../server/ld-operation-handler';
 import { LdGraph, Rung } from '../gmodel/model';
 import { BaseNode, ContactNode, CoilNode, PowerRailNode, FbPlaceholderNode, Point, ContactType, CoilType, PowerRailSide } from '../gmodel/nodes';
@@ -63,12 +67,12 @@ interface ContextMenuState {
 interface EditorProps {
     toolState: LdToolState;
     modelState: LdGModelState;
-    handler: LdOperationHandler;
+    propertyState?: LdPropertyState;
     onSelectionChange?: (sel: LdEditorSelection | null) => void;
     onDirtyChange?: (dirty: boolean) => void;
 }
 
-const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, onSelectionChange, onDirtyChange }) => {
+const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, propertyState, onSelectionChange, onDirtyChange }) => {
     const [graph, setGraph] = React.useState<LdGraph>(modelState.graph);
     const [selectedId, setSelectedId] = React.useState<string | null>(null);
     const [hoveredId, setHoveredId] = React.useState<string | null>(null);
@@ -86,7 +90,22 @@ const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, onSel
         });
         return () => { console.debug('[LdEditor] unsubscribing from toolState'); sub.dispose(); };
     }, [toolState]);
+    }, [toolState]);
 
+    // Sync property changes
+    React.useEffect(() => {
+        if (!propertyState) return;
+        const sub = propertyState.onDidChangeProperty((event: PropertyChangeEvent) => {
+            const next = applyPropertyChange(graph, event);
+            if (next) {
+                modelState.applyOperation(() => next);
+                setGraph(next);
+            }
+        });
+        return () => sub.dispose();
+    }, [toolState, graph, propertyState, modelState, handler]);
+
+    // Refresh graph + notify dirty on re-render
     // Refresh graph + notify dirty on re-render
     const refreshGraph = (g: LdGraph): void => {
         setGraph(g);
@@ -726,6 +745,62 @@ const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, onSel
 // Helpers
 // ============================================================================
 
+/** Apply a property change to the graph, returning the updated graph or null if no-op. */
+function applyPropertyChange(graph: LdGraph, event: PropertyChangeEvent): LdGraph | null {
+  const { elementId, property, value } = event;
+  const nodeIdx = graph.nodes.findIndex((n) => n.id === elementId);
+  if (nodeIdx < 0) return null;
+
+  const node = graph.nodes[nodeIdx];
+  const next = JSON.parse(JSON.stringify(graph)) as LdGraph;
+
+  if (node.type === 'node:contact') {
+    const c = next.nodes[nodeIdx] as { variableName: string; contactType: string };
+    if (property === 'variableName') {
+      c.variableName = value as string;
+      return next;
+    }
+    if (property === 'contactType') {
+      c.contactType = value as string;
+      return next;
+    }
+  }
+
+  if (node.type === 'node:coil') {
+    const c = next.nodes[nodeIdx] as { variableName: string; coilType: string };
+    if (property === 'variableName') {
+      c.variableName = value as string;
+      return next;
+    }
+    if (property === 'coilType') {
+      c.coilType = value as string;
+      return next;
+    }
+  }
+
+  if (node.type === 'node:fb') {
+    const fb = next.nodes[nodeIdx] as { fbType: string };
+    if (property === 'fbType') {
+      fb.fbType = value as string;
+      return next;
+    }
+  }
+
+  if (node.type === 'node:powerrail' || node.type === 'node:contact' || node.type === 'node:coil') {
+    // No editable properties for rails, contacts/coils handled above
+    return null;
+  }
+
+  // ponytail: rung comment update — handled via rung array
+  const rungIdx = graph.rungs.findIndex((r) => r.elementIds.includes(elementId));
+  if (rungIdx >= 0 && property === 'comment') {
+    next.rungs[rungIdx] = { ...next.rungs[rungIdx], comment: value as string };
+    return next;
+  }
+
+  return null;
+}
+
 function findRungByY(graph: LdGraph, y: number): Rung | undefined {
     const rungIdx = Math.floor((y - CANVAS_PADDING) / RUNG_OFFSET);
     if (rungIdx >= 0 && rungIdx < graph.rungs.length) {
@@ -745,6 +820,8 @@ export class LdEditorWidget extends ReactWidget {
     private readonly toolState: LdToolState;
     private readonly modelState: LdGModelState;
     private readonly handler: LdOperationHandler;
+    private readonly propertyState?: LdPropertyState;
+    private onSelectionChange?: (sel: LdEditorSelection | null) => void;
     private onSelectionChange?: (sel: LdEditorSelection | null) => void;
     private _dirty: boolean = false;
 
@@ -752,8 +829,13 @@ export class LdEditorWidget extends ReactWidget {
         toolState: LdToolState,
         modelState: LdGModelState,
         handler: LdOperationHandler,
+        propertyState?: LdPropertyState,
     ) {
         super();
+        this.toolState = toolState;
+        this.modelState = modelState;
+        this.handler = handler;
+        this.propertyState = propertyState;
         this.toolState = toolState;
         this.modelState = modelState;
         this.handler = handler;
@@ -782,6 +864,8 @@ export class LdEditorWidget extends ReactWidget {
             toolState: this.toolState,
             modelState: this.modelState,
             handler: this.handler,
+            propertyState: this.propertyState,
+            onSelectionChange: this.onSelectionChange,
             onSelectionChange: this.onSelectionChange,
             onDirtyChange: (d: boolean) => { this._dirty = d; },
         });
