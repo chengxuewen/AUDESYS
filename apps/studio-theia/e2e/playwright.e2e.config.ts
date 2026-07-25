@@ -7,6 +7,9 @@ export default defineConfig({
   testMatch: [
     'smoke/startup-browser.spec.ts',
     'expanded/theia-e2e.spec.ts',
+    'ld-editor.spec.ts',
+    'hmi-designer.spec.ts',
+    'codesys-workflow.spec.ts',
   ],
   timeout: 60_000,
   retries: 1,

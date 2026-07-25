@@ -1,7 +1,7 @@
 # AUDESYS HMI Designer Theia SDD 规范
 
 > **来源**: `theia-extensions/audesys-hmi-designer/` + `packages/studio-core/widgets/` + `docs/modules/runtime/panel-architecture-design.md`
-> **总项数**: 25 (Widget 库 7 + 画布布局 5 + 属性编辑 4 + 信号绑定 3 + 预览模式 2 + 部署集成 2 + Theia 集成 2)
+#RM|> **总项数**: 38 (Widget 库 7 + 画布布局 5 + 属性编辑 4 + 信号绑定 5 + 预览模式 2 + 部署集成 4 + Theia 集成 2 + LD→Runtime 垂直切片 5 + 变量→信号映射 4)
 > **Phase**: P1 = 23 项, P2 = 2 项
 > **当前状态**: 基础实现完成 (7 widgets, react-rnd 画布, 属性面板, 信号注入器), 0 测试于 theia-extension
 
@@ -371,3 +371,185 @@ HmiCanvasWidget 实现 Lumino Widget 完整生命周期：onAfterAttach（挂载
 - 部署管道: `openspec/specs/hmi-spec.md` §2 HMI-DPL (007 项)
 - SignalBridge: `openspec/specs/hmi-spec.md` §3 HMI-SIG (006 项)
 - Studio Theia 迁移: `openspec/specs/studio-theia-spec.md` (050 项)
+
+---
+
+## 8. HMI-VSL — LD→Runtime 垂直切片 (5 项)
+
+> **范围**: LD 编译器 (`audesys-ld-compiler`) → HalProgram → Runtime Engine (`audesys-runtime`) → HMI Designer → Panel
+> **端到端验证**: LD 源码编译后信号名自动映射至 Runtime 信号注册表，HMI 绑定后经 SignalBridge 推送至 Panel 渲染
+
+### HMI-VSL-001: LD 源码编译 → HalProgram 信号生成
+
+LD 梯形图编译为 HalProgram 后，所有 VAR 块变量自动成为 HalProgram 信号定义。每个信号包含名称、类型（Bool/Int/Real）、方向（Input/Output/Local）。
+
+- **前置条件**: LD 源码包含 `VAR IN1 AT %IX0.0 : BOOL; OUT1 AT %QX0.0 : BOOL; temp : INT; END_VAR`
+- **操作**: 调用 `ld_compile(source)` → 输出 `HalProgram`
+- **期望**: `HalProgram.signals` 列表含 3 项：`{name:"IN1", type:Bool, dir:Input}`, `{name:"OUT1", type:Bool, dir:Output}`, `{name:"temp", type:S16, dir:Local}`
+- **边界**: 无 VAR 块的 LD 程序 → signals 列表为空（合法，仅 I/O 触点不产生信号）；VAR 块中变量名含非 ASCII 字符 → 编译错误
+- **测试**: `crates/audesys-ld-compiler/tests/` — `test_ld_compile_generates_signal_definitions`
+
+### HMI-VSL-002: HalProgram 信号 → Runtime 信号注册表初始化
+
+Runtime Engine 接收 HalProgram 后实例化信号注册表，每个信号以默认值初始化（Bool=false, Int=0, Real=0.0），方向决定读写权限。
+
+- **前置条件**: HalProgram 含 5 个信号定义（`IN1:In`, `OUT1:Out`, `temp:Local`, `counter:InOut`, `status:Local`）
+- **操作**: `engine.deploy_program(hal_program)` — Runtime 在周期边界实例化信号
+- **期望**: `engine.signal_registry.snapshot()` 返回 5 个条目，全部初始化为默认值；`signal_registry.get("OUT1").writable == true`（Output 方向可写）
+- **边界**: HalProgram 含重名信号 → deploy 返回 `Error::DuplicateSignalName`；信号注册表已有旧程序信号 → 旧信号全部移除，新信号替换（hot-swap D17）
+- **测试**: `crates/audesys-runtime/src/engine.rs` — `test_signal_register_and_snapshot` (扩展)
+
+### HMI-VSL-003: HMI 信号绑定 → Runtime 信号存在性校验
+
+HMI Designer 在保存/部署前校验所有 widget 绑定的 signal 名称是否存在于 Runtime 信号注册表。缺失的信号产生警告，允许保存但阻止部署。
+
+- **前置条件**: Runtime 运行中，信号注册表含 `["IN1", "OUT1", "temp"]`；HMI layout 中 widget 绑定 `signal="IN1"` 和 `signal="ghost_signal"`
+- **操作**: Designer 调用 `validateLayout(layout, { signalNames: runtime_signals })`
+- **期望**: `result.warnings` 含 `"widget 'indicator-1' bound to unknown signal 'ghost_signal'"`；`IN1` 校验通过无警告
+- **操作**: 点击 Deploy 按钮 — 存在未知信号绑定时阻塞部署
+- **期望**: Deploy 被 `validateBeforeSave` 的 `errors` 拦截，返回错误列表；仅 warnings 无 errors 时允许部署
+- **边界**: signal 字段为 null/空字符串的 widget 跳过校验（无绑定=无错误）；Runtime 断连时校验降级为跳过（不阻塞保存）
+- **测试**: vitest — `test_hmi_signal_validation_against_runtime_registry`
+
+### HMI-VSL-004: LD 信号 → HMI Widget → Panel 显示 端到端
+
+完整垂直链路：LD 程序部署到 Runtime → Runtime 执行并更新信号值 → HMI Designer 导出布局并部署到 Runtime → Panel 通过 SignalBridge 读取信号 → Panel widget 渲染更新。
+
+- **前置条件**: (1) LD 程序已编译为 HalProgram 并部署到 Runtime, 含 `temp_sensor : INT`; (2) HMI Designer 导出布局，gauge widget 绑定 `signal="temp_sensor"`; (3) 布局已部署到 Runtime; (4) Panel 已连接 Runtime
+- **操作**: Runtime `sim_step()` 将 `temp_sensor` 更新为 42
+- **期望**: Panel SignalBridge 在下一轮询周期（≤500ms）读取到 `temp_sensor=42`，gauge widget 的 `signalValue` 更新为 42，指针指向 42% 位置
+- **操作**: 再次 `sim_step()` 更新为 85
+- **期望**: Panel gauge widget 同步更新至 85
+- **边界**: Runtime 断连 → Panel gauge 显示最后一次已知值 + 错误覆盖层（"Connection lost"）；信号值类型不匹配（INT 信号→F64 gauge）→ gauge 接收 F64(42.0) 正常渲染（INT→F64 自动转换）
+- **测试**: 集成测试 — `crates/audesys-runtime/tests/integration_e2e_test.rs` — `test_ld_to_hmi_to_panel_full_chain`
+
+### HMI-VSL-005: LD 变量类型 → HMI Widget 类型兼容性检查
+
+LD 变量类型必须与 HMI widget 类型兼容。类型不兼容产生警告（如 BOOL 绑定到 Gauge）、严重不兼容产生错误（如 String 绑定到 Tank）。
+
+- **前置条件**: LD 变量 `is_running : BOOL`; HMI gauge widget 绑定 `signal="is_running"`; indicator widget 绑定同一信号
+- **操作**: `validateLayout(layout, { signalTypes: {"is_running": "Bool"} })`
+- **期望**: gauge 绑定产生 `result.warnings` 含 `"widget 'gauge-1' expects F64 signal but 'is_running' is BOOL"`; indicator 绑定无警告（BOOL→Indicator 兼容）
+- **操作**: LD 变量 `sensor_name : STRING` 绑定到 tank widget
+- **期望**: `result.errors` 含 `"widget 'tank-2' cannot bind to STRING signal 'sensor_name'"`
+- **边界**: 未知类型的 widget → 绑定始终允许（警告 "unknown widget type compatibility for 'custom_widget'"）；P1 仅实现 BOOL/数字/String 三族类型检查，复杂类型（Array/Blob）P2
+- **测试**: vitest — `test_hmi_widget_signal_type_compatibility`
+
+---
+
+## 9. HMI-MAP — LD 变量名 → Runtime 信号名映射 (4 项)
+
+> **原则**: LD 源码中的变量名是 HMI 信号绑定的唯一标识符。映射规则须确定性、可逆、可追溯。
+> **参考**: D55 (CNC G-code→HAL IR 编译器 — 同构模式：G-code 变量→HalProgram 信号)
+
+### HMI-MAP-001: LD 直接变量名 → Runtime 信号名 1:1 映射
+
+LD `VAR` 块中声明的变量名直接作为 Runtime 信号名注册（除去 I/O 地址映射变量）。映射在编译阶段完成，HalProgram 保存映射表。
+
+- **前置条件**: LD 源码 `VAR speed : INT := 100; END_VAR`
+- **操作**: `ld_compile(source)` 编译, 检查输出的 HalProgram
+- **期望**: `HalProgram.signal_name_map["speed"] = {type: S16, default: 100, direction: Local}`
+- **操作**: Runtime Engine 加载 HalProgram 后 `signal_registry.get("speed")`
+- **期望**: 返回 `SignalValue::S16(100)` — 名称和默认值均来自 LD 变量声明
+- **边界**: LD 变量名与 HAL 引脚名冲突 → 编译错误（"variable 'speed' conflicts with HAL pin name"）；LD 变量名大小写 → 保持原样（"Speed" ≠ "speed"，区分大小写）
+- **测试**: `crates/audesys-ld-compiler/tests/` — `test_ld_variable_to_signal_name_mapping`
+
+### HMI-MAP-002: LD I/O 地址 → 标准化 HAL 信号名
+
+LD 的 `AT %IX0.0` / `AT %QX0.0` 地址映射通过 HAL 配置文件转换为点分隔的标准化信号名（`component.interface.pin` 格式），非直接使用 `%IX0.0` 原始地址。
+
+- **前置条件**: LD 源码 `VAR button AT %IX1.2 : BOOL; END_VAR`; HAL 配置 `IO: {IX1.2: "gpio.input_panel.button_start"}`
+- **操作**: 编译时 `ld_compile(source, hal_config)` 合并 HAL 映射
+- **期望**: HalProgram 中信号名为 `"gpio.input_panel.button_start"`（非 `"button"` 也非 `"IX1.2"`）；HMI Designer 的 Bind 对话框下拉列表中显示 `"gpio.input_panel.button_start"`
+- **操作**: HAL 配置未映射 `%IX1.2`
+- **期望**: 编译错误 `"I/O address %IX1.2 has no HAL binding"` — 所有 I/O 地址必须显式映射
+- **边界**: 同一 HAL 引脚被两个 LD 变量映射 → 编译错误；HAL 配置变更后需重新编译 LD 程序，否则信号名不匹配
+- **测试**: `crates/audesys-hal-binding-gen/tests/` — `test_io_address_to_hal_signal_name_mapping`
+
+### HMI-MAP-003: HMI Designer 信号名自动发现 (Autocomplete)
+
+HMI Designer 的 Bind 对话框通过 Runtime `snapshot()` IPC 获取当前信号注册表的完整列表，提供自动补全下拉。用户无需记忆精确信号名。
+
+- **前置条件**: Runtime 运行中，信号注册表含 `["axis.0.pos", "tank.level", "pump.start", "pump.speed"]`; HMI Designer 连接 Runtime
+- **操作**: 选中 widget，点击 "Bind" 按钮 → 输入框聚焦
+- **期望**: 输入框下方显示下拉列表，列出全部 4 个信号名；用户输入 "pump" → 列表过滤为 `["pump.start", "pump.speed"]`; 选择一项后 signal 绑定更新
+- **操作**: Runtime 断连时打开 Bind 对话框
+- **期望**: 下拉列表为空，显示提示 "Connect to Runtime to discover signals"，仍可手动输入信号名
+- **边界**: Runtime 有 200+ 信号 → 列表虚拟滚动（仅渲染可见项），键盘导航支持（↑↓ 移动、Enter 确认、Esc 关闭）；信号注册表更新（hot-swap 后）→ Bind 对话框下次打开时刷新
+- **测试**: Playwright — `test_hmi_signal_autocomplete_from_runtime`
+
+### HMI-MAP-004: LD 变量重命名 → HMI 绑定级联更新
+
+LD 源码中变量重命名后，编译器检测到变更并标记旧名→新名映射。HMI Designer 在加载布局时检测 stale 绑定并提示用户批量更新。
+
+- **前置条件**: LD 程序 v1 含 `temp_old : INT`，HMI 有 2 个 widget 绑定 `signal="temp_old"`; LD 程序 v2 变量重命名为 `temp_new`
+- **操作**: LD v2 编译，HalProgram 产生 `rename_map = [{"temp_old": "temp_new"}]`; HMI Designer 打开布局时查询 Runtime 当前信号名列表
+- **期望**: Designer 检测到 2 个 widget 绑定 `"temp_old"` 不在当前信号注册表中，在 PropertyPanel 显示 ⚠ 图标 + 提示 `"Signal 'temp_old' was renamed to 'temp_new'"`
+- **操作**: 用户点击提示 → 选择 "Apply rename"
+- **期望**: 2 个 widget 的 signal 全部更新为 `"temp_new"`，⚠ 图标消失
+- **边界**: 变量被删除（非重命名）→ 显示 ⚠ 但无 rename_map 项，用户手动重新绑定；多个旧变量都重名到同一个新变量 → 拒绝（"duplicate rename target"）
+- **测试**: 集成测试 — `test_ld_rename_propagates_to_hmi_bindings` (vitest + Rust: 编译→布局校验 端到端)
+
+---
+
+## 4-ext. HMI-SGN — 信号绑定扩展 (Panel 桥接, 2 项)
+
+> **扩展**: 本节补充 Panel 端信号桥接场景。基础信号绑定见 §4 HMI-SGN-001~003。
+
+### HMI-SGN-004: Panel SignalBridge — Widget 值更新循环
+
+Panel 通过 SignalBridge 的 poll 模式（或 push 模式）周期性读取绑定的信号值，并更新所有 widget 渲染。更新循环由 Transport 层驱动。
+
+- **前置条件**: Panel 已连接 Runtime (UdsTransport)，SignalBridge 订阅 `["temp_sensor", "pump_running", "tank.level"]`
+- **操作**: SignalBridge poll cycle 触发（100ms 间隔）, 调用 `transport.snapshot()`
+- **期望**: 返回 `{"temp_sensor": F64(42.5), "pump_running": Bool(true), "tank.level": F64(78.0)}`; SignalBridge 逐个匹配 widget，将值注入 widget 组件 props
+- **期望**: display widget (temp_sensor) 更新为 "42.5 °C"; indicator widget (pump_running) 变为绿色; tank widget (tank.level) 填充 78%
+- **操作**: 用户通过 Studio 的 SignalInjector 将 `tank.level` 改为 90.0
+- **期望**: Panel 下一轮询周期读取到 90.0, tank widget 填充更新为 90%
+- **边界**: 单次 poll 超时（> 2s）→ 保留上次值，widget 显示 ⚠ stale indicator; 订阅中某个信号不存在 → snapshot 返回 null 对该信号，widget 显示 "N/A"
+- **测试**: vitest — `test_signalbridge_widget_update_cycle` (mock Transport, 模拟 snapshot 返回)
+
+### HMI-SGN-005: Panel Button Widget → Runtime 信号写入
+
+Panel 中 button widget 的点击事件通过 SignalBridge.writeSignal() 写入 Runtime。写入受 RBAC 限制（仅 button 绑定的信号），写入成功/失败有视觉反馈。
+
+- **前置条件**: Panel 以 Role::HMI 连接 Runtime; button widget 绑定 `signal="emergency_stop"`, config `{ mode: "toggle" }`; Runtime 中 `emergency_stop` 当前值为 false
+- **操作**: 操作员点击 Panel 中的 emergency_stop 按钮
+- **期望**: `signalBridge.writeSignal("emergency_stop", Bool(true))` 调用；Runtime 接收后在 Config Barrier 边界应用（D17）；下周期 LD 程序读取到 `emergency_stop=true` 并执行停止逻辑
+- **操作**: Runtime 返回写入成功 ACK
+- **期望**: button widget 切换为按下状态（onColor 高亮），tooltip 显示 "Command sent"（2s 后消失）
+- **操作**: 写入权限不足（非 button 信号）, 返回 Forbidden
+- **期望**: button widget 保持之前状态，tooltip 显示红色 "Write denied"（3s 后消失），console.error 记录详情
+- **边界**: Runtime 断连时点击 → button 保持状态，错误覆盖层显示 "Cannot connect to Runtime"; 连续快速点击（debounce）→ 300ms 内仅发送最后一次点击的值
+- **测试**: Playwright — `test_panel_button_writes_signal_to_runtime` (mock Transport 响应)
+
+---
+
+## 6-ext. HMI-DPL — 部署集成扩展 (Panel 管道, 2 项)
+
+> **扩展**: 本节补充 Panel 端部署管道路径。基础部署集成见 §6 HMI-DPL-001~002。
+
+### HMI-DPL-003: Designer→Runtime→Panel 全链路部署
+
+HMI Designer 的 Deploy 按钮触发完整五步流水线，从验证到 Panel 重新加载。每步独立可失败，失败时后续步骤中断。
+
+- **前置条件**: Designer 中有 3 个 widget 的有效布局, Runtime 运行中, Panel 已连接
+- **操作**: 点击 "⬆ Deploy" 按钮
+- **期望**: 流水线执行: (1) `validateBeforeSave` → 返回无 errors; (2) `exportYaml` → 生成 YAML 字符串; (3) `controllerClient.deploy_hmi_layout(yaml)` → IPC 0x17 发送; (4) Runtime Config Barrier → 下周期边界应用; (5) Runtime 发送 `DEPLOY_ACK(generation=N+1)` → Panel 接收 → `signalBridge.onLayoutChange(N+1)` → Panel 重新加载布局渲染
+- **期望**: Designer 错误栏显示 "✓ Deployed (gen 5)"
+- **操作**: (3) 网络故障, `deploy_hmi_layout` 抛出
+- **期望**: (4)(5) 不执行; Designer 错误栏显示 "Deploy failed: network timeout"; 旧布局和 generation 不受影响
+- **边界**: (2) exportYaml 产物 > 1MB → (3) 拒绝发送（Controller `Error::PayloadTooLarge`）; (5) Panel 断开但重新连接后 → Panel 启动时查询当前 generation，自动加载最新布局
+- **测试**: 集成测试 — `test_designer_deploy_full_pipeline_to_panel` (vitest mock + Rust Runtime)
+
+### HMI-DPL-004: Panel 冷启动加载持久化布局
+
+Panel 首次启动或重新连接时，通过 SignalBridge 自动从 Runtime 加载上次持久化的布局（HMI-DPL-007）。无历史布局时显示空面板。
+
+- **前置条件**: Runtime 的 `{project}/hmi/layout.yaml` 存有 1 个 gauge widget 的布局; Panel 刚启动，SignalBridge 调用 `connect()`
+- **操作**: `connect()` 成功后 Panel 发送 `get_current_layout()` 请求
+- **期望**: Runtime 返回 `{ generation: 3, layout_yaml: "..." }`; Panel 解析 YAML → 渲染 gauge widget, SignalBridge 订阅 gauge 绑定的信号
+- **操作**: Runtime 无持久化布局（首次部署前）
+- **期望**: `get_current_layout()` 返回 `{ generation: 0, layout_yaml: null }`; Panel 显示空画布 + 提示 "No HMI layout deployed. Use Studio to design and deploy."
+- **边界**: YAML 解析失败 → Panel 显示错误 "Layout corrupted, contact engineer" + 尝试加载上一次成功缓存的布局（localStorage 兜底）; 布局中引用的信号在 Runtime 中不存在 → Panel 渲染 widget 但显示 "N/A"
+- **测试**: 集成测试 — `test_panel_cold_start_loads_persisted_layout` (mock Transport + tempfile layout.yaml)
