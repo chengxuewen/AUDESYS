@@ -25,8 +25,8 @@
 │                                     │      │  · 多画面导航                  │
 └─────────────────────────────────────┘      └─────────────────────────────┘
           │        共享层                          │         连接层
-          ├── widgets/ (React 组件)                ├── UDS (本地 Controller)
-          ├── types/hmi.ts (HmiLayout)             ├── WebSocket (远程 Controller)
+          ├── widgets/ (React 组件)                ├── UDS (本地 Runtime)
+          ├── types/hmi.ts (HmiLayout)             ├── WebSocket (远程 Runtime)
           └── YAML 解析器                           └── SimulationHarness (仿真)
 ```
 
@@ -68,7 +68,7 @@
 │                                │                                              │
 │  ┌─────────────────────────────▼──────────────────────────────────────────┐  │
 │  │                          Transport                                       │  │
-│  │  · ControllerClient (UDS) — LocalSignalProvider 封装                      │  │
+│  │  · RuntimeClient (UDS) — LocalSignalProvider 封装                      │  │
 │  │  · WebSocket Client      — WsSignalProvider 封装                          │  │
 │  │  · SimulationHarness      — SimSignalProvider 封装                        │  │
 │  └─────────────────────────────────────────────────────────────────────────┘  │
@@ -80,8 +80,8 @@
 | **Panel Shell** | 启动流程、全屏模式、Operational Mode 锁定、紧急停止按钮 | PlatformAdapter | **Panel 独有** |
 | **Plugin System** | 操作员登录、报警管理、趋势记录、多画面导航 — 四大内置插件 | SignalBridge, NavigationManager | **Panel 独有**（参考 Studio PluginRegistry 接口，但不共享实例） |
 | **Widget Renderer** | PanelRenderer 加载 HmiLayout YAML，遍历 widgets[]，以 `{ signalValue }` 注入渲染 7 种 widget | packages/studio-core/ (组件), SignalProvider (信号值) | **共享组件** — widget 代码来自 packages/studio-core，零修改复用 |
-| **SignalProvider** | subscribe / unsubscribe / write / snapshot / onUpdate — 信号值的获取与更新 | ControllerClient (UDS) / WebSocket / SimulationHarness | **Panel 独有** — Studio 通过 Theia Backend Service (napi-rs) 获取信号值 |
-| **Transport** | ControllerClient (UDS) / WebSocket Client / SimulationHarness — 被 SignalProvider 内部封装 | SignalProvider 各实现内部持有 | **非独立层** — 由 LocalSignalProvider/WsSignalProvider 封装 |
+| **SignalProvider** | subscribe / unsubscribe / write / snapshot / onUpdate — 信号值的获取与更新 | RuntimeClient (UDS) / WebSocket / SimulationHarness | **Panel 独有** — Studio 通过 Theia Backend Service (napi-rs) 获取信号值 |
+| **Transport** | RuntimeClient (UDS) / WebSocket Client / SimulationHarness — 被 SignalProvider 内部封装 | SignalProvider 各实现内部持有 | **非独立层** — 由 LocalSignalProvider/WsSignalProvider 封装 |
 
 ---
 
@@ -318,14 +318,14 @@ interface SignalProvider {
 
 | Provider | 传输 | 更新机制 | 延迟 | 适用场景 |
 |----------|------|---------|:---:|------|
-| **LocalSignalProvider** | UDS (ControllerClient) | 10ms polling + 0x16 SIGNAL_PUSH 帧 | < 20ms | 本地操作员站 (Tauri) |
+| **LocalSignalProvider** | UDS (RuntimeClient) | 10ms polling + 0x16 SIGNAL_PUSH 帧 | < 20ms | 本地操作员站 (Tauri) |
 | **WsSignalProvider** | WebSocket `ws://host:9080/signals` | WS 原生 message push | LAN < 25ms | 远程 Web 操作员 (PWA) |
 | **SimSignalProvider** | SimulationHarness(进程内) | 函数调用，零延迟 | ~0μs | 仿真/开发模式 |
 
 ```typescript
 // LocalSignalProvider 内部结构
 class LocalSignalProvider implements SignalProvider {
-  private client: ControllerClient;       // UDS 连接
+  private client: RuntimeClient;       // UDS 连接
   private pollingTimer: number | null;    // setInterval 句柄
   private listeners: Set<(updates: SignalUpdate[]) => void>;
   private cache: Map<string, string>;
@@ -422,7 +422,7 @@ Screen A (TankOverview) → Screen B (ConveyorStatus) 切换:
 
 **数据流路径**：
 ```
-Controller RT Cycle
+Runtime RT Cycle
   │
   ├─ Signal 值变化 (Engine 内部)
   │
@@ -445,7 +445,7 @@ Transport 层不再暴露为独立接口 — 各 SignalProvider 实现内部封�
 
 | SignalProvider | 内部 Transport | 认证 |
 |---------------|---------------|------|
-| LocalSignalProvider | ControllerClient (UDS) via `crates/audeys-controller-client` | HMAC Role::HMI, TTL 1h |
+| LocalSignalProvider | RuntimeClient (UDS) via `crates/audeys-controller-client` | HMAC Role::HMI, TTL 1h |
 | WsSignalProvider | WebSocket `ws://host:9080/signals` | WS 握手时 HMAC 令牌验证 |
 | SimSignalProvider | SimulationHarness (进程内函数调用) | 无需认证 |
 
@@ -466,7 +466,7 @@ Transport 层不再暴露为独立接口 — 各 SignalProvider 实现内部封�
 │                  Operator Workstation                          │
 │                                                               │
 │  ┌──────────────────────────────────┐  ┌──────────────────┐  │
-│  │        Runtime Panel (Tauri)     │  │  Controller       │  │
+│  │        Runtime Panel (Tauri)     │  │  Runtime       │  │
 │  │                                  │  │  (独立进程)        │  │
 │  │  Panel Shell  Widget Renderer    │  │                   │  │
 │  │       │            │             │  │  Runtime Engine    │  │
@@ -489,7 +489,7 @@ Transport 层不再暴露为独立接口 — 各 SignalProvider 实现内部封�
 ```
 
 **特点**：
-- Panel 和 Controller 同机部署（同一工业 PC 或边缘网关）
+- Panel 和 Runtime 同机部署（同一工业 PC 或边缘网关）
 - 通信延迟 ~10μs (UDS)
 - 操作员角色 Role::HMI，权限：readSignal（监控域）、signalSnapshot、writeSignal 仅限于特定按钮信号
 - 认证：SO_PEERCRED + HMAC SessionToken (TTL: 1h)
@@ -498,7 +498,7 @@ Transport 层不再暴露为独立接口 — 各 SignalProvider 实现内部封�
 
 ```
 ┌──────────────────────────┐         ┌──────────────────────────────┐
-│   Remote Browser          │         │    Edge Controller            │
+│   Remote Browser          │         │    Edge Runtime            │
 │                           │         │                              │
 │  Runtime Panel (PWA)      │   WSS   │  ┌────────────────────────┐  │
 │                           │◄────────┼──┤  IPC Server              │  │
@@ -603,7 +603,7 @@ Response (immediate):
 
 **行为约定**：
 - 订阅后立即返回所有信号的当前值（初始快照）
-- Controller 端为每个连接维护 `active_subscriptions: HashSet<String>`
+- Runtime 端为每个连接维护 `active_subscriptions: HashSet<String>`
 - 单连接限定最大订阅数 500（防止操作员误订阅全系信号）
 
 #### METHOD_UNSUBSCRIBE_SIGNAL (0x15)
@@ -647,7 +647,7 @@ Frame (unsolicited, server → client):
 - 同周期内同一信号多次变化，仅推送最终值
 - 客户端 `LocalSignalProvider` 监听此帧，解码后触发 `onUpdate` 回调
 
-### 7.3 Controller 端订阅实现要点
+### 7.3 Runtime 端订阅实现要点
 
 ```rust
 // crates/audeys-controller/src/ipc.rs 新增
@@ -694,7 +694,7 @@ impl IpcServer {
 
 ### 7.4 权限矩阵扩展
 
-| 操作 | Controller | Supervisor | HMI (新增) | Debug |
+| 操作 | Runtime | Agent | HMI (新增) | Debug |
 |------|:----------:|:----------:|:---:|:-----:|
 | `subscribe_signal` (0x14) | 是 | 是 | **是** | 是 |
 | `unsubscribe_signal` (0x15) | 是 | 是 | **是** | 是 |
@@ -703,7 +703,7 @@ impl IpcServer {
 | `signalSnapshot` (0x06) | 是 | 是 | **是（仅监控域）** | 是 |
 
 **HMI 角色的 writeSignal 限制**：
-- Controller 端检查写入目标信号是否在 HMI 配置的 `writable_signals` 列表中（从 HmiLayout 的 button widget 信号绑定中提取）
+- Runtime 端检查写入目标信号是否在 HMI 配置的 `writable_signals` 列表中（从 HmiLayout 的 button widget 信号绑定中提取）
 - 非 button 信号拒绝写入（操作员不能通过 Panel 修改控制逻辑信号）
 
 ---
@@ -804,11 +804,11 @@ interface ScreenDescriptor {
 | `packages/studio-core/` widget 组件 + HmiLayout 类型已就绪 | 0d | 无 (已完成) |
 | `apps/runtime-panel/` Tauri 应用骨架 + PanelShell | 1d | studio-core |
 | PanelRenderer (load YAML → SignalProvider.onUpdate → inject signalValue) | 1d | studio-core + SignalProvider 接口 |
-| LocalSignalProvider 实现 (ControllerClient + 10ms poll + SIGNAL_PUSH 帧处理) | 2d | IPC 新增方法 |
+| LocalSignalProvider 实现 (RuntimeClient + 10ms poll + SIGNAL_PUSH 帧处理) | 2d | IPC 新增方法 |
 | IPC Server 新增 0x14 subscribe / 0x15 unsubscribe / 0x16 SIGNAL_PUSH | 2d | 无 |
 | NavigationManager (画面注册/切换) | 1d | PanelRenderer |
-| 集成测试: Panel ←UDS→ Controller ←Modbus→ VirtualDevice | 2d | 全部 |
-| 集成测试: Panel ←UDS→ Controller ←Modbus→ VirtualDevice | 2d | 全部 |
+| 集成测试: Panel ←UDS→ Runtime ←Modbus→ VirtualDevice | 2d | 全部 |
+| 集成测试: Panel ←UDS→ Runtime ←Modbus→ VirtualDevice | 2d | 全部 |
 
 **P1 总估时: ~9d** (studio-core Widget 库已就绪，节省 2d)
 
@@ -816,7 +816,7 @@ interface ScreenDescriptor {
 
 | 任务 | 估时 | 依赖 |
 |------|:---:|------|
-| WsSignalProvider + Controller WebSocket 端点 | 3d | P1 |
+| WsSignalProvider + Runtime WebSocket 端点 | 3d | P1 |
 | OperatorLogin 插件 (凭证/会话/锁屏) | 2d | P1 |
 | AlarmManager 插件 (阈值/确认/日志) | 3d | P1 SignalProvider |
 | TrendRecorder 插件 (定时快照+缓冲区) | 2d | P1 SignalProvider |
@@ -854,6 +854,6 @@ interface ScreenDescriptor {
 - `docs/modules/studio/plugin-architecture-design.md` — Studio PluginRegistry 参考模型
 - `docs/modules/runtime/ipc-security-design.md` — IPC 安全设计 (HMAC, 角色权限)
 - `crates/audeys-controller/src/ipc.rs` — IPC Server 现有 19 方法实现
-- `crates/audeys-controller-client/src/lib.rs` — ControllerClient (UDS 客户端, LocalSignalProvider 封装)
+- `crates/audeys-controller-client/src/lib.rs` — RuntimeClient (UDS 客户端, LocalSignalProvider 封装)
 - `docs/reference/ignition.md` — Ignition Perspective (Web-first HMI 参考)
 - `docs/reference/intouch.md` — InTouch (传统 SCADA HMI 参考)

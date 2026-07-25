@@ -82,3 +82,17 @@
 - **初始化脚本**: 自定义 MCP 使用 `.opencode/init-mcp-*.mjs` 模式，遵循 auto-install → spawn 流程
 - **Python MCP**: 非 Node.js 的 MCP（如 openspace）使用 venv 隔离安装，通过 init 脚本管理
 - **API Key 环境变量**: 需要认证的 MCP 通过 `opencode.json` 的 `env` 字段注入，密钥不写入配置文件
+
+## 架构命名约定 (2026-07-24)
+- **Agent**: 车端管理代理 (原 Supervisor) — 进程管控、容器管理、Field 连接
+- **Runtime**: 实时运行时 (原 Controller) — RT 执行、IO 驱动、安全
+- **Hub**: 统一插件化平台 (原 Field+Cloud) — 场端·云端可部署
+- **Studio**: 集成开发环境 — Desktop (Theia) + Web (Hub 插件) 双形态
+- **Panel**: 操作员 HMI 界面 — PWA + Tauri + Docker 三形态
+- **crate 命名**: Cargo.toml `name` 统一 `audesys-<module>` 前缀，hyphen 分隔
+
+## Studio IDE 技术栈约定 (更新)
+- **Desktop**: Eclipse Theia + Monaco Editor + GLSP + napi-rs (Rust bridge) — 已替代 Tauri+React (D71)
+- **Web**: Hub 插件，Monaco Editor + WASM 编译器
+- **Panel**: Tauri (桌面) + PWA (移动) + Docker (Kiosk)
+- **样式**: Tailwind CSS

@@ -441,16 +441,91 @@
 - **日期**: 2026-07-22
 - **决定**: 每个 P0/P1 子任务包中包含内联测试任务（如 T3.1→T3.1b、T3.5→T3.5b），测试任务与实现任务保持 1:1 配对。总计新增 18 个测试子任务。
 - **理由**: P0 测试分析发现 7 个模块无独立测试任务——测试依赖分散在实现任务中，完成后无人验证。内联配对确保每个模块有明确的「测试编写」和「测试验证」步骤，TDD 可执行化。
-- **参考**: `.sisyphus/plans/p0-testing-optimization/design.md` §3（任务结构重构）
+- **参考**: `参考已归档 (p0-testing-optimization)` §3（任务结构重构）
 
 ## D75: AI 生成代码须在同一个 PR 中包含测试
 - **日期**: 2026-07-22
 - **决定**: 所有由 AI 代理生成的代码必须在其提交的同一个 PR 中包含对应测试（单元测试或集成测试）。测试缺失则 PR 不可合并。AI 代理在 `task.md` 的 acceptance criteria 中明确列出所需测试。
 - **理由**: P0 测试优化分析发现 AI 生成的模块（LD 编译器、FBD 编译器、SFC 编辑器）测试覆盖率偏低，原因是 AI 优先完成功能代码、测试作为「后续任务」被跳过了。同 PR 提交强制 AI 代理在交付时承担测试责任。
-- **参考**: `.sisyphus/plans/p0-testing-optimization/design.md` §4（AI 代理测试约束）
+- **参考**: `参考已归档 (p0-testing-optimization)` §4（AI 代理测试约束）
 
 ## D76: Phase 退出条件可自动验证（P4 签字除外）
 - **日期**: 2026-07-22
 - **决定**: 除 P4（生产部署签字）外，所有 Phase 退出条件必须可自动验证（CI 脚本检查）。退出条件包括但不限于：测试通过率、SDD 追溯率、覆盖率、性能基准。P4 签字是唯一的人类判断门。
 - **理由**: 手动审核不可重复、不可 CI 门禁化。可自动验证的退出条件使 Phase 边界成为真正的「绿灯/红灯」开关，减少人工审查认知负荷。P4 保留签字是因为生产部署需要安全判断、变更管理审批等不可自动化因素。
-- **参考**: `.sisyphus/plans/p0-testing-optimization/design.md` §5（Phase 退出自动化）
+- **参考**: `参考已归档 (p0-testing-optimization)` §5（Phase 退出自动化）
+
+## D77: 机器人架构扩展 — 分层渐进
+- **日期**: 2026-07-24
+- **决定**: 采用分层渐进架构：Phase 1 桥接 ROS2 → Phase 2 自研关键算法 → Phase 3 全栈 AUDESYS。功能块粒度替换，FBD 程序零修改。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §1, §5
+
+## D78: 容器化部署 — Podman Pod + Quadlet
+- **日期**: 2026-07-24
+- **决定**: 容器化部署使用 Podman Pod，Quadlet 声明式配置。控制器崩溃隔离：ROS2 容器崩溃不影响 RT 控制器。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §2-§3
+
+## D79: 功能块模型扩展 IEC 61499
+- **日期**: 2026-07-24
+- **决定**: 功能块模型扩展为多语言算法：Rust/Python/TS/ST。FBD 为编排层，复杂算法在块内实现。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §4, §17
+
+## D80: MCAP 通用录包格式
+- **日期**: 2026-07-24
+- **决定**: 诊断层采用 MCAP（原生 FlatBuffers 支持）。Recorder/Replayer 作为 Agent 组件。回放与实时共享同一可视化管线。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §8
+
+## D81: 三端命名体系 — Agent / Runtime / Hub
+- **日期**: 2026-07-24
+- **决定**: 全系统四层命名：Agent (车端管理，原 Supervisor)、Runtime (实时执行，原 Controller)、Hub (统一平台，合并 Field+Cloud)、Studio (IDE, Desktop+Web 双形态)。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §3, §20, §40
+
+## D82: 安全架构 — E-Gas 三级 + SFF
+- **日期**: 2026-07-24
+- **决定**: 参考 AUTOSAR E-Gas + NVIDIA Safety Force Field + MiR/KUKA 双层。Safety Zone 不通过 ROS2 接收执行指令。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §7.3
+
+## D83: 仿真四层体系 + 数字孪生
+- **日期**: 2026-07-24
+- **决定**: L1(SimHarness)→L2(虚拟传感器)→L3(Gazebo)→L4(HIL)。数字孪生复用 HalProgram。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §7.2, §30
+
+## D84: OPC UA + 实时以太网
+- **日期**: 2026-07-24
+- **决定**: OPC UA Gateway 容器实现 OPC 40501。EtherCAT/CANopen 通过 IoDriver trait 扩展。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §7.4, §7.5
+
+## D85: 项目三级模型 + 三层继承
+- **日期**: 2026-07-24
+- **决定**: Device→Cell→Factory 三级工程，Template→Project→Deployment 三层参数继承。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §18, §21
+
+## D86: 黑盒交付三种模式
+- **日期**: 2026-07-24
+- **决定**: source/binary/hybrid 三种交付。二进制保护：HalProgram 字节码 + .so strip + PyArmor + 容器隔离。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §23
+
+## D87: 告警(ISA-18.2) + 审计(21 CFR 11) + 配方
+- **日期**: 2026-07-24
+- **决定**: ISA-18.2 标准告警, SHA256 链式哈希审计, TOML 配方管理+审批流。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §25-§27
+
+## D88: Hot Standby 冗余 + PTP 时间同步
+- **日期**: 2026-07-24
+- **决定**: 每 RT 周期同步, 3ms 切换, I/O 仲裁防分裂脑。GPS+PTP+EtherCAT DC 三级时间同步。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §28-§29
+
+## D89: 测试五级 + CI 三级
+- **日期**: 2026-07-24
+- **决定**: L0(单元)→L4(HIL) 五级测试。qa-fast/qa-full/qa-deep 三级 CI。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §42
+
+## D90: Open Core 商业模式
+- **日期**: 2026-07-24
+- **决定**: Apache 2.0 核心免费。Cloud SaaS 分层。企业功能额外授权。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §44-§45
+
+## D91: M1 — 光固化打印机驱动力
+- **日期**: 2026-07-24
+- **决定**: M1 以光固化 3D 打印机为实战项目。7 子任务: Agent→ST→FBD→SFC→HMI→IO→收尾。M2-M6 按 Hub→巡逻车→多机→云端→生态。
+- **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §46, `.sisyphus/plans/m1-3d-printer-platform/`

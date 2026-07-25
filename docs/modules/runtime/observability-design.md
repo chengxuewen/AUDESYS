@@ -1,7 +1,7 @@
 # AUDESYS Runtime 可观测性设计
 
 > 生成日期：2026-07-15
-> 设计目标：为 Runtime 六模块（Supervisor/Controller/Panel/Gateway/Remote/Edge）定义统一的可观测性架构——健康检查端点、Prometheus 指标、结构化日志、告警路由、以及 AmwMetrics 核心结构
+> 设计目标：为 Runtime 六模块（Agent/Runtime/Panel/Gateway/Remote/Edge）定义统一的可观测性架构——健康检查端点、Prometheus 指标、结构化日志、告警路由、以及 AmwMetrics 核心结构
 
 ---
 
@@ -9,7 +9,7 @@
 
 工业控制系统的可观测性不同于互联网后端。一个 RT 控制循环不能在指标采集时触发堆分配，不能因日志写入阻塞周期中断。
 
-1. **零侵入 RT 路径** — Controller 的 SCHED_FIFO 线程不参与任何可观测性 IO。指标采样发生在周期结束后的非 RT 回调中
+1. **零侵入 RT 路径** — Runtime 的 SCHED_FIFO 线程不参与任何可观测性 IO。指标采样发生在周期结束后的非 RT 回调中
 2. **多级采样** — RT 路径用原子计数器（无锁），非 RT 路径用 Prometheus 直写，控制面用结构化日志
 3. **离线容忍** — 采集器（Prometheus）短暂不可用不影响 Runtime 运行。指标暂存于 ring buffer，断连后自动丢弃
 4. **语义稳定** — 指标名和标签在 MAJOR 版本内不变。Metric 变更跟随 D24 的 FlatBuffers Schema 版本化合约
@@ -60,7 +60,7 @@
 
 ## 2. 健康检查端点
 
-每个 Runtime 模块暴露一个 HTTP health endpoint，由 Supervisor 统一聚合。
+每个 Runtime 模块暴露一个 HTTP health endpoint，由 Agent 统一聚合。
 
 ### 2.1 通用端点格式
 
@@ -88,8 +88,8 @@ Content-Type: application/json
 
 | 模块 | 端点 | 自定义检查 | 失败后果 |
 |------|------|-----------|---------|
-| **Supervisor** | `GET /healthz` | 所有子进程存活、systemd watchdog 注册 | 触发 systemd 重启 |
-| **Controller** | `GET /healthz` | RT 线程 jitter < 50μs、周期无 overrun、所有 Signal 在 deadline 内 | 紧急停止->安全状态 |
+| **Agent** | `GET /healthz` | 所有子进程存活、systemd watchdog 注册 | 触发 systemd 重启 |
+| **Runtime** | `GET /healthz` | RT 线程 jitter < 50μs、周期无 overrun、所有 Signal 在 deadline 内 | 紧急停止->安全状态 |
 | **Panel** | `GET /healthz` | Tauri 窗口响应、StructuredStream 连接正常 | 重启 Panel 进程 |
 | **Gateway** | `GET /healthz` | 对外连接数、消息队列深度 < 1000 | 自动重连 |
 | **Remote** | `GET /healthz` | WebRTC 信令正常 | 断开远程会话 |
@@ -103,7 +103,7 @@ degraded  → 部分非关键检查失败（如远程不可用）
 critical  → 关键检查失败（如 RT 线程过载）
 ```
 
-Supervisor 每 5 秒聚合一次全模块健康状态，更新到 `health.supervisor.system` Signal。
+Agent 每 5 秒聚合一次全模块健康状态，更新到 `health.supervisor.system` Signal。
 
 ---
 
@@ -111,12 +111,12 @@ Supervisor 每 5 秒聚合一次全模块健康状态，更新到 `health.superv
 
 ### 3.1 架构说明
 
-Prometheus 采用 pull 模式。每个模块暴露一个 HTTP metrics 端点（默认 `:9100` + `各模块偏移`），Supervisor 负责汇总 exporter 地址。
+Prometheus 采用 pull 模式。每个模块暴露一个 HTTP metrics 端点（默认 `:9100` + `各模块偏移`），Agent 负责汇总 exporter 地址。
 
 ```
 模块         端口偏移    示例端口
-Supervisor   +0          :9100
-Controller   +1          :9101
+Agent   +0          :9100
+Runtime   +1          :9101
 Panel        +2          :9102
 Gateway      +3          :9103
 Remote       +4          :9104
@@ -145,7 +145,7 @@ audesys_health_status{module="controller"} 1
 audesys_memory_bytes{module="controller"} 16777216
 ```
 
-### 3.3 Controller 专有指标
+### 3.3 Runtime 专有指标
 
 ```
 # HELP audesys_rt_cycle_jitter_ns RT 线程周期 jitter（纳秒）
@@ -173,7 +173,7 @@ audesys_config_barrier_total{status="applied"} 42
 audesys_func_list_call_count{function="pid_update"} 123456
 ```
 
-### 3.4 Supervisor 专有指标
+### 3.4 Agent 专有指标
 
 ```
 # HELP audesys_supervisor_subprocess_up 子进程存活状态 (1=up, 0=down)
@@ -229,7 +229,7 @@ audesys_edge_cache_bytes{collector="temperature"} 4194304
 
 ### 4.1 日志格式
 
-所有模块统一输出 JSON 结构化日志到 stdout。Supervisor 负责采集和转发到集中式日志平台（Loki / Splunk）。
+所有模块统一输出 JSON 结构化日志到 stdout。Agent 负责采集和转发到集中式日志平台（Loki / Splunk）。
 
 ```
 {
@@ -250,7 +250,7 @@ audesys_edge_cache_bytes{collector="temperature"} 4194304
 
 | 级别 | 含义 | 示例场景 |
 |------|------|---------|
-| `error` | 功能不可用，需人工介入 | Controller 周期 overrun、Signal deadline miss |
+| `error` | 功能不可用，需人工介入 | Runtime 周期 overrun、Signal deadline miss |
 | `warn` | 功能降级，能自动恢复 | Gateway 断连后重连、Panel 帧率骤降 |
 | `info` | 正常事件，记录状态切换 | Config Barrier 应用、子进程启动/停止 |
 | `debug` | 调试细节，生产环境关闭 | 单个函数执行时间、Signal 值变更 |
@@ -260,7 +260,7 @@ audesys_edge_cache_bytes{collector="temperature"} 4194304
 RT 路径日志必须采样——一次周期 overrun 可能每秒产生数千条日志。
 
 ```
-// Controller 日志采样策略
+// Runtime 日志采样策略
 // - error 级别不过滤（发生率本来就低）
 // - warn 级别每 10 秒最多 1 条（rate limit）
 // - info 级别仅在状态切换时输出
@@ -270,14 +270,14 @@ RT 路径日志必须采样——一次周期 overrun 可能每秒产生数千�
 ### 4.4 日志聚合
 
 ```
-Controller  ──stdout──┐
+Runtime  ──stdout──┐
 Panel       ──stdout──┤
-Gateway     ──stdout──┤→ Supervisor 采集 ──→ Fluentd/Loki ──→ Grafana
+Gateway     ──stdout──┤→ Agent 采集 ──→ Fluentd/Loki ──→ Grafana
 Remote      ──stdout──┤
 Edge        ──stdout──┘
 ```
 
-Supervisor 为每条日志注入 `cluster` / `host` / `instance_id` 标签后再转发。
+Agent 为每条日志注入 `cluster` / `host` / `instance_id` 标签后再转发。
 
 ---
 
@@ -287,7 +287,7 @@ Supervisor 为每条日志注入 `cluster` / `host` / `instance_id` 标签后再
 
 | 等级 | 响应时间 | 通知方式 | 示例 |
 |------|---------|---------|------|
-| **P0** | 立即 | 电话 + SMS + 工单 | Controller 崩溃、设备失控 |
+| **P0** | 立即 | 电话 + SMS + 工单 | Runtime 崩溃、设备失控 |
 | **P1** | 5 分钟 | SMS + IM | RT 线程 overrun、关键 Signal 丢失 |
 | **P2** | 30 分钟 | IM | Gateway 断连、内存超阈值 |
 | **P3** | 工作日 | 工单 | Panel 帧率低、Edge 缓存水位高 |
@@ -301,17 +301,17 @@ groups:
   - name: audesys_controller
     interval: 10s
     rules:
-      - alert: ControllerOverrun
+      - alert: RuntimeOverrun
         expr: audesys_rt_overrun_total > 0
         for: 5s
         labels:
           severity: p1
           module: controller
         annotations:
-          summary: "Controller RT 线程周期超限"
+          summary: "Runtime RT 线程周期超限"
           description: "module={{ $labels.module }} thread={{ $labels.thread }} overrun"
 
-      - alert: ControllerJitterHigh
+      - alert: RuntimeJitterHigh
         expr: audesys_rt_cycle_jitter_ns > 50000
         for: 10s
         labels:
@@ -451,10 +451,10 @@ pub struct AmwMetrics {
     /// 当前健康等级
     health_status: AtomicU8,
 
-    /// 子进程存活状态位图 (Supervisor 特有)
+    /// 子进程存活状态位图 (Agent 特有)
     subprocess_bitmap: AtomicU64,
 
-    /// 绑定到 Controller 的活跃 StreamChannel 数量
+    /// 绑定到 Runtime 的活跃 StreamChannel 数量
     active_streams: AtomicU32,
 }
 ```
@@ -538,8 +538,8 @@ impl<T: Copy, const N: usize> RingBuffer<T, N> {
 
 | 模块 | 健康端点 | Prometheus | 结构化日志 | 告警参与 | AmwMetrics |
 |------|---------|-----------|-----------|---------|-----------|
-| Supervisor | ✅ `/healthz` | ✅ port +0 | ✅ stdout JSON | ✅ P0-P3 | ✅ subprocess bitmap |
-| Controller | ✅ `/healthz` | ✅ port +1 | ✅ stdout JSON（采样） | ✅ P0-P2 | ✅ core struct |
+| Agent | ✅ `/healthz` | ✅ port +0 | ✅ stdout JSON | ✅ P0-P3 | ✅ subprocess bitmap |
+| Runtime | ✅ `/healthz` | ✅ port +1 | ✅ stdout JSON（采样） | ✅ P0-P2 | ✅ core struct |
 | Panel | ✅ `/healthz` | ✅ port +2 | ✅ stdout JSON | ❌（仅消费） | ❌ |
 | Gateway | ✅ `/healthz` | ✅ port +3 | ✅ stdout JSON | ✅ P2-P3 | ❌ |
 | Remote | ✅ `/healthz` | ✅ port +4 | ✅ stdout JSON | ❌ | ❌ |
@@ -551,8 +551,8 @@ impl<T: Copy, const N: usize> RingBuffer<T, N> {
 
 | Phase | 增量 | 依赖 |
 |-------|------|------|
-| **Phase 1** | 结构化日志（所有模块 stdout JSON）+ Controller AmwMetrics 基础版 | Runtime 模块骨架 |
-| **Phase 2** | Supervisor health endpoint + Prometheus exporter（Controller 指标） | amw_inproc StreamChannel |
+| **Phase 1** | 结构化日志（所有模块 stdout JSON）+ Runtime AmwMetrics 基础版 | Runtime 模块骨架 |
+| **Phase 2** | Agent health endpoint + Prometheus exporter（Runtime 指标） | amw_inproc StreamChannel |
 | **Phase 3** | 全模块 health endpoint + Prometheus 指标 + Alertmanager 规则 | Gateway 对外通信 |
 | **Phase 4** | Loki 日志聚合 + Grafana dashboard + 告警历史沉淀 | 日志基础设施 |
 

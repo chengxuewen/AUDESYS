@@ -2,7 +2,7 @@
 
 ## 当前阶段
 - **Theia 迁移完成** — 2026-07-21，Studio IDE 从 Tauri+React 迁移到 Eclipse Theia+Monaco Editor+GLSP+napi-rs。6 语言编辑器就绪：ST Monaco ✅、IL Monaco ✅、G-code Monaco ✅、LD GLSP 编辑器 ✅、FBD GLSP 编辑器 ✅、SFC 编辑器 ✅。Signal Browser ✅、Scope View ✅、Debug Panel ✅、HMI Designer (Theia) ✅、Mode System ✅。Runtime Panel 不受影响（D65 保持有效）。
-- **Studio ↔ Controller 集成完成** — ControllerClient 库（UDS IPC 客户端，6 方法+认证）、Studio Tauri 命令（deploy_program/load_hal_config/read_controller_signal）
+- **Studio ↔ Runtime 集成完成** — RuntimeClient 库（UDS IPC 客户端，6 方法+认证）、Studio napi-rs bridge 命令（deploy_program/load_hal_config/read_controller_signal）
 - **协议适配器就绪** — Modbus RTU/TCP（8 测试）、HART（6 测试）
 - **仿真器就绪** — SimulationHarness + 故障注入引擎 + 场景录制/回放 + VirtualModbusTcpDevice + VirtualHARTDevice
 - **可观测性就绪** — Prometheus metrics + DAP 调试适配器（12 命令）+ JSON 日志
@@ -14,7 +14,7 @@
 ## 仓库状态
 - **最新提交**: `f923088` — `perf(runtime): add criterion benchmarks for signal throughput, RPC, and registry ops`（当前会话未提交，含以下变更）
 - **提交历史**: 197 commits on main (2026-07-08 至 2026-07-20)
-- **源代码**: 24 crates（crates/）+ 2 Tauri 应用（apps/studio/ + apps/runtime-panel/）
+- **源代码**: 24 crates（crates/）+ 1 Tauri 应用（apps/runtime-panel/）。apps/studio/ 已弃用（D71 Theia 迁移）
 - **测试**: 799 `#[test]` 标注 + 19 个 vitest 测试文件 (134 tests) + 19 个 Playwright E2E UI 测试 (ld-editor.spec.ts 26 tests) |
 - **SDD 规范**: 239 项（openspec/specs/7 份）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(41) + HMI(22) + Studio Theia(55)
 - **CI**: qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ GitHub Actions macOS+Linux 矩阵
@@ -45,7 +45,7 @@
 | Debug Panel (Theia) | ✅ 完成 | Theia Widget，8 源文件/7 测试，DI bindings 完整 |
 | HMI Designer (Theia) | ✅ 完成 | Theia Widget，HMI 可视化设计器迁移完成 |
 | Mode System | ✅ 完成 | 编辑器模式切换系统（6 语言 + HMI） |
-| ControllerClient | ✅ 完成 | UDS IPC 客户端（7 方法含 deploy_hmi_layout + 认证）|
+| RuntimeClient | ✅ 完成 | UDS IPC 客户端（7 方法含 deploy_hmi_layout + 认证）|
 | Studio ↔ Controller 联调 | ✅ 完成 | deploy_program + load_hal_config + read_controller_signal |
 | Modbus RTU/TCP | ✅ 完成 | libmodbus FFI，8 测试 |
 | HART 适配器 | ✅ 完成 | 通道多 Signal 模式，6 测试 |
@@ -101,3 +101,21 @@
 | openspec-archive | ✅ | 变更归档 |
 | openspec-sync-specs | ✅ | 增量规范同步 |
 | ref-codesys/ref-beckhoff/ref-qtouch | ✅ | Studio 参考技能（7 项） |
+
+## 架构演进 (2026-07-24)
+
+- **架构重新设计完成** — `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` (1864 行, 48 章节)，覆盖统一自动化平台全栈架构
+- **命名体系重定义**:
+  - Supervisor → **Agent** (车端管理代理)
+  - Controller → **Runtime** (实时运行时)
+  - Field + Cloud → **Hub** (统一插件化平台)
+- **新增 crates 规划**: `audesys-agent` (从 Supervisor 改名), `audesys-hub` (新仓库)
+- **Studio 双形态**: Desktop (CODESYS IDE 模式) + Web (Hub 插件模式)
+- **新增功能设计**: 配方管理(ISA-18.2)、告警管理、审计追踪(21 CFR 11)、控制器冗余(Hot Standby)、时间同步(PTP)、数字孪生
+- **15 项新架构决策**: D77-D91 已记录于 decisions.md
+
+## M1 里程碑 (3D 打印机控制器)
+
+- **目标**: 以光固化打印机验证 IEC 61131-3 + HMI + 硬件 IO 全链路
+- **子任务**: Agent+Runtime 联调 → ST 端到端 → FBD 端到端 → SFC+G-code → HMI 设计 → 硬件 IO → 收尾
+- **计划**: 7-8 周, `.sisyphus/plans/m1-3d-printer-platform/`

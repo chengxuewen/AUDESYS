@@ -7,12 +7,12 @@
 
 ## 设计原则
 
-工业控制系统的硬件需求不是一刀切的 "这个软件跑得动吗"。Controller 的 SCHED_FIFO 线程需要隔离核心和 RT 内核，Panel 的 Tauri 渲染需要 GPU，Edge 的 7x24 采集需要工业级磁盘。
+工业控制系统的硬件需求不是一刀切的 "这个软件跑得动吗"。Runtime 的 SCHED_FIFO 线程需要隔离核心和 RT 内核，Panel 的 Tauri 渲染需要 GPU，Edge 的 7x24 采集需要工业级磁盘。
 
 1. **分层匹配** — 每模块的硬件需求独立定义，不捆绑整机规格
 2. **可验证** — 每条需求附带检测命令或脚本，不依赖 "目测"
 3. **分阶段** — 最低配置跑 Phase 1 开发，推荐配置跑 Phase 2 验证，认证配置跑生产部署
-4. **RT 确定性优先** — Controller 的硬件决策（CPU isolate / 内存锁定 / 中断亲缘性）优先于其他所有模块
+4. **RT 确定性优先** — Runtime 的硬件决策（CPU isolate / 内存锁定 / 中断亲缘性）优先于其他所有模块
 
 参考：D29（Docker + PREEMPT_RT 部署）、D37（SCHED_FIFO 测试策略）、`docs/architecture.md` §二 Runtime 套件
 
@@ -22,9 +22,9 @@
 
 | 等级 | 用途 | 适用模块 | 验证级别 |
 |------|------|---------|---------|
-| **最低** | 开发/原型验证 | Supervisor / Panel / Gateway / Remote / Edge | Phase 1 qa-fast |
-| **推荐** | 预生产/集成测试 | 全套件（含 Controller 非 RT 模式） | Phase 2 qa-full |
-| **认证** | 生产部署 | 全套件（含 Controller 硬 RT 模式） | Phase 3 qa-deep + RT 验证 |
+| **最低** | 开发/原型验证 | Agent / Panel / Gateway / Remote / Edge | Phase 1 qa-fast |
+| **推荐** | 预生产/集成测试 | 全套件（含 Runtime 非 RT 模式） | Phase 2 qa-full |
+| **认证** | 生产部署 | 全套件（含 Runtime 硬 RT 模式） | Phase 3 qa-deep + RT 验证 |
 
 ```
          最低                    推荐                  认证
@@ -83,8 +83,8 @@ docker --version && echo "OK" || echo "FAIL: Docker not installed"
 
 ### 2.4 适用场景
 
-- 开发者在本地笔记本运行 Supervisor / Panel / Gateway 进行功能调试
-- Controller 在 `SCHED_OTHER` 模式下运行（无 RT 保证，仅验证逻辑正确性）
+- 开发者在本地笔记本运行 Agent / Panel / Gateway 进行功能调试
+- Runtime 在 `SCHED_OTHER` 模式下运行（无 RT 保证，仅验证逻辑正确性）
 - 单机单实例，无冗余
 
 ---
@@ -95,8 +95,8 @@ docker --version && echo "OK" || echo "FAIL: Docker not installed"
 
 | 部件 | 规格 | 说明 |
 |------|------|------|
-| **CPU** | x86_64, 8 核, 2.5 GHz, 支持 AVX2 | 预留 2 核给 Controller 隔离 |
-| **内存** | 32 GB RAM | Controller 独占 4 GB（mlockall） |
+| **CPU** | x86_64, 8 核, 2.5 GHz, 支持 AVX2 | 预留 2 核给 Runtime 隔离 |
+| **内存** | 32 GB RAM | Runtime 独占 4 GB（mlockall） |
 | **磁盘** | 512 GB NVMe SSD | 日志保留 30 天本地缓存 |
 | **网络** | 2 x 1 GbE (bonding) | 对外通信冗余 |
 | **GPU** | 独立 GPU (Intel Arc / NVIDIA T400) | Panel 的高分辨率 HMI 渲染 |
@@ -122,10 +122,10 @@ zcat /proc/config.gz 2>/dev/null || cat /boot/config-$(uname -r) | \
 
 echo "=== Kernel cmdline ==="
 cat /proc/cmdline | grep -q "isolcpus" && echo "OK (isolcpus active)" || \
-  echo "WARN: isolcpus not set, Controller RT thread may be interrupted"
+  echo "WARN: isolcpus not set, Runtime RT thread may be interrupted"
 
-echo "=== CPU isolation (reserved for Controller) ==="
-# 验证至少有 2 个核心被隔离用于 Controller
+echo "=== CPU isolation (reserved for Runtime) ==="
+# 验证至少有 2 个核心被隔离用于 Runtime
 cat /proc/cmdline | grep -oP "isolcpus=\K[0-9,-]+" | tr ',' '\n' | \
   tr '-' ' ' | awk '{count += $2-$1+1} END{print "Isolated cores: " count; if (count >= 2) print "OK"; else print "FAIL: <2 isolated cores"}'
 
@@ -162,7 +162,7 @@ vm.max_map_count = 1048576
 ### 3.5 适用场景
 
 - 集成测试环境，运行全部 6 个模块
-- Controller 在 PREEMPT_RT 模式下运行，验证周期确定性
+- Runtime 在 PREEMPT_RT 模式下运行，验证周期确定性
 - 模拟 50+ Signal / 10+ StreamChannel / 5+ RPC 的负载场景
 - 单机单实例，无冗余
 
@@ -174,8 +174,8 @@ vm.max_map_count = 1048576
 
 | 部件 | 规格 | 说明 |
 |------|------|------|
-| **CPU** | x86_64, 12 核+, 3.0 GHz, AVX-512 或 ARM64 Neoverse N2 | 4 核隔离给 Controller (SCHED_FIFO) |
-| **内存** | 64 GB RAM (ECC, 可选) | Controller 独占 8 GB（mlockall + hugepages） |
+| **CPU** | x86_64, 12 核+, 3.0 GHz, AVX-512 或 ARM64 Neoverse N2 | 4 核隔离给 Runtime (SCHED_FIFO) |
+| **内存** | 64 GB RAM (ECC, 可选) | Runtime 独占 8 GB（mlockall + hugepages） |
 | **磁盘** | 1 TB NVMe SSD (硬件 RAID1) | 日志保留 90 天 + 配置全量备份 |
 | **网络** | 2 x 10 GbE (bonding active-backup) | 设备通信 + 对外通信分网段 |
 | **GPU** | 半高专业 GPU (NVIDIA T1000 / Intel Arc A310) | Panel 多屏 HMI + 可选 GPU 计算 |
@@ -236,16 +236,16 @@ cyclictest --mlockall --smp --priority=99 --interval=1000 --duration=60s \
 
 ### 4.5 适用场景
 
-- 7x24 生产运行，Controller 以 SCHED_FIFO 99 优先级运行
+- 7x24 生产运行，Runtime 以 SCHED_FIFO 99 优先级运行
 - 200+ Signal / 50+ StreamChannel / 20+ RPC 并发
-- 支持 1:1 冗余（Supervisor 热备 + Controller 主备切换）
+- 支持 1:1 冗余（Agent 热备 + Runtime 主备切换）
 - 双网冗余 + 硬件 RAID
 
 ---
 
 ## 5. 各模块独立需求
 
-### 5.1 Controller
+### 5.1 Runtime
 
 | 项目 | 最低 | 推荐 | 认证 |
 |------|------|------|------|
@@ -256,7 +256,7 @@ cyclictest --mlockall --smp --priority=99 --interval=1000 --duration=60s \
 | **mlockall** | 不需要 | 需要 | 需要 |
 | **SCHED_FIFO** | 不需要 | 优先级 90 | 优先级 99 |
 
-### 5.2 Supervisor
+### 5.2 Agent
 
 | 项目 | 最低 | 推荐 | 认证 |
 |------|------|------|------|
@@ -382,11 +382,11 @@ sudo update-grub && sudo reboot
 
 | 内核功能 | 依赖模块 | 最低版本 | 引入原因 |
 |---------|---------|---------|---------|
-| `CONFIG_PREEMPT_RT` | Controller | 6.8 (RT) | SCHED_FIFO 确定性 |
-| `CONFIG_CPUSETS` | Controller | 6.1 | `isolcpus` + `cpuset` 控制 |
-| `CONFIG_HUGETLB_PAGE` | Controller | 6.1 | 2MB hugepages 减少 TLB miss |
+| `CONFIG_PREEMPT_RT` | Runtime | 6.8 (RT) | SCHED_FIFO 确定性 |
+| `CONFIG_CPUSETS` | Runtime | 6.1 | `isolcpus` + `cpuset` 控制 |
+| `CONFIG_HUGETLB_PAGE` | Runtime | 6.1 | 2MB hugepages 减少 TLB miss |
 | `CONFIG_NUMA_BALANCING` | 全模块 | 6.1 | 禁用（默认开启，影响 RT） |
-| `CONFIG_IOMMU_DEFAULT_DMA_LAZY` | Controller | 6.8 | 减少 IOMMU 延迟 |
+| `CONFIG_IOMMU_DEFAULT_DMA_LAZY` | Runtime | 6.8 | 减少 IOMMU 延迟 |
 | `CONFIG_VDPA` | Gateway | 6.1 | 高性能 virtio 网络 |
 
 ---

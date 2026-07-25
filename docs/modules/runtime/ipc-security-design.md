@@ -7,7 +7,7 @@
 
 ## 设计原则
 
-AUDESYS Runtime 是多进程架构：Supervisor（控制面）、Controller（RT 数据面）、HMI 面板、调试桥各自运行在不同进程甚至不同主机上。IPC 安全的核心原则：
+AUDESYS Runtime 是多进程架构：Agent（控制面）、Runtime（RT 数据面）、HMI 面板、调试桥各自运行在不同进程甚至不同主机上。IPC 安全的核心原则：
 
 1. **最小权限**：每个进程只拥有完成其功能所需的最小权限
 2. **纵深防御**：传输层认证 + 消息层授权 + 操作审计，三层互不依赖
@@ -23,7 +23,7 @@ AUDESYS Runtime 是多进程架构：Supervisor（控制面）、Controller（RT
 │                  同一主机                          │
 │                                                    │
 │  ┌────────────┐    UDS + SO_PEERCRED     ┌──────┐ │
-│  │ Supervisor │ ◄──────────────────────► │Controller│
+│  │ Agent │ ◄──────────────────────► │Runtime│
 │  │  (控制面)  │                          │(RT面) │
 │  └──────┬─────┘                          └──────┘ │
 │         │                                           │
@@ -35,8 +35,8 @@ AUDESYS Runtime 是多进程架构：Supervisor（控制面）、Controller（RT
 ├──────────────────────────────────────────────────┤
 │                  跨主机 (Phase 3+)                  │
 │                                                    │
-│  Supervisor ──── Zenoh mTLS ──── Zenoh Router ──── │
-│  Controller ──── Zenoh mTLS ──── 远端 Supervisor    │
+│  Agent ──── Zenoh mTLS ──── Zenoh Router ──── │
+│  Runtime ──── Zenoh mTLS ──── 远端 Agent    │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -79,13 +79,13 @@ fn peer_cred(stream: &UnixStream) -> Result<(u32, u32, u32)> {
 
 ### 权限映射表
 
-Supervisor 维护一个静态的进程白名单，定义了哪些 UID 可以扮演哪些角色：
+Agent 维护一个静态的进程白名单，定义了哪些 UID 可以扮演哪些角色：
 
 ```yaml
 # /etc/audesys/security.yaml
 roles:
   controller:
-    allowed_uids: [0]                 # 仅 root 可运行 RT Controller
+    allowed_uids: [0]                 # 仅 root 可运行 RT Runtime
     allowed_paths: ["/usr/lib/audesys/controller"]
   supervisor:
     allowed_uids: [0, 1000]           # root 或 audesys 用户
@@ -102,7 +102,7 @@ roles:
 
 ```
 1. 对端连接 UDS
-2. Supervisor accept() 后立即调用 SO_PEERCRED
+2. Agent accept() 后立即调用 SO_PEERCRED
 3. 获取 (pid, uid, gid)
 4. 通过 /proc/<pid>/exe 验证可执行文件路径是否匹配白名单
 5. 检查 uid 是否在角色的 allowed_uids 中
@@ -132,7 +132,7 @@ struct SessionToken {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Role { Controller, Supervisor, Hmi, Debug }
+enum Role { Runtime, Agent, Hmi, Debug }
 
 struct TokenManager {
     secret: Vec<u8>,          // 进程启动时从 /dev/urandom 生成
@@ -183,14 +183,14 @@ impl TokenManager {
 
 | 角色 | 默认 TTL | 说明 |
 |------|---------|------|
-| Controller | 无限期（进程生命周期） | RT 进程重启 = 新连接，无需过期 |
-| Supervisor | 24h | 控制面进程，连接稳定 |
+| Runtime | 无限期（进程生命周期） | RT 进程重启 = 新连接，无需过期 |
+| Agent | 24h | 控制面进程，连接稳定 |
 | HMI | 1h | 操作员会话，超时自动登出 |
 | Debug | 15min | 调试会话，短生命周期 |
 
 ### 吊销机制
 
-Supervisor 支持通过 RPC 吊销特定 session_id，用于安全事件响应：
+Agent 支持通过 RPC 吊销特定 session_id，用于安全事件响应：
 
 ```rust
 fn revoke_session(&self, session_id: u64) -> Result<()> {
@@ -264,7 +264,7 @@ fn verify_peer_cert(cert: &x509::Certificate) -> Result<()> {
     let domain = cert.extension("audesys_domain")?;
 
     // 3. 角色匹配检查
-    //    Controller 只允许连接同域的 Supervisor
+    //    Runtime 只允许连接同域的 Agent
     //    HMI 只允许连接控制面（非 RT 路径）
     match (local_role, remote_role) {
         (Role::Controller, Role::Supervisor) if domain_matches(local_domain, remote_domain) => Ok(()),
@@ -283,7 +283,7 @@ fn verify_peer_cert(cert: &x509::Certificate) -> Result<()> {
 
 ### 权限矩阵
 
-| 操作 | Controller | Supervisor | HMI | Debug |
+| 操作 | Runtime | Agent | HMI | Debug |
 |------|:----------:|:----------:|:---:|:-----:|
 | `loadComponent` | 否 | 是 | 否 | 否 |
 | `unloadComponent` | 否 | 是 | 否 | 否 |
@@ -318,7 +318,7 @@ impl Authorizer {
             (Role::Hmi, Action::ReadSignal, res) if !res.starts_with("monitor.") => {
                 return Err(AuthorizationError::ResourceDenied { resource: res.to_string() });
             }
-            // Controller 只能配置自己的组件
+            // Runtime 只能配置自己的组件
             (Role::Controller, Action::ConfigureComponent, res) if !res.starts_with("self.") => {
                 return Err(AuthorizationError::ResourceDenied { resource: res.to_string() });
             }
@@ -489,7 +489,7 @@ Phase 1 不实现所有安全机制，只实现最小可行子集：
 | SO_PEERCRED 作为 UDS 认证基础 | 内核提供的不可伪造凭证，比应用层 token 更可靠。无额外网络开销 |
 | HMAC SessionToken 补充 SO_PEERCRED | 避免每次消息都做系统调用（getsockopt），同时支持消息级别重放防护 |
 | Zenoh mTLS 作为跨主机传输安全 | Zenoh 原生支持 mTLS，无需额外隧道。证书嵌入角色信息，一次握手完成认证 + 授权 |
-| 权限矩阵基于 RBAC | 工业场景角色固定（Controller/Supervisor/HMI/Debug），RBAC 足够，无需 ABAC 的灵活性开销 |
+| 权限矩阵基于 RBAC | 工业场景角色固定（Runtime/Agent/HMI/Debug），RBAC 足够，无需 ABAC 的灵活性开销 |
 | 审计日志用区块链式哈希链 | 工业合规要求审计日志不可篡改。SHA-256 哈希链开销极低（每条日志 O(1) 哈希计算），Phase 1 可选 |
 | 安全检查不进入 RT 数据面 | RT 线程（SCHED_FIFO）不能有认证/授权开销。所有安全检查在控制面完成，RT 路径只做纯数据传递 |
 | 证书吊销使用 CRL 而非 OCSP | OCSP 需要实时网络请求，在工业网络中断时导致认证失败。CRL 时效性足够（工业环境证书变更频率低） |

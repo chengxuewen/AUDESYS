@@ -1,7 +1,7 @@
 # AUDESYS Runtime 升级策略
 
 > 生成日期：2026-07-15
-> 设计目标：在不中断生产运行的前提下，定义 Runtime 全链路升级机制——从 FlatBuffers schema 变更、YAML 配置迁移、Controller 热替换、Supervisor 降级模式、设备固件 OTA 到回滚策略。全链路统一 SemVer 合约。
+> 设计目标：在不中断生产运行的前提下，定义 Runtime 全链路升级机制——从 FlatBuffers schema 变更、YAML 配置迁移、Runtime 热替换、Agent 降级模式、设备固件 OTA 到回滚策略。全链路统一 SemVer 合约。
 
 ---
 
@@ -10,7 +10,7 @@
 工业控制系统的升级与普通软件不同。一个正在控制反应釜温度的 Runtime 不能被 SIGTERM 后重启。升级必须以原地热操作为首选路径，以 brownout 模式作为兜底。
 
 1. **向前兼容** — 新 Runtime 必须加载旧配置和旧 schema（读路径全兼容）
-2. **原地升级** — Controller hot-swap 是默认路径，不重启进程
+2. **原地升级** — Runtime hot-swap 是默认路径，不重启进程
 3. **原子切换** — hot-swap 在单次 Config Barrier 边界完成，无中间态
 4. **回滚能力** — 每次升级自动保留前一个可恢复 checkpoint
 5. **降级不宕机** — 升级失败时进入 brownout 模式，维持基础信号输出
@@ -37,7 +37,7 @@ MAJOR.MINOR.PATCH[-build_metadata]
 | YAML 配置 | 删除 key / 改嵌套结构 | 新增 key（旧版本忽略） |
 | HAL RPC 接口 | 改签名 / 删方法 | 新增方法（不破坏现有调用） |
 | Signal/StreamChannel topic | 改 topic / payload 类型 | 新增 topic（不影响现有订阅） |
-| Controller ABI | 改 trait 方法签名 | 新增方法（默认实现兜底） |
+| Runtime ABI | 改 trait 方法签名 | 新增方法（默认实现兜底） |
 
 PATCH 变更不触发 hot-swap，走标准 Config Barrier 路径。
 
@@ -123,13 +123,13 @@ migrations:
 
 ---
 
-## 4. Controller Hot-Swap
+## 4. Runtime Hot-Swap
 
-Controller 是 Runtime 的执行单元（funct_list + 配置上下文）。hot-swap 在不重启进程的前提下替换运行中的 Controller。
+Runtime 是 Runtime 的执行单元（funct_list + 配置上下文）。hot-swap 在不重启进程的前提下替换运行中的 Runtime。
 
 ### 触发条件
 
-Supervisor RPC `controller.hot_swap(id, new_wasm)`、Studio OTA 推送新 component、YAML 配置升级、回滚操作。
+Agent RPC `controller.hot_swap(id, new_wasm)`、Studio OTA 推送新 component、YAML 配置升级、回滚操作。
 
 ### 三步协议
 
@@ -163,13 +163,13 @@ freeze() → migrate_state() → load() ❌ → unfreeze(旧) + 记录错误
 
 ---
 
-## 5. Supervisor Brownout Mode
+## 5. Agent Brownout Mode
 
-当升级失败或关键组件不可用时，Supervisor 不宕机，降级运行。
+当升级失败或关键组件不可用时，Agent 不宕机，降级运行。
 
 ### 触发场景
 
-Controller hot-swap 失败（load 返回 Err 且回滚也失败）、OTA 固件校验不通过、配置迁移验证失败、关键子进程崩溃、资源耗尽。
+Runtime hot-swap 失败（load 返回 Err 且回滚也失败）、OTA 固件校验不通过、配置迁移验证失败、关键子进程崩溃、资源耗尽。
 
 ### 降级行为
 
@@ -183,7 +183,7 @@ Controller hot-swap 失败（load 返回 Err 且回滚也失败）、OTA 固件�
 
 ### 退出条件
 
-Supervisor 手动 `resume` 命令 → 从上一个 good checkpoint 重新加载。回滚成功 → 自动退出 brownout。
+Agent 手动 `resume` 命令 → 从上一个 good checkpoint 重新加载。回滚成功 → 自动退出 brownout。
 
 ---
 
@@ -266,8 +266,8 @@ rollback(version=v0.1.0):
 |------|---------|---------|---------|
 | FlatBuffers schema 版本检测 | ✅ identifier 校验 | ✅ 兼容映射表 | ✅ 自动降级读取 |
 | YAML 配置迁移 | ✅ 链式 YAML 脚本 | ✅ JSON Schema 验证 | ✅ 交互式迁移预览 |
-| Controller hot-swap | ✅ 单次 Config Barrier | ✅ state migration | ✅ A/B 双版本并行 |
-| Supervisor brownout | ✅ 基础模式 | ✅ 可配置安全态 | ✅ 智能降级策略 |
+| Runtime hot-swap | ✅ 单次 Config Barrier | ✅ state migration | ✅ A/B 双版本并行 |
+| Agent brownout | ✅ 基础模式 | ✅ 可配置安全态 | ✅ 智能降级策略 |
 | 设备固件 OTA | ❌ | ✅ HART 有限设备 | ✅ EtherCAT + 批量 |
 | Rollback checkpoint | ✅ 3 个 checkpoint | ✅ 跨 MINOR 智能合并 | ✅ 分布式 checkpoint |
 | 审计日志 | ✅ JSON 文件 | ✅ 结构化日志查询 | ✅ 集成 Studio |

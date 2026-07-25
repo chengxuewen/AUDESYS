@@ -6,7 +6,7 @@
 **Branch:** `main`
 
 ## OVERVIEW
-AUDESYS — 工业控制系统运行时模拟平台。从 MODACS 分离，聚焦 Studio IDE、Runtime 运行时、Simulator 仿真器、HAL 硬件抽象层。当前早期阶段，零源代码，HAL 详细设计已完成（3 专家团队审核），参考文档库已建成（41 篇竞品分析）。
+AUDESYS — 工业控制系统运行时模拟平台。从 MODACS 分离，聚焦 Studio IDE、Runtime 运行时、Simulator 仿真器、HAL 硬件抽象层。当前 24 crates、799+ 测试、6 IEC 61131-3 编译器、Theia Studio IDE 已就绪。HAL 详细设计已完成，参考文档库 41 篇。
 
 ## STRUCTURE
 ```
@@ -61,7 +61,7 @@ _当前无源代码。以下为架构文档中规划的模块：_
 
 | 模块 | 状态 | 规划路径 |
 |------|------|----------|
-| Studio IDE (§11) | 🔲 计划中 | `apps/studio` + `packages/studio-core/` |
+| Studio IDE (§11) | ✅ Theia 迁移完成 | `apps/studio` + `packages/studio-core/` |
 | Runtime (§6) | 🔲 计划中 | `apps/runtime/`（6 模块套件），详见 `docs/modules/runtime/`（4 份子文档） |
 | Simulator (§15) | 🔮 Phase 3/4 | AVD Manager（7 种虚拟设备） |
 | HAL 硬件抽象 | 🟡 详细设计完成 | `docs/modules/hal/`（19 份子文档） |
@@ -108,7 +108,7 @@ npm install    # 安装依赖（如需要）
 ```
 
 ## NOTES
-- **零源代码** — 项目处于文档驱动设计阶段，HAL 详细设计已完成
+- **24 crates + Theia Studio** — 6 语言编辑器、HMI Designer、编译器、Runtime Engine、IPC Server、SimulationHarness、799+ 测试、239 SDD 规范项
 - **从 MODACS 分离** — 2026-07-08 首次提交。无 MODACS 代码共享
 - **.sisyphus/** 被 gitignore 排除 — 计划文件和证据不提交到仓库
 - **双 package.json** — 根目录用 npm，`.opencode/` 用独立包（插件系统）

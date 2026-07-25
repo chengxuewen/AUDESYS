@@ -53,7 +53,7 @@ pub enum AuditResult {
 
 当前所有审计日志存储于 `InMemoryAuditLog`（`Vec<AuditEvent>`），**进程重启即丢失**。这意味着：
 
-- Supervisor 崩溃 → 所有审计记录消失，无法追溯事故前的配置变更
+- Agent 崩溃 → 所有审计记录消失，无法追溯事故前的配置变更
 - 攻击者可通过重启进程抹除入侵痕迹
 - 违反 IEC 62443-3-3 SR 2.8（审计日志不可篡改、不可删除）
 
@@ -95,7 +95,7 @@ Phase 1 选择 JSONL（JSON Lines）作为持久化格式：
 
 **JSONL 的局限**（Phase 2 解决）：
 - 全量查询 O(n)，无索引——大规模历史审计时性能差
-- 无并发写入支持（但 AUDESYS 审计日志为单写者模式——仅 Supervisor 写入）
+- 无并发写入支持（但 AUDESYS 审计日志为单写者模式——仅 Agent 写入）
 
 ### 2.2 Phase 2：SQLite + WAL 模式
 
@@ -301,7 +301,7 @@ D17 要求所有配置变更在 RT 周期边界批量应用。审计日志记录
 | `timestamp` | u64 (ms) | 是 | 事件发生时间，CLOCK_MONOTONIC 排序 |
 | `actor.process_name` | String | 是 | 发起进程（supervisor/controller/hmi/debug） |
 | `actor.pid` | u32 | 是 | 进程 PID |
-| `actor.role` | String | 否 | 操作者角色（Operator/Engineer/Supervisor/Auditor/System） |
+| `actor.role` | String | 否 | 操作者角色（Operator/Engineer/Agent/Auditor/System） |
 | `action` | String | 是 | 操作类型（见 §6.2） |
 | `target` | String | 是 | 操作对象 |
 | `result` | String | 是 | Allowed / Denied(reason) / Failed(error) |
@@ -400,7 +400,7 @@ Phase 1 默认使用**批量 fsync（每 100ms）**——平衡可靠性与性�
 
 ### 8.2 清理流程
 
-清理由 Supervisor 内的定时任务触发（cron 风格，每小时执行）：
+清理由 Agent 内的定时任务触发（cron 风格，每小时执行）：
 
 ```
 1. 扫描 /var/log/audesys/audit/*.gz
@@ -437,7 +437,7 @@ IPC method 0x18: EXPORT_AUDIT_LOG
 SO_PEERCRED 连接建立后（参见 `ipc-security-design.md` §2）：
 
 ```rust
-// 在 Supervisor accept 后
+// 在 Agent accept 后
 let cred = peer_cred(&stream)?;
 let hashed_token = sha256(&token_bytes);  // 审计日志不写明文 token
 
@@ -506,7 +506,7 @@ self.audit.log(AuditEvent {
 | 哈希链而非数据库内置完整性 | 哈希链在文件层面保证防篡改，与存储后端解耦。即使 SQLite 被替换文件，哈希链仍可检测 |
 | 包装类型扩展而非修改 AuditEvent | 不修改 `runtime-common::AuditEvent` 保持 trait 稳定（"不改变现有 AuditLog trait"约束） |
 | 异步写入 + ring buffer | 审计日志写入可能涉及磁盘 IO（ms 级延迟），不允许进入 RT 路径（SCHED_FIFO 线程不能 block） |
-| 批量 fsync 而非逐条 fsync | 100ms 批量窗口在 99.9% 场景下足够——Supervisor 崩溃丢失 100ms 审计日志的风险可接受（Supervisor 本身就是被守护的进程） |
+| 批量 fsync 而非逐条 fsync | 100ms 批量窗口在 99.9% 场景下足够——Agent 崩溃丢失 100ms 审计日志的风险可接受（Agent 本身就是被守护的进程） |
 | Config Barrier 前后双审计 | 提供变更前后的完整快照，使审计记录既能回答"谁做了什么"，也能回答"生效前状态是什么" |
 | 自审计（审计日志的审计） | 审计系统自身操作必须可追溯，否则攻击者可通过轮转/导出操作删除证据 |
 
@@ -516,6 +516,6 @@ self.audit.log(AuditEvent {
 
 1. **不修改现有 `AuditLog` trait 的 3 方法签名** — 持久化实现作为新 struct 实现相同 trait
 2. **不引入新 crate 为 Phase 1 必需** — JSONL 使用 `std::fs::File` + `serde_json`（已有依赖）
-3. **单写者模型** — 只有 Supervisor 进程写入审计日志（Controller/HMI 通过 RPC 间接触发审计事件）
+3. **单写者模型** — 只有 Agent 进程写入审计日志（Runtime/HMI 通过 RPC 间接触发审计事件）
 4. **审计日志路径可配置** — 默认为 `/var/log/audesys/audit/`，通过环境变量 `AUDESYS_AUDIT_DIR` 覆盖
 5. **审计日志不可删除** — 不提供 API 或 CLI 命令删除审计日志（仅自动轮转清理，保留 90 天）

@@ -1,7 +1,11 @@
 # AUDESYS 架构文档
 
-> **更新日期**: 2026-07-19
-> **状态**: 架构文档 - 反映当前 MVP 实现状态
+> **更新日期**: 2026-07-24
+> **状态**: 架构文档 — 反映当前 MVP 实现状态。待重写对齐新版架构设计。
+
+> ⚠️ **命名过时**: 本文档使用旧命名。对应: Supervisor→Agent | Controller→Runtime | Field+Cloud→Hub
+> 📖 **新版架构**: docs/superpowers/specs/2026-07-24-robotics-architecture-design.md (1731行)
+> 📋 **实施计划**: .sisyphus/plans/m1-3d-printer-platform/
 
 ---
 
@@ -177,7 +181,7 @@ AUDESYS 的产品线包括：AUDESYS Studio（统一编辑器/IDE）、AUDESYS R
 ## 一、HAL 系统
 
 > 🟡 **状态**: 详细设计完成 — 3 专家团队审核（27 项发现，全部交互式确认）
-> **详细规范**: 见 `docs/modules/hal/` 目录下 19 份独立子文档，覆盖协议原语、amw、类型系统、线程调度、多语言等 17 个设计主题。
+> **详细规范**: 见 `docs/modules/hal/` 目录下 19 份独立子文档（含 design-decisions.md），覆盖协议原语、amw、类型系统、线程调度、多语言等 17 个设计主题。
 
 ---
 
@@ -587,7 +591,7 @@ AUDESYS Runtime 套件是面向工业控制场景的完整运行时产品形态�
 参考 LinuxCNC HAL（Hardware Abstraction Layer）模型：
 
 ```
-Base Thread (500µs):   Read Inputs -> Control Logic (PID/Trajectory) -> Write Outputs
+> ⚠️ 旧模型 (LinuxCNC 参考)。当前 Audit 使用 5 步周期引擎: read_barrier → 函数列表 → write_barrier → sleep_until。见 §一5。
 Servo Thread (1-4ms):  iceoryx2/Link Publish (状态) + Subscribe (命令)
 Safety Thread:         看门狗心跳 / 紧急停止检测 / 安全状态机
 ```
@@ -1289,7 +1293,7 @@ AUDESYS 将传统工业控制项目拆分为两层：
                └──────────────────┘
 ```
 
-固件项目映射到 `firmware` 项目类型，工程项目映射到现有的 `plc` 或 `hmi` 类型。详见 `docs/plans/p0-mvp-status.md` §1。
+固件项目映射到 `firmware` 项目类型，工程项目映射到现有的 `plc` 或 `hmi` 类型。(参考文档已归档)。
 
 
 #### 项目生命周期
@@ -1437,7 +1441,7 @@ interface PanelDescriptor {
 | 终端 | PTY ✅ | ❌ 隐藏 |
 | 调试 | UDS → DAP | WebSocket → DAP |
 
-详细设计见 `docs/modules/studio/plugin-architecture-design.md`。
+详细设计见 `docs/modules/studio/plugin-architecture-design.md 和 theia-architecture.md`。
 
 #### 8.5 P1 明确不做
 
@@ -1927,7 +1931,7 @@ Theia Backend (napi-rs):  Electron: 原生运行；Browser: token-patch.py + pol
 2. 每个租户独立的 Controller 实例
 3. 共享 Studio 前端（按租户加载模板）
 
-> **说明**: Web Track 1-3 与 Phase 1-4 并行推进，非前后依赖。Studio 的 PlatformAdapter（D59）已为 Web 迁移预留接口，Web Track 可在 Phase 1 完成后随时启动，无需等待 Phase 2-4。
+> **说明**: > 📋 **Phase 统一**: 所有模块 Phase 已统一为 M1-M6 里程碑体系。详见 decisions.md D91 和 robotics-architecture-design.md §46。，非前后依赖。Studio 的 PlatformAdapter（D59）已为 Web 迁移预留接口，Web Track 可在 Phase 1 完成后随时启动，无需等待 Phase 2-4。
 
 ---
 
@@ -1976,7 +1980,7 @@ P1 已实现 Theia Backend napi-rs bridge (21/30 函数)。Web 浏览器模式�
 ## 七、CNC 系统
 
 AUDESYS 以 G-code（RS274/NGC）编译器作为第 6 种源码语言，与现有 5 种 IEC 61131-3 语言
-（ST/IL/LD/FBD/SFC）共享 HalProgram 后端，实现 CNC 运动控制能力。新增 `docs/modules/cnc/`
+（ST/IL/LD/FBD/SFC）共享 HalProgram 后端，实现 CNC 运动控制能力。新增 `docs/modules/cnc/ 下 5 份子文档（含 interpolation-engine-design.md），`
 子文档模块，覆盖 G-code 编译管道、运动规划器、轴组管理三构件。
 
 ### CNC 构件
