@@ -160,6 +160,10 @@ impl Codegen {
                 }
                 ILStatement::LoadNot { var } => {
                     let r = self.get_var_reg(var);
+                    self.instructions.push(Instruction::new(
+                        Opcode::Load,
+                        vec![Operand::Register(r), Operand::SignalName(var.clone())],
+                    ));
                     self.emit_load_reg(CR_REG, r);
                     self.emit_not(CR_REG, CR_REG);
                 }
@@ -172,10 +176,18 @@ impl Codegen {
                 }
                 ILStatement::And { var } => {
                     let r = self.get_var_reg(var);
+                    self.instructions.push(Instruction::new(
+                        Opcode::Load,
+                        vec![Operand::Register(r), Operand::SignalName(var.clone())],
+                    ));
                     self.emit_arith(Opcode::And, CR_REG, r, CR_REG);
                 }
                 ILStatement::AndNot { var } => {
                     let r = self.get_var_reg(var);
+                    self.instructions.push(Instruction::new(
+                        Opcode::Load,
+                        vec![Operand::Register(r), Operand::SignalName(var.clone())],
+                    ));
                     // TEMP1 = var; Not TEMP1; CR = CR & TEMP1
                     self.emit_load_reg(TEMP1_REG, r);
                     self.emit_not(TEMP1_REG, TEMP1_REG);
