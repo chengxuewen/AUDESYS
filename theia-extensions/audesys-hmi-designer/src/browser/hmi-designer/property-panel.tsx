@@ -37,6 +37,11 @@ const CONFIG_FIELDS: Record<string, { label: string; type: string; key: string; 
   display: [
     { label: "Unit", type: "text", key: "unit", defaultVal: "" },
   ],
+  camera: [
+    { label: "Stream URL", type: "text", key: "streamUrl", defaultVal: "" },
+    { label: "FPS Limit", type: "number", key: "refreshRate", defaultVal: 30 },
+    { label: "Show FPS", type: "text", key: "showFps", defaultVal: true },
+  ],
 };
 
 export default function PropertyPanel({ widget, onUpdateWidget, onRemoveWidget }: PropertyPanelProps) {

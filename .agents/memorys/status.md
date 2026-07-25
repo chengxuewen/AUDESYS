@@ -63,10 +63,25 @@
 | 工业调试桥 | 🔲 规划中 | architecture.md §5 设计完成 |
 | CNC 系统 | 🟡 编译器+轴组完成 | G-code (75 测试含 G2/G3)、轴组 crate (32 测试)、运动规划器提取中、插补设计文档完成 |
 | Studio 插件架构 | ⚠️ 已废弃（D71 Theia 替代） | D58/D59 被 D71 取代：插件模型→Theia Extension System，PlatformAdapter→Theia Browser 模式 |
-| Runtime Panel | 🟡 骨架实现 | 独立 Tauri app + IpcSignalProvider (100ms 轮询) + IpcLayoutLoader + 5 Tauri 命令。Role::HMI 待添加 (D64)。0 测试。Push 模式 P2
+| Runtime Panel | ✅ 打包就绪 | 独立 Tauri app + IpcSignalProvider (100ms 轮询) + IpcLayoutLoader + 9 Tauri 命令 (含 push/subscribe/reconnect) + macOS/Linux bundle 目标配置。Role::HMI 待添加 (D64)。0 测试。Push 模式 P2
 | HMI 设计器 | ✅ 完成 | 拖拽编辑器+7 widget+信号绑定+YAML 持久化+布局验证+部署，5 vitest 测试+3 Playwright E2E 测试
 | HMI 部署管道 | 🟡 | IPC 0x17→Controller Config Barrier→Panel，P1 轮询（Push 模式待 P1 续建完成）|
 | HMI 调试能力 | 🟡 基础具备 | SignalInjector+布局验证器已实现，P2: 渲染性能监控+断点调试
+
+## P0-P2 阶段完成状态
+
+| 阶段 | 主要交付 | 日期 | 状态 |
+|------|---------|------|:----:|
+| P0 | CI (qa-fast 5门禁), Workspace 结构, 24 crates 骨架 | 2026-07-15 | ✅ |
+| P1 | 5 IEC 61131-3 编译器 (ST/IL/LD/FBD/SFC), Runtime Engine, IPC Server | 2026-07-20 | ✅ |
+| P1 | Theia 迁移 (D71), 6 语言编辑器, HMI Designer, GLSP 编辑器 | 2026-07-21 | ✅ |
+| P1 | Modbus RTU/TCP, HART 适配器, SimHarness | 2026-07-19 | ✅ |
+| P2 | LD GLSP Editor (Sprotty SVG), FBD GLSP Editor | 2026-07-24 | ✅ |
+| P2 | Runtime Panel 打包 (tauri bundle), SignalBridge push/poll, 9 Tauri 命令 | 2026-07-25 | ✅ |
+| P2 | G-code 编译器 (75 测试), CNC 轴组 (32 测试), 插补设计 | 2026-07-19 | ✅ |
+| P2 | Prometheus metrics, DAP 调试 (12 命令), JSON 日志 | 2026-07-20 | ✅ |
+| P3 | AVD 仿真 (7 虚拟设备), amw-zenoh 网络传输 | 🔮 | 🔮 |
+| P4 | NixOS 打包, OTA, IEC 62443 认证 | 🔮 | 🔮 |
 
 ## 文档与规范
 

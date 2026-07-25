@@ -57,17 +57,42 @@ AUDESYS/
 | Runtime 设计文档 | `docs/modules/runtime/` | 4 份子文档：IPC安全、可观测性、硬件需求、升级策略 |
 
 ## CODE MAP
-_当前无源代码。以下为架构文档中规划的模块：_
 
-| 模块 | 状态 | 规划路径 |
-|------|------|----------|
-| Studio IDE (§11) | ✅ Theia 迁移完成 | `apps/studio` + `packages/studio-core/` |
-| Runtime (§6) | 🔲 计划中 | `apps/runtime/`（6 模块套件），详见 `docs/modules/runtime/`（4 份子文档） |
-| Simulator (§15) | 🔮 Phase 3/4 | AVD Manager（7 种虚拟设备） |
-| HAL 硬件抽象 | 🟡 详细设计完成 | `docs/modules/hal/`（19 份子文档） |
-| 工业调试桥 | 🔲 计划中 | — |
-| 实时控制 | 🔲 计划中 | — |
+| 模块 | 状态 | 路径 |
+|------|:----:|------|
+| Studio IDE | ✅ Theia 迁移完成 | `apps/studio-theia/` + `theia-extensions/` |
+| Runtime Engine | ✅ 完成 | `crates/audesys-runtime-engine/` |
+| IPC Server | ✅ 完成 | `crates/audesys-ipc-server/` |
+| Runtime Client | ✅ 完成 | `crates/audesys-runtime-client/` |
+| Runtime Panel | ✅ 骨架实现 | `apps/runtime-panel/` (Tauri) |
+| LD GLSP Editor | ✅ 完成 | `theia-extensions/audesys-ld-glsp/` |
+| FBD GLSP Editor | ✅ 完成 | `theia-extensions/audesys-fbd-glsp/` |
+| LD Compiler | ✅ 完成 | `crates/audesys-ld-compiler/` |
+| FBD Compiler | ✅ 完成 | `crates/audesys-fbd-compiler/` |
+| ST/IL/SFC Compilers | ✅ 完成 | `crates/audesys-hal-binding-gen/` + `audesys-il-compiler/` + `audesys-sfc-compiler/` |
+| G-code Compiler | ✅ 完成 | `crates/audesys-gcode-compiler/` |
+| CNC Axis Group | ✅ 完成 | `crates/audesys-axis-group/` |
+| SimulationHarness | ✅ 完成 | `crates/audesys-runtime-engine/` |
+| HAL Core | 🟡 设计完成 | `crates/audesys-hal-core/` |
+| Simulator (AVD) | 🔮 Phase 3/4 | 7 种虚拟设备 |
 
+## VERTICAL SLICE: LD → Runtime → Panel
+
+LD (Ladder Diagram) 编辑器到 Runtime Panel 的完整垂直切片：
+
+| 层 | 组件 | 路径 | 状态 |
+|----|------|------|:----:|
+| Editor | LD GLSP Editor (Sprotty SVG) | `theia-extensions/audesys-ld-glsp/` | ✅ |
+| Compiler | LD Compiler (LD to IL to HalProgram) | `crates/audesys-ld-compiler/` | ✅ |
+| Runtime | Runtime Engine (5-step cycle + Hot-swap) | `crates/audesys-runtime-engine/` | ✅ |
+| IPC | IPC Server (UDS + HMAC, 0x01-0x17) | `crates/audesys-ipc-server/` | ✅ |
+| Client | RuntimeClient (7 methods + auth) | `crates/audesys-runtime-client/` | ✅ |
+| HMI | Runtime Panel (Tauri, 9 commands, push/poll) | `apps/runtime-panel/` | ✅ |
+
+Data flow: `.ld` file to LdSprottyDiagramWidget (GLSP) to LdOperationHandler.compile()
+to LdCompiler (LD grammar to IL tokens to HalProgram) to deploy_program (IPC 0x10)
+to RuntimeEngine (load + execute cycle) to signal values to SignalBridge
+(IPC 0x16 push + 100ms poll fallback) to Runtime Panel widgets (Gauge/Trend/Tank/...).
 ## CONVENTIONS
 ### AUDESYS 独有
 - **命名**: `AUDESYS` 全大写，npm scope `@audesys/`

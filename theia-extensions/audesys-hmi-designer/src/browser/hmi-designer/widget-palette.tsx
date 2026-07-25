@@ -13,6 +13,7 @@ const WIDGET_PRESETS: { type: HmiWidgetType; icon: string; label: string; desc: 
   { type: "trend", icon: "📈", label: "Trend", desc: "Time-series line chart" },
   { type: "tank", icon: "🪣", label: "Tank", desc: "Liquid fill level display" },
   { type: "display", icon: "🔢", label: "Display", desc: "Numeric readout with units" },
+  { type: "camera", icon: "📷", label: "Camera", desc: "MJPEG stream viewer" },
 ];
 
 export default function WidgetPalette({ onAddWidget }: WidgetPaletteProps) {

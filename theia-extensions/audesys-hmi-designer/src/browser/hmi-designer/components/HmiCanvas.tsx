@@ -18,7 +18,7 @@ import { IndicatorWidget } from "../../widgets/IndicatorWidget";
 import { TrendWidget } from "../../widgets/TrendWidget";
 import { TankWidget } from "../../widgets/TankWidget";
 import { DisplayWidget } from "../../widgets/DisplayWidget";
-
+import { CameraView } from "../../widgets/CameraView";
 type HmiCanvasProps = {
   widgets: HmiWidgetState[];
   selectedWidgetId: string | null;
@@ -44,6 +44,7 @@ const WIDGET_COMPONENTS: Record<HmiWidgetType, React.FC<{
   trend: TrendWidget,
   tank: TankWidget,
   display: DisplayWidget,
+  camera: CameraView,
 };
 
 // Signal-injecting wrapper: uses theia hook, passes signalValue to pure-UI widget

@@ -21,7 +21,8 @@ export type HmiWidgetType =
   | "indicator"
   | "trend"
   | "tank"
-  | "display";
+  | "display"
+  | "camera";
 
 export interface HmiWidgetState {
   id: string;
