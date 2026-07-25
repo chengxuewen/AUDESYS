@@ -31,7 +31,7 @@ pub type WatchCallback = Box<dyn Fn(DiscoveryEvent) + Send + Sync>;
 /// HalDiscovery — component/service discovery trait.
 ///
 /// Signal and StreamChannel are discoverable through this trait.
-/// RPC methods are discovered through the Supervisor (not HalDiscovery).
+/// RPC methods are discovered through the Agent (not HalDiscovery).
 ///
 /// ## Implementations
 /// - Phase 1: amw_inproc (static registry)

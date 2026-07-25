@@ -1,4 +1,4 @@
-//! AUDESYS Runtime Supervisor
+//! AUDESYS Runtime Agent
 //!
 //! Monitors child processes listed in a YAML config, auto-restarts
 //! on exit with exponential backoff, and pushes status updates to

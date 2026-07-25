@@ -41,7 +41,7 @@ const HEADER_SIZE: usize = 69;
 const DEFAULT_TOKEN_TTL_MS: u64 = 3_600_000; // 1 hour
 
 /// Token TTL for Supervisor (ms).
-const SUPERVISOR_TOKEN_TTL_MS: u64 = 86_400_000; // 24 hours
+const AGENT_TOKEN_TTL_MS: u64 = 86_400_000; // 24 hours
 
 // ── Method IDs ──
 
@@ -1344,7 +1344,7 @@ fn handle_auth(
         id
     };
     let ttl_ms = if requested_role == Role::Supervisor {
-        SUPERVISOR_TOKEN_TTL_MS
+        AGENT_TOKEN_TTL_MS
     } else {
         DEFAULT_TOKEN_TTL_MS
     };

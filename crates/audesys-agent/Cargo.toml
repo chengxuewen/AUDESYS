@@ -1,10 +1,10 @@
 [package]
-name = "audesys-supervisor"
+name = "audesys-agent"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "AUDESYS Runtime Supervisor — process orchestration and monitoring"
+description = "AUDESYS Agent — 车端管理代理。AUDESYS Runtime Supervisor — process orchestration and monitoring"
 
 [dependencies]
 audesys-runtime-common = { path = "../audesys-runtime-common" }

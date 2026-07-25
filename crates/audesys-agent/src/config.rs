@@ -10,7 +10,7 @@ use std::path::Path;
 
 /// Supervisor configuration loaded from YAML.
 #[derive(Debug, Clone, Deserialize)]
-pub struct SupervisorConfig {
+pub struct AgentConfig {
     /// Child processes to supervise.
     pub children: Vec<ChildConfig>,
     /// Path to Controller UDS for status push.
@@ -65,7 +65,7 @@ fn default_role() -> String {
 
 // ── Load ──────────────────────────────────────────────────────────────
 
-impl SupervisorConfig {
+impl AgentConfig {
     /// Load config from a YAML file.
     pub fn load(path: &Path) -> Result<Self, String> {
         let content =

@@ -2,12 +2,12 @@
 //!
 //! Tests config loading and process lifecycle struct creation.
 
-use audesys_supervisor::config::SupervisorConfig;
-use audesys_supervisor::monitor::{ManagedProcess, ProcessState};
+use audesys_agent::config::AgentConfig;
+use audesys_agent::monitor::{ManagedProcess, ProcessState};
 
 // ── Test YAML fixture ──
 
-const TEST_SUPERVISOR_YAML: &str = r#"
+const TEST_AGENT_YAML: &str = r#"
 children:
   - name: controller
     program: /usr/bin/audesys-controller
@@ -26,9 +26,9 @@ fn test_supervisor_config_load() {
     let dir = std::env::temp_dir().join("audesys-test-supervisor-config");
     let _ = std::fs::create_dir_all(&dir);
     let config_path = dir.join("supervisor.yaml");
-    std::fs::write(&config_path, TEST_SUPERVISOR_YAML).expect("write test config");
+    std::fs::write(&config_path, TEST_AGENT_YAML).expect("write test config");
 
-    let config = SupervisorConfig::load(&config_path).expect("load config");
+    let config = AgentConfig::load(&config_path).expect("load config");
 
     assert_eq!(config.children.len(), 2);
     assert_eq!(config.children[0].name, "controller");

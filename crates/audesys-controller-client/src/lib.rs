@@ -245,7 +245,7 @@ impl ControllerClient {
     ///
     /// `hmac_secret` is the shared secret used by the server for token signing.
     /// This must match the server's randomly-generated secret. In production,
-    /// the secret is exchanged out-of-band (file, env var, or Supervisor mediation).
+    /// the secret is exchanged out-of-band (file, env var, or Agent mediation).
     pub fn connect(socket_path: &str, hmac_secret: &[u8]) -> io::Result<Self> {
         let stream = UnixStream::connect(socket_path)?;
         stream.set_read_timeout(Some(std::time::Duration::from_secs(5)))?;

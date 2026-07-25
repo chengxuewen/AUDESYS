@@ -439,8 +439,8 @@ fn test_s_cfg_051_rollback_atomicity() {
 }
 
 #[test]
-fn test_s_cfg_052_supervisor_confirmation_timeout() {
-    // S-CFG-052: Supervisor 确认超时 — ConfigCommand carries tracking id
+fn test_s_cfg_052_agent_confirmation_timeout() {
+    // S-CFG-052: Agent 确认超时 — ConfigCommand carries tracking id
     // Arrange
     let qos = InprocQoS::new();
     let cmd = make_cmd(9999, "configureComponent");
@@ -449,9 +449,9 @@ fn test_s_cfg_052_supervisor_confirmation_timeout() {
     // Act
     let status = qos.queue_config(cmd).unwrap();
 
-    // Assert: Queued status with tracking id for supervisor to poll
+    // Assert: Queued status with tracking id for agent to poll
     assert!(matches!(status, ConfigStatus::Queued));
-    // The id is in the command, supervisor can track it via generation/ids
+    // The id is in the command, agent can track it via generation/ids
     assert_eq!(cmd_id, 9999);
 
     // Apply and verify the command was consumed
@@ -460,7 +460,7 @@ fn test_s_cfg_052_supervisor_confirmation_timeout() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// §7 Supervisor Authority (S-CFG-060 ~ S-CFG-063)
+// §7 Agent Authority (S-CFG-060 ~ S-CFG-063)
 // ═══════════════════════════════════════════════════════════════════
 
 #[test]
@@ -525,7 +525,7 @@ fn test_s_cfg_062_deactivatecomponent_downgrade_sequence() {
     qos.set_lock_level(LockLevel::Run).unwrap();
     assert_eq!(qos.lock_level(), LockLevel::Run);
 
-    // Step 3 (conceptual): supervisor needs to modify config
+    // Step 3 (conceptual): agent needs to modify config
     // Must go through deactivation: Run → cannot go down directly
     let result = qos.set_lock_level(LockLevel::None).unwrap();
     assert!(

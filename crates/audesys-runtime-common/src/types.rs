@@ -1,7 +1,7 @@
 //! Runtime common types — IPC security, health checks, audit logging.
 //!
 //! All types are pure data with zero external dependencies.
-//! Designed for use across Supervisor, Controller, HMI, and Debug Bridge processes.
+//! Designed for use across Agent, Controller, HMI, and Debug Bridge processes.
 
 use std::time::SystemTime;
 
@@ -16,7 +16,7 @@ pub enum Role {
     Operator,
     /// Automation engineer — can modify configuration, deploy logic
     Engineer,
-    /// Supervisory system — can manage other processes
+    /// Agent system — manages processes, containers, and lifecycle
     Supervisor,
     /// Security auditor — read-only access to audit logs
     Auditor,
@@ -82,7 +82,7 @@ pub enum AuthResult {
 
 /// Manages session token lifecycle across processes.
 ///
-/// Implemented by the Supervisor process. Controller and HMI call
+/// Implemented by the Agent process. Controller and HMI call
 /// these methods over UDS RPC.
 pub trait TokenManager {
     /// Issue a new session token to a process.

@@ -7,8 +7,8 @@
 //! Graceful shutdown: SIGINT/SIGTERM → SIGKILL children → wait → exit.
 
 use audesys_runtime_common::types::Role;
-use audesys_supervisor::config::SupervisorConfig;
-use audesys_supervisor::monitor::{MAX_RETRIES, ManagedProcess, ProcessState};
+use audesys_agent::config::AgentConfig;
+use audesys_agent::monitor::{MAX_RETRIES, ManagedProcess, ProcessState};
 use std::io::{self, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
@@ -184,7 +184,7 @@ extern "C" fn sig_handler(_: libc::c_int) {
 fn main() {
     let (config_path, cli_uds_path) = parse_args();
 
-    let config = match SupervisorConfig::load(Path::new(&config_path)) {
+    let config = match AgentConfig::load(Path::new(&config_path)) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Supervisor: failed to load config '{}': {}", config_path, e);

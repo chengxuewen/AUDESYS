@@ -5,7 +5,7 @@
 //!
 //! Prerequisites: binaries must be pre-built.
 //!   cargo build --bin audesys-controller
-//!   cargo build --bin audesys-supervisor
+//!   cargo build --bin audesys-agent
 //!
 //! Run with single thread to avoid socket conflicts:
 //!   cargo test --test ipc_integration_test -- --test-threads=1
@@ -43,12 +43,12 @@ fn controller_binary() -> String {
     "./target/debug/audesys-controller".into()
 }
 
-/// Path to the supervisor binary.
-fn supervisor_binary() -> String {
-    if let Ok(p) = std::env::var("CARGO_BIN_EXE_audesys-supervisor") {
+/// Path to the agent binary.
+fn agent_binary() -> String {
+    if let Ok(p) = std::env::var("CARGO_BIN_EXE_audesys-agent") {
         return p;
     }
-    "./target/debug/audesys-supervisor".into()
+    "./target/debug/audesys-agent".into()
 }
 
 /// Check whether binary exists. Returns Some(path) or None (skip).
@@ -361,12 +361,12 @@ fn test_controller_ipc_auth_and_health() {
 /// to the Controller's UDS, attempts auth, and enters its monitoring loop.
 /// Test verifies both processes co-exist and shut down cleanly.
 #[test]
-fn test_supervisor_spawn_with_config() {
+fn test_agent_spawn_with_config() {
     let ctrl_bin = controller_binary();
-    let sup_bin = supervisor_binary();
+    let sup_bin = agent_binary();
 
     if ensure_binary("audesys-controller", &ctrl_bin).is_none()
-        || ensure_binary("audesys-supervisor", &sup_bin).is_none()
+        || ensure_binary("audesys-agent", &sup_bin).is_none()
     {
         return;
     }
@@ -381,7 +381,7 @@ fn test_supervisor_spawn_with_config() {
     thread::sleep(Duration::from_millis(200));
 
     // ── Write supervisor config ──
-    let config_path = "/tmp/audesys-supervisor-test.yaml";
+    let config_path = "/tmp/audesys-agent-test.yaml";
     let config = format!(
         "uds_path: \"{}\"\ncheck_interval_ms: 200\nshutdown_timeout_ms: 5000\nchildren:\n  - name: test-sleep\n    program: \"/bin/sleep\"\n    args: [\"10\"]\n",
         SOCKET_PATH
