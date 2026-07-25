@@ -69,6 +69,7 @@ const METHOD_DEPLOY_HMI_LAYOUT: u8 = 0x17;
 const METHOD_SUBSCRIBE_SIGNAL: u8 = 0x14;
 const METHOD_UNSUBSCRIBE_SIGNAL: u8 = 0x15;
 const METHOD_SIGNAL_PUSH: u8 = 0x16;
+const METHOD_GET_HMI_LAYOUT: u8 = 0x18;
 // ── Response status ──
 
 const STATUS_OK: u8 = 0x00;
@@ -1175,8 +1176,37 @@ fn handle_connection(
                         );
                     }
                 }
-            }
 
+
+            }
+            METHOD_GET_HMI_LAYOUT => {
+                let role = session.as_ref().map(|s| &s.role);
+                if !can_read(role) {
+                    let _ = write_all(
+                        &mut stream,
+                        &build_error_response(METHOD_GET_HMI_LAYOUT, "unauthorized"),
+                    );
+                    continue;
+                }
+                match engine.get_hmi_layout() {
+                    Some((yaml_bytes, generation)) => {
+                        // Wire format: 8 bytes generation LE + YAML bytes
+                        let mut resp = Vec::with_capacity(8 + yaml_bytes.len());
+                        resp.extend_from_slice(&generation.to_le_bytes());
+                        resp.extend_from_slice(&yaml_bytes);
+                        let _ = write_all(
+                            &mut stream,
+                            &build_ok_response(METHOD_GET_HMI_LAYOUT, &resp),
+                        );
+                    }
+                    None => {
+                        let _ = write_all(
+                            &mut stream,
+                            &build_error_response(METHOD_GET_HMI_LAYOUT, "no layout deployed"),
+                        );
+                    }
+                }
+            }
 
             METHOD_SUBSCRIBE_SIGNAL => {
                 let role = session.as_ref().map(|s| &s.role);

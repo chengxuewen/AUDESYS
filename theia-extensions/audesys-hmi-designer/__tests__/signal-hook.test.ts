@@ -345,3 +345,43 @@ describe("Signal Bridge — batch and dedup", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Signal name format validation
+// ---------------------------------------------------------------------------
+
+describe("Signal name format validation", () => {
+  it("sets error for invalid signal name format (single segment)", async () => {
+    installSim();
+    const { result } = renderHook(() =>
+      useTheiaHmiSignal("badformat")
+    );
+    expect(result.current.error).toContain("invalid signal name");
+    expect(result.current.error).toContain("component.interface.name");
+    expect(result.current.value).toBeNull();
+  });
+
+  it("sets error for signal name starting with digit", async () => {
+    installSim();
+    const { result } = renderHook(() =>
+      useTheiaHmiSignal("0axis.pos")
+    );
+    expect(result.current.error).toContain("invalid signal name");
+  });
+
+  it("does not set error for valid two-segment name", async () => {
+    installSim();
+    const { result } = renderHook(() =>
+      useTheiaHmiSignal("axis.pos")
+    );
+    expect(result.current.error).toBeNull();
+  });
+
+  it("does not set error for valid three-segment name", async () => {
+    installSim();
+    const { result } = renderHook(() =>
+      useTheiaHmiSignal("motion.axis.x")
+    );
+    expect(result.current.error).toBeNull();
+  });
+});

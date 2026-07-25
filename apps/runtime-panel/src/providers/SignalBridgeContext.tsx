@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import type { ISignalProvider } from "./ISignalProvider";
 import type { HmiLayout } from "../types/hmi";
 import { layoutLoader as defaultLoader } from "./LocalFileLayoutLoader";
@@ -8,6 +8,8 @@ interface SignalBridgeState {
   layout: HmiLayout | null;
   isLayoutReady: boolean;
   reloadLayout: () => Promise<void>;
+  /** Current signal values keyed by signal name (e.g. "pump.0.speed" → "1200.5"). */
+  signalValues: Record<string, string | null>;
 }
 
 interface LayoutLoaderApi {
@@ -26,17 +28,42 @@ interface SignalBridgeProviderProps {
 export function SignalBridgeProvider({ provider, layoutLoader, children }: SignalBridgeProviderProps) {
   const [layout, setLayout] = useState<HmiLayout | null>(null);
   const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const [signalValues, setSignalValues] = useState<Record<string, string | null>>({});
+  const unsubRef = useRef<(() => void) | null>(null);
   const loader = layoutLoader ?? defaultLoader;
+
+  // Subscribe to all layout signals whenever layout changes
+  const subscribeLayoutSignals = useCallback((nextLayout: HmiLayout) => {
+    // Unsubscribe previous
+    unsubRef.current?.();
+    unsubRef.current = null;
+
+    const signalNames = nextLayout.widgets
+      .map((w) => w.signal)
+      .filter((s): s is string => !!s);
+
+    if (signalNames.length === 0) return;
+
+    try {
+      const unsub = provider.subscribeSignals(signalNames, (values) => {
+        setSignalValues((prev) => ({ ...prev, ...values }));
+      });
+      unsubRef.current = unsub;
+    } catch {
+      /* provider may not support subscribe — fall through to poll */
+    }
+  }, [provider]);
 
   const loadAndSet = useCallback(async () => {
     try {
       const next = await loader.loadLayout();
       setLayout(next);
+      subscribeLayoutSignals(next);
       setIsLayoutReady(true);
     } catch (err) {
       console.error("[SignalBridge] layout load failed", err);
     }
-  }, [loader]);
+  }, [loader, subscribeLayoutSignals]);
 
   // Initial load + provider connect
   useEffect(() => {
@@ -50,15 +77,21 @@ export function SignalBridgeProvider({ provider, layoutLoader, children }: Signa
   useEffect(() => {
     return loader.watchLayout((nextLayout) => {
       setLayout(nextLayout);
+      subscribeLayoutSignals(nextLayout);
     });
-  }, [loader]);
+  }, [loader, subscribeLayoutSignals]);
 
   const reloadLayout = useCallback(async () => {
     await loadAndSet();
   }, [loadAndSet]);
 
+  // Cleanup unsubscribe on unmount
+  useEffect(() => {
+    return () => unsubRef.current?.();
+  }, []);
+
   return (
-    <SignalBridgeContext.Provider value={{ provider, layout, isLayoutReady, reloadLayout }}>
+    <SignalBridgeContext.Provider value={{ provider, layout, isLayoutReady, reloadLayout, signalValues }}>
       {children}
     </SignalBridgeContext.Provider>
   );

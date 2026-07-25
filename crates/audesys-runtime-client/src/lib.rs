@@ -47,6 +47,7 @@ const METHOD_DEPLOY_HMI_LAYOUT: u8 = 0x17;
 const METHOD_SUBSCRIBE_SIGNAL: u8 = 0x14;
 const METHOD_UNSUBSCRIBE_SIGNAL: u8 = 0x15;
 pub const METHOD_SIGNAL_PUSH: u8 = 0x16;
+const METHOD_GET_HMI_LAYOUT: u8 = 0x18;
 const STATUS_OK: u8 = 0x00;
 #[allow(dead_code)]
 const STATUS_ERROR: u8 = 0x01;
@@ -441,6 +442,20 @@ impl RuntimeClient {
         let generation = u64::from_le_bytes([resp[0], resp[1], resp[2], resp[3], resp[4], resp[5], resp[6], resp[7]]);
         Ok(generation)
     }
+
+    /// Get the active HMI layout (YAML bytes) and generation from the Controller.
+    ///
+    /// Returns (yaml_bytes, generation) if a layout has been deployed, or Err if none.
+    pub fn get_hmi_layout(&mut self) -> Result<(Vec<u8>, u64), String> {
+        let resp = self.send_request(METHOD_GET_HMI_LAYOUT, &[])?;
+        if resp.len() < 8 {
+            return Err(format!("response too short: {} bytes", resp.len()));
+        }
+        let generation = u64::from_le_bytes([resp[0], resp[1], resp[2], resp[3], resp[4], resp[5], resp[6], resp[7]]);
+        let yaml_bytes = resp[8..].to_vec();
+        Ok((yaml_bytes, generation))
+    }
+
 
     /// Subscribe to receive push notifications for a signal.
     ///

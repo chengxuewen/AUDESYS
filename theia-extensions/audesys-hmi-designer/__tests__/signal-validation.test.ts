@@ -188,3 +188,25 @@ describe("Signal validation edge cases", () => {
     ).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Empty signal name & format validation
+// ---------------------------------------------------------------------------
+
+describe("Empty signal name and format validation", () => {
+  it("warns when widget has empty string signal name", () => {
+    const w = makeWidget({ id: "w1", signal: "" });
+    const result = validateLayout(makeLayout([w]));
+    expect(result.warnings).toContain(
+      "widget 'w1' has empty signal name — widget will not receive values"
+    );
+  });
+
+  it("does not warn when widget has no signal binding at all", () => {
+    const w = makeWidget({ id: "w1" });
+    const result = validateLayout(makeLayout([w]));
+    expect(
+      result.warnings.filter((w) => w.includes("empty signal")).length
+    ).toBe(0);
+  });
+});

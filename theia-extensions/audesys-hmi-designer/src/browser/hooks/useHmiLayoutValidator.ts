@@ -45,8 +45,13 @@ export function validateLayout(layout: HmiLayout, options?: ValidationOptions): 
       if (seenIds.has(w.id)) errors.push(`duplicate widget id '${w.id}'`);
       seenIds.add(w.id);
     }
-    if (w.signal && options?.signalNames && !options.signalNames.includes(w.signal)) {
-      warnings.push(`${prefix} bound to unknown signal '${w.signal}'`);
+    // ponytail: empty string signal is a binding error, not just missing binding
+    if (w.signal !== undefined && w.signal !== null) {
+      if (w.signal === "") {
+        warnings.push(`${prefix} has empty signal name — widget will not receive values`);
+      } else if (options?.signalNames && !options.signalNames.includes(w.signal)) {
+        warnings.push(`${prefix} bound to unknown signal '${w.signal}'`);
+      }
     }
     if (w.type === "gauge") {
       const min = w.config?.min; const max = w.config?.max;

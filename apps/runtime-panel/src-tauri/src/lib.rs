@@ -9,6 +9,7 @@ mod controller;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use serde_json;
 use tauri::State;
 
 // ── Tauri commands ──
@@ -66,13 +67,29 @@ fn read_signals_snapshot(
     Ok(results)
 }
 
-/// Read the deployed HMI layout YAML from disk.
-/// ponytail: P1 reads from "project/hmi/layout.yaml". P2 will use IPC.
-/// Returns empty string if the file does not exist.
+/// Read the deployed HMI layout YAML.
+///
+/// P1: Tries IPC get_hmi_layout() first, falls back to local file.
+/// Returns empty string if no layout is available.
 #[tauri::command]
 fn read_layout(
-    _state: State<'_, Mutex<controller::ControllerState>>,
+    state: State<'_, Mutex<controller::ControllerState>>,
 ) -> Result<String, String> {
+    let mut guard = state.lock().map_err(|e| format!("lock: {e}"))?;
+    // Try IPC first
+    if let Some(ref mut client) = guard.client {
+        match client.get_hmi_layout() {
+            Ok((yaml_bytes, _generation)) => {
+                return String::from_utf8(yaml_bytes)
+                    .map_err(|e| format!("utf8: {e}"));
+            }
+            Err(e) => {
+                eprintln!("[read_layout] IPC failed: {e}, falling back to file");
+            }
+        }
+    }
+    drop(guard);
+    // Fallback: read local file (local dev mode or no deployment)
     match std::fs::read_to_string("project/hmi/layout.yaml") {
         Ok(content) => Ok(content),
         Err(_) => Ok(String::new()),
@@ -147,6 +164,22 @@ fn read_push_cache(
     }
     Ok(results)
 }
+
+/// Check push connection health.
+/// Check push connection health.
+/// Returns JSON: {"alive": true|"false", "error": null|string}
+/// Frontend uses this to decide whether to use push cache or fall back to poll.
+#[tauri::command]
+fn push_status(
+    state: State<'_, Mutex<controller::ControllerState>>,
+) -> Result<String, String> {
+    let guard = state.lock().map_err(|e| format!("lock: {e}"))?;
+    let cache = guard.signal_cache.lock().map_err(|e| format!("cache lock: {e}"))?;
+    let alive = cache.get(controller::PUSH_ALIVE_KEY).map(|s| s == "true").unwrap_or(false);
+    let error = cache.get(controller::PUSH_ERROR_KEY).cloned();
+    Ok(serde_json::json!({"alive": alive, "error": error}).to_string())
+}
+
 
 /// Disconnect from the Controller (drops the client, stops push listener).
 #[tauri::command]
@@ -233,6 +266,7 @@ pub fn run() {
             subscribe_signals,
             unsubscribe_signals,
             read_push_cache,
+            push_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Runtime Panel");

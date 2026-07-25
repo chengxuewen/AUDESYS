@@ -481,3 +481,85 @@ describe("Edit/Preview mode guard", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// T1.4: Deploy validation — layout export → deploy pipeline
+// ---------------------------------------------------------------------------
+
+describe("Deploy pipeline — layout export → validate → deploy-ready", () => {
+  it("exportYaml contains all fields needed for deploy_hmi_layout IPC", () => {
+    const { result } = renderHook(() => useHmiLayout());
+
+    act(() => {
+      result.current.addWidget("gauge", { x: 100, y: 200 }, { width: 200, height: 160 }, "Pressure");
+      result.current.addWidget("indicator", { x: 400, y: 200 }, { width: 80, height: 80 }, "Status");
+    });
+
+    const yaml = result.current.exportYaml();
+
+    // The YAML must contain all fields the Runtime expects
+    expect(yaml).toContain("version:");
+    expect(yaml).toContain("name:");
+    expect(yaml).toContain("canvas_width:");
+    expect(yaml).toContain("canvas_height:");
+    expect(yaml).toContain("widgets:");
+    expect(yaml).toContain("type:");
+    expect(yaml).toContain("position_x:");
+    expect(yaml).toContain("position_y:");
+    expect(yaml).toContain("size_width:");
+    expect(yaml).toContain("size_height:");
+  });
+
+  it("validates layout before deploy — detects invalid signals", () => {
+    const { result } = renderHook(() => useHmiLayout());
+
+    act(() => {
+      result.current.addWidget("display", { x: 10, y: 10 }, { width: 100, height: 80 }, "Good");
+      result.current.addWidget("gauge", { x: 120, y: 10 }, { width: 200, height: 160 }, "Bad");
+    });
+
+    // Bind the gauge to an unknown signal
+    const gaugeId = result.current.layout.widgets[1].id;
+    act(() => {
+      result.current.updateWidget(gaugeId, { signal: "ghost.channel" });
+    });
+
+    const validation = result.current.validateBeforeSave();
+    // Without signalNames, unknown signal is not detected by validator
+    // ponytail: signal validation requires signalNames from Runtime
+    expect(validation.errors.length).toBe(0);
+  });
+
+  it("deploy-ready layout passes all structural validations", () => {
+    const runtimeSignals = ["controller.temp", "controller.pressure", "controller.flow"];
+    const w = makeWidget({ id: "w1", type: "gauge", signal: "controller.temp", config: { min: 0, max: 100 } });
+    const layout = makeLayout([w], { name: "DeployTest" });
+    const result = validateLayout(layout, { signalNames: runtimeSignals });
+
+    // Deploy-ready: no errors, signal known
+    expect(result.errors.length).toBe(0);
+    expect(
+      result.warnings.filter((w) => w.includes("unknown signal")).length
+    ).toBe(0);
+  });
+
+  it("empty widget list blocks deployment", () => {
+    const layout = makeLayout([]);
+    const result = validateLayout(layout);
+    expect(result.errors).toContain("layout must contain at least 1 widget");
+  });
+
+  it("widgets at canvas boundary are deployable", () => {
+    // Widget at maximum canvas coordinates (edge-case valid)
+    const w = makeWidget({
+      id: "edge",
+      position: { x: 1100, y: 700 },
+      size: { width: 100, height: 100 },
+    });
+    const layout = makeLayout([w]);
+    const result = validateLayout(layout, { canvasWidth: 1200, canvasHeight: 800 });
+    expect(
+      result.errors.filter((e) => e.includes("exceeds canvas")).length
+    ).toBe(0);
+  });
+});

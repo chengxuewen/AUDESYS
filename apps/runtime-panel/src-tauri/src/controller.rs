@@ -4,7 +4,7 @@
 //! a dedicated connection for receiving SIGNAL_PUSH (0x16) frames
 //! in a background thread, plus exponential-backoff reconnect.
 
-use audesys_controller_client::{ControllerClient, METHOD_SIGNAL_PUSH};
+use audesys_runtime_client::{RuntimeClient, METHOD_SIGNAL_PUSH};
 use audesys_runtime_common::types::Role;
 use std::collections::HashMap;
 use std::io;
@@ -18,10 +18,16 @@ use std::time::Duration;
 /// Signal cache shared between push listener thread and Tauri commands.
 pub type SignalCache = Arc<Mutex<HashMap<String, String>>>;
 
+// ponytail: special cache keys for push health — frontend uses these to decide poll vs push
+/// Cache key that stores push connection health: "true" or "false"
+pub const PUSH_ALIVE_KEY: &str = "__push_alive__";
+/// Cache key prefix for push error messages
+pub const PUSH_ERROR_KEY: &str = "__push_error__";
+
 /// Shared controller connection state.
 pub struct ControllerState {
     /// Primary connection for request/response commands (read_signal, etc.).
-    pub client: Option<ControllerClient>,
+    pub client: Option<RuntimeClient>,
     pub socket_path: Option<String>,
     pub connected: bool,
 
@@ -48,7 +54,7 @@ impl PushListener {
         cache: SignalCache,
     ) -> Result<Self, String> {
         // Open a dedicated connection for push frames.
-        let mut push_client = ControllerClient::connect(&socket_path, &secret)
+        let mut push_client = RuntimeClient::connect(&socket_path, &secret)
             .map_err(|e| format!("push connect: {e}"))?;
         push_client
             .authenticate(Role::Hmi)
@@ -67,6 +73,13 @@ impl PushListener {
             .map_err(|e| format!("set timeout: {e}"))?;
 
         let (shutdown_tx, shutdown_rx) = mpsc::channel();
+
+        // ponytail: mark push as alive before spawning thread
+        {
+            let mut guard = cache.lock().unwrap();
+            guard.insert(PUSH_ALIVE_KEY.to_string(), "true".to_string());
+            guard.remove(PUSH_ERROR_KEY);
+        }
 
         let handle = thread::spawn(move || {
             push_read_loop(push_client, cache, shutdown_rx);
@@ -96,14 +109,20 @@ impl Drop for PushListener {
 
 /// Background loop: poll for SIGNAL_PUSH frames, parse JSON, update cache.
 fn push_read_loop(
-    mut client: ControllerClient,
+    mut client: RuntimeClient,
     cache: SignalCache,
     shutdown_rx: Receiver<()>,
 ) {
     loop {
         // Check for shutdown signal.
         match shutdown_rx.try_recv() {
-            Ok(()) | Err(TryRecvError::Disconnected) => return,
+            Ok(()) | Err(TryRecvError::Disconnected) => {
+                // ponytail: mark push dead on clean shutdown
+                cache.lock().unwrap().insert(
+                    PUSH_ALIVE_KEY.to_string(), "false".to_string(),
+                );
+                return;
+            }
             Err(TryRecvError::Empty) => {}
         }
 
@@ -127,15 +146,21 @@ fn push_read_loop(
             }
             Err(e) => {
                 eprintln!("Panel push: read error: {e}, stopping push listener");
+                // ponytail: mark push dead on error, store error for diagnostics
+                {
+                    let mut guard = cache.lock().unwrap();
+                    guard.insert(PUSH_ALIVE_KEY.to_string(), "false".to_string());
+                    guard.insert(PUSH_ERROR_KEY.to_string(), format!("{e}"));
+                }
                 return;
             }
         }
     }
 }
 
-/// Create and authenticate a ControllerClient over UDS.
-pub fn connect(socket_path: &str, secret: &str) -> Result<ControllerClient, String> {
-    let mut client = ControllerClient::connect(socket_path, secret.as_bytes())
+/// Create and authenticate a RuntimeClient over UDS.
+pub fn connect(socket_path: &str, secret: &str) -> Result<RuntimeClient, String> {
+    let mut client = RuntimeClient::connect(socket_path, secret.as_bytes())
         .map_err(|e| format!("connect: {e}"))?;
     client
         .authenticate(Role::Hmi)

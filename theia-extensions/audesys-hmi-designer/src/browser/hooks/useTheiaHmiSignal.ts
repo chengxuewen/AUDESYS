@@ -23,6 +23,12 @@ export function useTheiaHmiSignal(signalName?: string): HmiSignalResult {
     setError(null);
     if (!signalName) return;
 
+    // Validate signal name format: component.interface.name (interface segments may contain digits)
+    if (!/^[a-z][a-z0-9_]*(?:\.[a-z0-9][a-z0-9_]*)+$/.test(signalName)) {
+      setError(`invalid signal name "${signalName}" — expected component.interface.name format`);
+      return;
+    }
+
     const tick = async () => {
       try {
         // ponytail: try napi-rs bridge first, fallback to SimulationHarness
