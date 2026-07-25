@@ -26,7 +26,7 @@ fn test_st_compile_to_controller_execution() {
     let handle = engine.start_with_cycle(50);
     thread::sleep(Duration::from_millis(200));
     engine.stop(); handle.join().unwrap();
-    let snapshot = engine.signal_snapshot();
+    let snapshot = engine.signal_snapshot(); eprintln!("snapshot keys: {:?}", snapshot.iter().map(|(n,_)| n).collect::<Vec<_>>());
     let output = snapshot.iter().find(|(name, _)| name == "x").expect("x not found");
     assert_eq!(*output, (String::from("x"), HalValue::S32(42)));
 }
@@ -49,7 +49,7 @@ fn test_demo_full_pipeline_with_debug() {
     engine.resume();
     thread::sleep(Duration::from_millis(50));
     engine.stop();
-    let snapshot = engine.signal_snapshot();
+    let snapshot = engine.signal_snapshot(); eprintln!("snapshot keys: {:?}", snapshot.iter().map(|(n,_)| n).collect::<Vec<_>>());
     assert!(!snapshot.is_empty());
     assert!(snapshot.iter().any(|(name, _)| name == "result"));
 }
@@ -111,4 +111,44 @@ fn test_ld_pipeline_nc() {
     exec.vm_mut().write_signal("X1", HalValue::Bool(false));
     exec.run_to_halt();
     assert_eq!(exec.vm().read_signal("Y1"), Some(&HalValue::Bool(true)));
+}
+
+#[test]
+fn test_ld_deploy_and_execute() {
+    use audesys_amw_inproc::{InprocAuditLog, InprocMiddleware, InprocQoS, InprocTransport, StaticDiscovery};
+    use audesys_runtime::{Engine, LifecycleManager, SignalDef, WriteStrategy};
+    use audesys_hal_core::{HalPinType, HalValue};
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Duration;
+    
+    // 1. LD source → compile
+    let ld_src = "NETWORK\n  NO START_BTN\n  NC ESTOP\n  OUT MOTOR_RUN";
+    let il = audesys_ld_compiler::ld_compile(ld_src).unwrap();
+    let prog = audesys_il_compiler::il_compile(&il).unwrap();
+    let bytes = bincode::serialize(&prog).unwrap();
+    
+    // 2. Set up Runtime engine with inproc
+    let (_t, mw) = common::build_inproc_stack();
+    let engine = Engine::new(Box::new(mw), Arc::new(LifecycleManager::new()));
+    
+    // 3. Deploy (load_hal_program auto-registers signals from program.signals)
+    engine.load_hal_program(&bytes).unwrap();
+    
+    // 4. Set input signal values
+    let _ = engine.register_signal(SignalDef::new("START_BTN", HalPinType::Bool, HalValue::Bool(true), WriteStrategy::Own));
+    let _ = engine.register_signal(SignalDef::new("ESTOP", HalPinType::Bool, HalValue::Bool(false), WriteStrategy::Own));
+    let _ = engine.register_signal(SignalDef::new("MOTOR_RUN", HalPinType::Bool, HalValue::Bool(false), WriteStrategy::Own));
+    
+    // 5. Run engine
+    let h = engine.start_with_cycle(50);
+    thread::sleep(Duration::from_millis(200));
+    engine.stop(); h.join().unwrap();
+    
+    // 6. Verify: START_BTN(true) AND NOT(ESTOP=false) → MOTOR_RUN=true
+    let snapshot = engine.signal_snapshot();
+    assert!(snapshot.len() >= 3, "expected >=3 signals, got {}", snapshot.len());
+    let motor = snapshot.iter().find(|(n,_)| n=="MOTOR_RUN");
+    assert!(motor.is_some(), "MOTOR_RUN not found in snapshot");
+    assert_eq!(motor.unwrap().1, HalValue::Bool(true), "LD: START_BTN AND NOT(ESTOP) → MOTOR_RUN=true");
 }

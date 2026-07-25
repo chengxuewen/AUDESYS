@@ -15,5 +15,5 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde_json = "1"
-audesys-controller-client = { path = "../../../crates/audesys-controller-client" }
+audesys-runtime-client = { path = "../../../crates/audesys-runtime-client" }
 audesys-runtime-common = { path = "../../../crates/audesys-runtime-common" }
