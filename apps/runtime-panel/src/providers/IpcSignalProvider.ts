@@ -6,7 +6,7 @@ import type { ISignalProvider } from "./ISignalProvider";
  * P1: 100ms polling per D62 hybrid mode. P2: push via 0x16 SIGNAL_PUSH.
  */
 export class IpcSignalProvider implements ISignalProvider {
-  private socketPath = "/tmp/audesys-controller.sock";
+  private socketPath = "/tmp/audesys-runtime.sock";
   private secret = "dev-secret";
   private connected = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
