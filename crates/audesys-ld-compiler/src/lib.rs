@@ -148,4 +148,55 @@ mod tests {
         let steps = executor.run_to_halt();
         assert!(steps > 0, "pipeline should execute");
     }
+
+    #[test]
+    fn test_multiple_coils_in_network() {
+        let src = "NETWORK\n  NO X1\n  OUT Y1\n  OUT Y2";
+        let il = ld_compile(src).unwrap();
+        assert_eq!(il, "LD X1\nST Y1\nST Y2");
+    }
+
+    #[test]
+    fn test_single_set_coil() {
+        let src = "NETWORK\n  NO X1\n  SET Y1";
+        let il = ld_compile(src).unwrap();
+        assert_eq!(il, "LD X1\nS Y1");
+    }
+
+    #[test]
+    fn test_single_reset_coil() {
+        let src = "NETWORK\n  NO X1\n  RESET Y1";
+        let il = ld_compile(src).unwrap();
+        assert_eq!(il, "LD X1\nR Y1");
+    }
+
+    #[test]
+    fn test_series_nc_no_mix() {
+        let src = "NETWORK\n  NO X1\n  NC X2\n  NO X3\n  NC X4\n  OUT Y1";
+        let il = ld_compile(src).unwrap();
+        assert_eq!(il, "LD X1\nANDN X2\nAND X3\nANDN X4\nST Y1");
+    }
+
+    #[test]
+    fn test_large_network() {
+        let mut src = String::from("NETWORK\n");
+        for i in 0..10 {
+            src.push_str(&format!("  NO I{}\n", i));
+        }
+        src.push_str("  OUT Q0");
+        let il = ld_compile(&src).unwrap();
+        let lines: Vec<&str> = il.lines().collect();
+        assert_eq!(lines[0], "LD I0");
+        for i in 1..10 {
+            assert_eq!(lines[i], format!("AND I{}", i));
+        }
+        assert_eq!(lines[10], "ST Q0");
+    }
+
+    #[test]
+    fn test_out_without_contact() {
+        let src = "NETWORK\n  OUT Y1";
+        let il = ld_compile(src).unwrap();
+        assert_eq!(il, "ST Y1");
+    }
 }
