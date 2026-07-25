@@ -111,11 +111,11 @@ impl RuntimeMetrics {
     /// Export metrics as Prometheus text format string.
     pub fn export_prometheus(&self) -> String {
         format!(
-            "audesys_controller_cycles_completed_total {}\n\
-             audesys_controller_signals_published_total {}\n\
-             audesys_controller_config_changes_total {}\n\
-             audesys_controller_child_restarts_total {}\n\
-             audesys_controller_health_failures_total {}\n",
+            "audesys_runtime_cycles_completed_total {}\n\
+             audesys_runtime_signals_published_total {}\n\
+             audesys_runtime_config_changes_total {}\n\
+             audesys_runtime_child_restarts_total {}\n\
+             audesys_runtime_health_failures_total {}\n",
             self.cycles_completed.load(Ordering::Relaxed),
             self.signals_published.load(Ordering::Relaxed),
             self.config_changes_applied.load(Ordering::Relaxed),
@@ -187,9 +187,9 @@ mod tests {
         metrics.record_signal_published();
 
         let output = metrics.export_prometheus();
-        assert!(output.contains("audesys_controller_cycles_completed_total 1"));
-        assert!(output.contains("audesys_controller_signals_published_total 1"));
-        assert!(output.contains("audesys_controller_config_changes_total 0"));
+        assert!(output.contains("audesys_runtime_cycles_completed_total 1"));
+        assert!(output.contains("audesys_runtime_signals_published_total 1"));
+        assert!(output.contains("audesys_runtime_config_changes_total 0"));
     }
 
     #[test]
@@ -209,7 +209,7 @@ mod tests {
         let metrics = RuntimeMetrics::new();
         metrics.reset();
         let output = metrics.export_prometheus();
-        assert!(output.contains("audesys_controller_cycles_completed_total 0"));
+        assert!(output.contains("audesys_runtime_cycles_completed_total 0"));
     }
 
     #[test]

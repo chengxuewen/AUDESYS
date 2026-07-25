@@ -1,11 +1,11 @@
 //! Runtime performance benchmarks — signal throughput, RPC latency, registry ops.
 //!
-//! Run: `cargo bench -p audesys-controller`
+//! Run: `cargo bench -p audesys-runtime`
 
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 
 use audesys_amw_inproc::InprocTransport;
-use audesys_controller::{SignalDef, SignalRegistry, WriteStrategy};
+use audesys_runtime::{SignalDef, SignalRegistry, WriteStrategy};
 use audesys_hal_core::{HalPinType, HalTransport, HalValue, Timestamp};
 
 // ── Signal throughput ──

@@ -129,7 +129,7 @@ impl HealthServer {
                                     registry.read().expect("health RwLock poisoned").aggregate();
                                 let status_str = health_status_str(&status);
                                 let json = format!(
-                                    "{{\"status\":\"{}\",\"module\":\"audesys-controller\"}}",
+                                    "{{\"status\":\"{}\",\"module\":\"audesys-runtime\"}}",
                                     status_str
                                 );
                                 let response = format!(

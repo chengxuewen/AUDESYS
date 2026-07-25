@@ -1,10 +1,10 @@
 [package]
-name = "audesys-controller"
+name = "audesys-runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "AUDESYS Runtime Controller — hard real-time HAL execution engine"
+description = "AUDESYS Runtime — real-time execution engine — hard real-time HAL execution engine"
 
 [dependencies]
 audesys-hal-core = { path = "../audesys-hal-core" }
@@ -22,11 +22,13 @@ audesys-hart = { path = "../audesys-hart" }
 audesys-hal-ir = { path = "../audesys-hal-ir" }
 bincode = "1"
 [[bin]]
-name = "audesys-controller"
+name = "audesys-runtime"
 path = "src/main.rs"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 audesys-hal-binding-gen = { path = "../audesys-hal-binding-gen" }
+audesys-ld-compiler = { path = "../audesys-ld-compiler" }
+audesys-il-compiler = { path = "../audesys-il-compiler" }
 
 [[bench]]
 name = "perf_benchmarks"

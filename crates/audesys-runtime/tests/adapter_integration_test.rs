@@ -10,8 +10,8 @@ use std::time::Duration;
 use audesys_amw_inproc::{
     InprocAuditLog, InprocMiddleware, InprocQoS, InprocTransport, StaticDiscovery,
 };
-use audesys_controller::adapter_manager::AdapterManager;
-use audesys_controller::{Engine, LifecycleManager, SignalDef, WriteStrategy};
+use audesys_runtime::adapter_manager::AdapterManager;
+use audesys_runtime::{Engine, LifecycleManager, SignalDef, WriteStrategy};
 use audesys_hal_core::{HalPinType, HalTransport, HalValue, Timestamp};
 
 mod common;

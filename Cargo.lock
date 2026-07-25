@@ -74,45 +74,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "audesys-controller"
-version = "0.1.0"
-dependencies = [
- "audesys-amw-inproc",
- "audesys-hal-binding-gen",
- "audesys-hal-core",
- "audesys-hal-ir",
- "audesys-hart",
- "audesys-modbus",
- "audesys-runtime-common",
- "bincode",
- "criterion",
- "hmac",
- "libc",
- "rand",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
-]
-
-[[package]]
-name = "audesys-controller-client"
-version = "0.1.0"
-dependencies = [
- "audesys-hal-binding-gen",
- "audesys-hal-core",
- "audesys-runtime-common",
- "hmac",
- "rand",
- "serde_json",
- "sha2",
-]
-
-[[package]]
 name = "audesys-dap-adapter"
 version = "0.1.0"
 dependencies = [
- "audesys-controller-client",
+ "audesys-runtime-client",
  "audesys-runtime-common",
  "serde",
  "serde_json",
@@ -232,6 +197,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "audesys-runtime"
+version = "0.1.0"
+dependencies = [
+ "audesys-amw-inproc",
+ "audesys-hal-binding-gen",
+ "audesys-hal-core",
+ "audesys-hal-ir",
+ "audesys-hart",
+ "audesys-il-compiler",
+ "audesys-ld-compiler",
+ "audesys-modbus",
+ "audesys-runtime-common",
+ "bincode",
+ "criterion",
+ "hmac",
+ "libc",
+ "rand",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+]
+
+[[package]]
+name = "audesys-runtime-client"
+version = "0.1.0"
+dependencies = [
+ "audesys-hal-binding-gen",
+ "audesys-hal-core",
+ "audesys-runtime-common",
+ "hmac",
+ "rand",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "audesys-runtime-common"
 version = "0.1.0"
 
@@ -243,14 +245,14 @@ version = "0.1.0"
 name = "audesys-theia-bridge"
 version = "0.1.0"
 dependencies = [
- "audesys-controller",
- "audesys-controller-client",
  "audesys-fbd-compiler",
  "audesys-gcode-compiler",
  "audesys-hal-binding-gen",
  "audesys-hal-ir",
  "audesys-il-compiler",
  "audesys-ld-compiler",
+ "audesys-runtime",
+ "audesys-runtime-client",
  "audesys-runtime-common",
  "audesys-sfc-compiler",
  "bincode",

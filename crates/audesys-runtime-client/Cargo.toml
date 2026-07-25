@@ -1,5 +1,5 @@
 [package]
-name = "audesys-controller-client"
+name = "audesys-runtime-client"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,13 +1,13 @@
 //! AUDESYS Controller IPC client — synchronous UDS client for the Controller wire protocol.
 //!
-//! # Wire Protocol (matches `crates/audesys-controller/src/ipc.rs`)
+//! # Wire Protocol (matches `crates/audesys-runtime/src/ipc.rs`)
 //! - Request: `[4B total_len LE][64B token][1B method_id][N bytes payload]`
 //! - Response: `[4B total_len LE][1B method_id][1B status][N bytes payload]`
 //! - STATUS_OK = 0, STATUS_ERROR = 1
 //!
 //! # Usage
 //! ```ignore
-//! let mut client = ControllerClient::connect("/tmp/audeys-controller.sock", secret)?;
+//! let mut client = RuntimeClient::connect("/tmp/audeys-controller.sock", secret)?;
 //! client.authenticate(Role::Engineer)?;
 //! let val = client.read_signal("counter.value")?;
 //! ```
@@ -220,19 +220,19 @@ fn read8(data: &[u8]) -> Result<[u8; 8], String> {
     Ok(arr)
 }
 
-// ── ControllerClient ──
+// ── RuntimeClient ──
 
 /// Synchronous IPC client for the AUDESYS Controller's Unix Domain Socket protocol.
 ///
 /// # Lifecycle
-/// 1. [`ControllerClient::connect`] — opens UDS connection
-/// 2. [`ControllerClient::authenticate`] — sends auth request, caches session token
+/// 1. [`RuntimeClient::connect`] — opens UDS connection
+/// 2. [`RuntimeClient::authenticate`] — sends auth request, caches session token
 /// 3. Call RPC methods as needed
 ///
 /// The session token is automatically included in every request frame after
 /// successful authentication. Re-authentication is not required unless the
 /// connection is dropped and re-established.
-pub struct ControllerClient {
+pub struct RuntimeClient {
     stream: UnixStream,
     #[allow(dead_code)]
     hmac_secret: Vec<u8>,
@@ -240,7 +240,7 @@ pub struct ControllerClient {
     has_token: AtomicBool,
 }
 
-impl ControllerClient {
+impl RuntimeClient {
     /// Open a UDS connection to the Controller at `socket_path`.
     ///
     /// `hmac_secret` is the shared secret used by the server for token signing.

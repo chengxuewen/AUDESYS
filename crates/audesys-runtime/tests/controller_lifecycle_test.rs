@@ -9,8 +9,8 @@ use std::time::Duration;
 use audesys_amw_inproc::{
     InprocAuditLog, InprocMiddleware, InprocQoS, InprocTransport, StaticDiscovery,
 };
-use audesys_controller::lifecycle::ProcessState;
-use audesys_controller::{Engine, LifecycleManager};
+use audesys_runtime::lifecycle::ProcessState;
+use audesys_runtime::{Engine, LifecycleManager};
 
 mod common;
 use common::build_inproc_stack;

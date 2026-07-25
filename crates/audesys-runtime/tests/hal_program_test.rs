@@ -10,7 +10,7 @@ use std::time::Duration;
 use audesys_amw_inproc::{
     InprocAuditLog, InprocMiddleware, InprocQoS, InprocTransport, StaticDiscovery,
 };
-use audesys_controller::{Engine, LifecycleManager, SignalDef, WriteStrategy};
+use audesys_runtime::{Engine, LifecycleManager, SignalDef, WriteStrategy};
 use audesys_hal_core::HalPinType;
 use audesys_hal_core::HalValue;
 use audesys_hal_ir::instruction::{Instruction, Opcode};

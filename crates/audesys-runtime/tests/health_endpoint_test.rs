@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
-use audesys_controller::HealthServer;
+use audesys_runtime::HealthServer;
 use audesys_runtime_common::types::{HealthCheck, HealthCheckRegistry, HealthStatus};
 
 // ── helpers ──
@@ -76,7 +76,7 @@ fn test_health_endpoint_returns_healthy() {
     let response = read_health(port);
     assert!(response.contains("200 OK"), "should return 200 OK, got: {}", response);
     assert!(response.contains("\"healthy\""), "should report healthy, got: {}", response);
-    assert!(response.contains("\"audesys-controller\""), "should include module name");
+    assert!(response.contains("\"audesys-runtime\""), "should include module name");
 
     server.stop();
     let _ = handle.join();

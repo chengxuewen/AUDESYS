@@ -8,14 +8,14 @@
 use std::sync::{Arc, RwLock};
 
 use audesys_amw_inproc::InprocFactory;
-use audesys_controller::{Engine, HealthServer, IpcServer, LifecycleManager, logging};
-use audesys_controller::{log_error, log_info, log_warn};
+use audesys_runtime::{Engine, HealthServer, IpcServer, LifecycleManager, logging};
+use audesys_runtime::{log_error, log_info, log_warn};
 use audesys_hal_core::{AmwConfig, AmwFactory};
 use audesys_runtime_common::types::{HealthCheck, HealthCheckRegistry, HealthStatus};
 
 // ── Defaults ──
 
-const DEFAULT_SOCKET_PATH: &str = "/tmp/audesys-controller.sock";
+const DEFAULT_SOCKET_PATH: &str = "/tmp/audesys-runtime.sock";
 const DEFAULT_HEALTH_PORT: u16 = 9000;
 const DEFAULT_CYCLE_INTERVAL_MS: u64 = 1000;
 

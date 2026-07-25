@@ -1,9 +1,9 @@
 use crate::protocol::*;
-use audesys_controller_client::ControllerClient;
+use audesys_runtime_client::RuntimeClient;
 use audesys_runtime_common::types::Role;
 
 pub struct DebugAdapter {
-    client: Option<ControllerClient>,
+    client: Option<RuntimeClient>,
     next_seq: u64,
 }
 
@@ -60,7 +60,7 @@ impl DebugAdapter {
                 None => return vec![self.err(&req, "invalid launch arguments")],
             };
 
-        match ControllerClient::connect(&args.socket_path, args.secret.as_bytes()) {
+        match RuntimeClient::connect(&args.socket_path, args.secret.as_bytes()) {
             Ok(mut client) => {
                 if let Err(e) = client.authenticate(Role::Engineer) {
                     return vec![self.err(&req, &format!("auth failed: {e}"))];

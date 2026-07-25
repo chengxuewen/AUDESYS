@@ -91,7 +91,7 @@ impl Engine {
             config_queue: Arc::new(Mutex::new(Vec::new())),
             health: RwLock::new(HealthCheckRegistry::new()),
             source_id: SourceId {
-                process_name: "audesys-controller".into(),
+                process_name: "audesys-runtime".into(),
                 pid: std::process::id(),
             },
             cycle_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),

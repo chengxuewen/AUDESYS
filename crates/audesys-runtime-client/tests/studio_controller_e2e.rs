@@ -1,15 +1,15 @@
 //! End-to-end integration test: Studio ↔ Controller full pipeline.
 //!
 //! Tests the complete chain:
-//!   ST source → compile → deploy via ControllerClient → read signals
+//!   ST source → compile → deploy via RuntimeClient → read signals
 //!
 //! Prerequisites: binaries must be pre-built.
-//!   cargo build --bin audesys-controller
+//!   cargo build --bin audesys-runtime
 //!
 //! Run with single thread to avoid socket conflicts:
 //!   cargo test --test studio_controller_e2e -- --test-threads=1
 
-use audesys_controller_client::ControllerClient;
+use audesys_runtime_client::RuntimeClient;
 use audesys_hal_binding_gen::compile;
 use audesys_runtime_common::types::Role;
 use std::os::unix::net::UnixStream;
@@ -25,10 +25,10 @@ const STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
 // ── Helpers ──
 
 fn controller_binary() -> String {
-    if let Ok(p) = std::env::var("CARGO_BIN_EXE_audesys-controller") {
+    if let Ok(p) = std::env::var("CARGO_BIN_EXE_audesys-runtime") {
         return p;
     }
-    "./target/debug/audesys-controller".into()
+    "./target/debug/audesys-runtime".into()
 }
 
 fn ensure_binary(label: &str, path: &str) -> Option<String> {
@@ -100,7 +100,7 @@ fn graceful_shutdown(mut child: Child, timeout: Duration) {
 #[test]
 fn test_deploy_and_read_signal() {
     let bin_path = controller_binary();
-    if ensure_binary("audesys-controller", &bin_path).is_none() {
+    if ensure_binary("audesys-runtime", &bin_path).is_none() {
         return;
     }
 
@@ -120,7 +120,7 @@ END_PROGRAM";
     let program_bytes = serde_json::to_vec(&program).expect("should serialize");
 
     // Connect, authenticate, deploy
-    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET).expect("should connect");
+    let mut client = RuntimeClient::connect(SOCKET_PATH, SECRET).expect("should connect");
     client.authenticate(Role::Engineer).expect("should authenticate");
 
     // Deploy program
@@ -144,7 +144,7 @@ END_PROGRAM";
 #[test]
 fn test_signal_snapshot_after_deploy() {
     let bin_path = controller_binary();
-    if ensure_binary("audesys-controller", &bin_path).is_none() {
+    if ensure_binary("audesys-runtime", &bin_path).is_none() {
         return;
     }
 
@@ -157,7 +157,7 @@ fn test_signal_snapshot_after_deploy() {
     let program = compile(st_source).expect("should compile");
     let program_bytes = serde_json::to_vec(&program).expect("should serialize");
 
-    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET).expect("should connect");
+    let mut client = RuntimeClient::connect(SOCKET_PATH, SECRET).expect("should connect");
     client.authenticate(Role::Engineer).expect("should authenticate");
     client.load_program(&program_bytes).expect("should deploy");
 
@@ -179,7 +179,7 @@ fn test_signal_snapshot_after_deploy() {
 #[test]
 fn test_load_hal_config() {
     let bin_path = controller_binary();
-    if ensure_binary("audesys-controller", &bin_path).is_none() {
+    if ensure_binary("audesys-runtime", &bin_path).is_none() {
         return;
     }
 
@@ -188,7 +188,7 @@ fn test_load_hal_config() {
     wait_for_socket(SOCKET_PATH, STARTUP_TIMEOUT);
     thread::sleep(Duration::from_millis(200));
 
-    let mut client = ControllerClient::connect(SOCKET_PATH, SECRET).expect("should connect");
+    let mut client = RuntimeClient::connect(SOCKET_PATH, SECRET).expect("should connect");
     client.authenticate(Role::Engineer).expect("should authenticate");
 
     // Load a minimal HAL config
@@ -204,7 +204,7 @@ fn test_load_hal_config() {
 #[test]
 fn test_auth_failure_wrong_secret() {
     let bin_path = controller_binary();
-    if ensure_binary("audesys-controller", &bin_path).is_none() {
+    if ensure_binary("audesys-runtime", &bin_path).is_none() {
         return;
     }
 
@@ -214,7 +214,7 @@ fn test_auth_failure_wrong_secret() {
     thread::sleep(Duration::from_millis(200));
 
     let wrong_secret = b"wrong-secret-----------------------";
-    let mut client = ControllerClient::connect(SOCKET_PATH, wrong_secret)
+    let mut client = RuntimeClient::connect(SOCKET_PATH, wrong_secret)
         .expect("should connect (HMAC challenge)");
     let result = client.authenticate(Role::Engineer);
     assert!(result.is_err(), "auth with wrong secret should fail");

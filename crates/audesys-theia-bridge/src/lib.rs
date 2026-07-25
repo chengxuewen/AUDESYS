@@ -21,8 +21,8 @@ use audesys_ld_compiler::ld_compile;
 use audesys_fbd_compiler::fbd_compile;
 use audesys_sfc_compiler::sfc_compile;
 use audesys_gcode_compiler::gcode_compile;
-use audesys_controller_client::ControllerClient;
-use audesys_controller::simulation::SimulationHarness;
+use audesys_runtime_client::RuntimeClient;
+use audesys_runtime::simulation::SimulationHarness;
 use audesys_runtime_common::types::Role;
 use std::fs;
 use std::os::unix::net::UnixStream;
@@ -64,9 +64,9 @@ fn with_controller<F>(
     f: F,
 ) -> napi::Result<String>
 where
-    F: FnOnce(&mut ControllerClient) -> Result<String, String>,
+    F: FnOnce(&mut RuntimeClient) -> Result<String, String>,
 {
-    let mut client = ControllerClient::connect(socket_path, secret.as_bytes())
+    let mut client = RuntimeClient::connect(socket_path, secret.as_bytes())
         .map_err(|e| napi::Error::from_reason(format!("connect: {e}")))?;
     client
         .authenticate(role)

@@ -4,7 +4,7 @@
 //! end-to-end IPC communication over Unix Domain Sockets.
 //!
 //! Prerequisites: binaries must be pre-built.
-//!   cargo build --bin audesys-controller
+//!   cargo build --bin audesys-runtime
 //!   cargo build --bin audesys-agent
 //!
 //! Run with single thread to avoid socket conflicts:
@@ -20,7 +20,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-// ── Wire constants — match crates/audesys-controller/src/ipc.rs ────────────
+// ── Wire constants — match crates/audesys-runtime/src/ipc.rs ────────────
 
 const HEADER_SIZE: usize = 69;
 const TOKEN_WIRE_SIZE: usize = 64;
@@ -37,10 +37,10 @@ const ROLE_SUPERVISOR: u8 = 2;
 
 /// Path to the controller binary.
 fn controller_binary() -> String {
-    if let Ok(p) = std::env::var("CARGO_BIN_EXE_audesys-controller") {
+    if let Ok(p) = std::env::var("CARGO_BIN_EXE_audesys-runtime") {
         return p;
     }
-    "./target/debug/audesys-controller".into()
+    "./target/debug/audesys-runtime".into()
 }
 
 /// Path to the agent binary.
@@ -266,7 +266,7 @@ impl Drop for TestGuard {
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-const SOCKET_PATH: &str = "/tmp/audesys-controller-test.sock";
+const SOCKET_PATH: &str = "/tmp/audesys-runtime-test.sock";
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -281,7 +281,7 @@ const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 #[ignore]
 fn test_controller_graceful_shutdown() {
     let bin_path = controller_binary();
-    if ensure_binary("audesys-controller", &bin_path).is_none() {
+    if ensure_binary("audesys-runtime", &bin_path).is_none() {
         return;
     }
 
@@ -309,7 +309,7 @@ fn test_controller_graceful_shutdown() {
 #[test]
 fn test_controller_ipc_auth_and_health() {
     let bin_path = controller_binary();
-    if ensure_binary("audesys-controller", &bin_path).is_none() {
+    if ensure_binary("audesys-runtime", &bin_path).is_none() {
         return;
     }
 
@@ -365,7 +365,7 @@ fn test_agent_spawn_with_config() {
     let ctrl_bin = controller_binary();
     let sup_bin = agent_binary();
 
-    if ensure_binary("audesys-controller", &ctrl_bin).is_none()
+    if ensure_binary("audesys-runtime", &ctrl_bin).is_none()
         || ensure_binary("audesys-agent", &sup_bin).is_none()
     {
         return;
