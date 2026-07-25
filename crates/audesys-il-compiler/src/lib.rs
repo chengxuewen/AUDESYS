@@ -15,7 +15,11 @@ mod codegen;
 mod lexer;
 mod parser;
 
+use std::collections::HashSet;
+use audesys_hal_core::HalPinType;
 use audesys_hal_ir::program::HalProgram;
+use audesys_hal_ir::instruction::Opcode;
+use audesys_hal_ir::types::{Direction, Operand, SignalBinding};
 
 /// Compile IEC 61131-3 IL source text to a HAL IR program.
 ///
@@ -24,8 +28,24 @@ pub fn il_compile(source: &str) -> Result<HalProgram, String> {
     let tokens = lexer::tokenize(source);
     let stmts = parser::parse(&tokens);
     let instructions = codegen::compile_ast(&stmts);
+    let mut program = HalProgram::new("il_program", instructions);
 
-    Ok(HalProgram::new("il_program", instructions))
+    // Auto-bind signal definitions from Store instructions (like ST compiler)
+    let mut seen = HashSet::new();
+    for inst in &program.instructions {
+        if inst.opcode == Opcode::Store
+            && let Some(Operand::SignalName(name)) = inst.operands.first()
+            && seen.insert(name.clone())
+        {
+            program.signals.push(SignalBinding {
+                hal_signal_name: name.clone(),
+                program_var: name.clone(),
+                direction: Direction::Write,
+                hal_pin_type: HalPinType::S32,
+            });
+        }
+    }
+    Ok(program)
 }
 
 #[cfg(test)]
