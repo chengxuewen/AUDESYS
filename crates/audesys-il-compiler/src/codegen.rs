@@ -151,6 +151,11 @@ impl Codegen {
                 }
                 ILStatement::Load { var } => {
                     let r = self.get_var_reg(var);
+                    // Load signal value into register first, then to CR
+                    self.instructions.push(Instruction::new(
+                        Opcode::Load,
+                        vec![Operand::Register(r), Operand::SignalName(var.clone())],
+                    ));
                     self.emit_load_reg(CR_REG, r);
                 }
                 ILStatement::LoadNot { var } => {
@@ -159,8 +164,11 @@ impl Codegen {
                     self.emit_not(CR_REG, CR_REG);
                 }
                 ILStatement::Store { var } => {
-                    let r = self.get_var_reg(var);
-                    self.emit_load_reg(r, CR_REG);
+                    // Store CR (r14) to signal
+                    self.instructions.push(Instruction::new(
+                        Opcode::Store,
+                        vec![Operand::SignalName(var.clone()), Operand::Register(CR_REG)],
+                    ));
                 }
                 ILStatement::And { var } => {
                     let r = self.get_var_reg(var);
@@ -278,12 +286,13 @@ mod tests {
         let tokens = tokenize("LD X1\nST Y1");
         let stmts = parse(&tokens);
         let insts = compile_ast(&stmts);
-        // TRUE init, Load, Store, Halt = 4 instructions
-        assert_eq!(insts.len(), 4);
+        // TRUE init, Load(signal→reg), Load(reg→CR), Store, Halt
+        assert_eq!(insts.len(), 5);
         assert_eq!(insts[0].opcode, Opcode::Load); // TRUE init
-        assert_eq!(insts[1].opcode, Opcode::Load); // LD X1
-        assert_eq!(insts[2].opcode, Opcode::Load); // ST Y1
-        assert_eq!(insts[3].opcode, Opcode::Halt);
+        assert_eq!(insts[1].opcode, Opcode::Load); // LD X1: signal→reg
+        assert_eq!(insts[2].opcode, Opcode::Load); // LD X1: reg→CR
+        assert_eq!(insts[3].opcode, Opcode::Store); // ST Y1
+        assert_eq!(insts[4].opcode, Opcode::Halt);
     }
 
     #[test]

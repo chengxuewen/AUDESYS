@@ -97,7 +97,6 @@ fn test_demo_full_pipeline_with_debug() {
 
 
 #[test]
-#[ignore = "VM-IL integration pending"]
 fn test_ld_compile_to_controller_execution() {
     let ld_src = "NETWORK\n  NO X1\n  NO X2\n  OUT Y1";
     let il_text = audesys_ld_compiler::ld_compile(ld_src).expect("LD compile");
@@ -161,7 +160,6 @@ fn test_ld_set_reset_latch() {
 }
 
 #[test]
-#[ignore = "VM-IL integration pending"]
 fn test_il_program_execution_via_executor() {
     use audesys_hal_ir::Executor;
     // Test IL program directly via Executor (bypass Engine)
@@ -170,7 +168,21 @@ fn test_il_program_execution_via_executor() {
     // Set X1=true, X2=true in VM registers
     executor.vm_mut().write_signal("X1", HalValue::Bool(true));
     executor.vm_mut().write_signal("X2", HalValue::Bool(true));
-    executor.run_to_halt();
+    let vm_before = executor.vm().read_signal("Y1").cloned(); eprintln!("Y1 before: {:?}", vm_before); let steps = eprintln!("signals: {:?}", executor.vm().signal_names()); eprintln!("r14: {:?}", executor.vm().read_register(14)); executor.run_to_halt(); eprintln!("after signals: {:?}", executor.vm().signal_names()); eprintln!("after Y1: {:?}", executor.vm().read_signal("Y1")); eprintln!("after r14: {:?}", executor.vm().read_register(14)); eprintln!("steps: {}", steps); let vm_after = executor.vm().read_signal("Y1").cloned(); eprintln!("Y1 after: {:?}", vm_after);
     assert_eq!(executor.vm().read_signal("Y1"), Some(&HalValue::Bool(true)),
         "LD: X1(true) AND X2(true) → ST Y1 should be true");
+}
+
+#[test]
+fn debug_instruction_formats() {
+    use audesys_hal_binding_gen::compile as st_compile;
+    let st_prog = st_compile("PROGRAM p VAR x:INT; y:INT; END_VAR x := y; END_PROGRAM").unwrap();
+    eprintln!("=== ST: x:=y ({} instructions) ===", st_prog.instructions.len());
+    for inst in &st_prog.instructions { eprintln!("  {:?}", inst); }
+    
+    let il_prog = audesys_il_compiler::il_compile("LD X1\nST Y1").unwrap();
+    eprintln!("\n=== IL: LD X1;ST Y1 ({} instructions) ===", il_prog.instructions.len());
+    for inst in &il_prog.instructions { eprintln!("  {:?}", inst); }
+    
+    assert!(true); // always pass, just for debug output
 }

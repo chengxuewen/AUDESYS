@@ -272,8 +272,12 @@ impl Executor {
         let value = match &operands[1] {
             Operand::Immediate(v) => v.clone(),
             Operand::Register(r) => self.vm.read_register(*r),
-            // ponytail: signal load deferred to Phase 2
-            Operand::SignalName(_) => return ExecutorResult::Continue,
+            Operand::SignalName(name) => {
+                match self.vm.read_signal(name) {
+                    Some(v) => v.clone(),
+                    None => HalValue::Bool(false), // default for unset signals
+                }
+            }
         };
         self.vm.write_register(dest, value);
         ExecutorResult::Continue
