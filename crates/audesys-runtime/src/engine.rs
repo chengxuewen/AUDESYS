@@ -271,6 +271,12 @@ impl Engine {
                     if let Some(ref mut executor) = *hal_executor.write().unwrap() {
                         executor.reset();
                         executor.vm_mut().set_cycle_time(cycle_interval_ms);
+                        // Sync engine signal values into VM signal table before execution
+                        let sig_reg = signals.read().unwrap();
+                        for snap in sig_reg.list_snapshots() {
+                            executor.vm_mut().write_signal(&snap.name, snap.value);
+                        }
+                        drop(sig_reg);
                         executor.run_to_halt();
                         // Publish VM signal table entries to signal registry
                         let vm = executor.vm();
