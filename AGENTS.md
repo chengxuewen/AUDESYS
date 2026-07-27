@@ -60,7 +60,7 @@ AUDESYS/
 
 | 模块 | 状态 | 路径 |
 |------|:----:|------|
-| Studio IDE | ✅ Theia 迁移完成 | `apps/studio-theia/` + `theia-extensions/` |
+| Studio IDE | ✅ Theia 迁移完成 | `apps/studio/` + `theia-extensions/` |
 | Runtime Engine | ✅ 完成 | `crates/audesys-runtime-engine/` |
 | IPC Server | ✅ 完成 | `crates/audesys-ipc-server/` |
 | Runtime Client | ✅ 完成 | `crates/audesys-runtime-client/` |

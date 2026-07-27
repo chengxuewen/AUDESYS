@@ -922,7 +922,7 @@ AUDESYS
 | 组件 | 内容概要 | 状态 |
 |------|---------|:----:|
 | **Theia 迁移设计** | 三审修订完成（15 项 MUST-FIX），总估时 22-31 周（5-8 月） | 📄 设计完成 |
-| **Theia 骨架** | `apps/studio-theia/` — Electron + Theia 1.73.0 应用 | ✅ 已完成 |
+| **Theia 骨架** | `apps/studio/` — Electron + Theia 1.73.0 应用 | ✅ 已完成 |
 | **napi-rs 绑定层** | `crates/audesys-theia-bridge/` — ~25 函数，编译为 `.node` 原生二进制 | ✅ 已完成 |
 | **Theia Backend Service** | `theia-extensions/audesys-backend/` — JSON-RPC 代理 + RBAC + 审计 | ✅ 已完成 |
 | **10 Theia 扩展** | `theia-extensions/` — core/backend/st/il/gcode/sfc/ld-glsp/fbd-glsp/hmi/debug | ✅ 已完成 |
