@@ -926,3 +926,4 @@ export class LdEditorWidget extends ReactWidget {
         document.head.appendChild(style);
     }
 }
+}

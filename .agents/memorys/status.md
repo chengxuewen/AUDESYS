@@ -148,3 +148,22 @@
 | npm run build | ❌ | esbuild 8 errors (嵌套 @theia/* symlink 后) |
 
 **Socket.IO 修复**: 捆绑 main.js 中的 engine.io allowRequest 处理器已损坏（调试残留导致所有请求返回 403）。node_modules 源码正确，仅捆绑版本受影响。已应用修复。详见 pitfalls.md。
+
+## Studio 双端构建修复 (2026-07-27)
+
+- **esbuild 构建修复**: 嵌套 @theia/* 物理副本 → symlink 去重, 0 errors
+- **Socket.IO 403 修复**: main.js engine.io allowRequest 恢复 if(!success) 守卫 + ElectronTokenValidator 修补
+- **@injectable 重复修复**: 10 扩展 react/@theia 物理副本 → symlink, FrontendApplicationConfigProvider 修复
+- **token-patch.py 增强**: 4 层令牌验证全部修补 (Express + Socket.IO allowRequest/allowConnect + ElectronTokenValidator)
+- **postbuild.sh 增强**: 添加 setTheme polyfill + 修复重复代码
+
+### 双端测试状态 (2026-07-27)
+
+| 测试类别 | 状态 | 详情 |
+|----------|:----:|------|
+| Rust 编译器 (ld/il/agent) | ✅ | 38+ tests pass, 0 fail |
+| Runtime Pipeline | ✅ | 7/7 pass (0.26s) |
+| Vitest (hmi-designer) | ⚠️ | 14/14 pass signal-validation, 3 suites fail (react module) |
+| 浏览器访问 | ✅ | IDE 渲染正常, 0 Socket.IO 错误 |
+| Electron 应用 | ⚠️ | 未独立验证 |
+| npm run build | ✅ | 0 errors, 3 targets (browser/node/electron) |

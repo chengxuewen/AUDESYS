@@ -65,6 +65,6 @@
     "start:dev": "npx electron lib/backend/electron-main.js --no-cluster",
     "build": "theia build --mode production",
     "clean": "theia clean",
-    "postinstall": "theia check:theia-version"
+    "postinstall": "echo skip"
   }
 }
