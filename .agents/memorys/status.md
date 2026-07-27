@@ -134,3 +134,17 @@
 - **目标**: 以光固化打印机验证 IEC 61131-3 + HMI + 硬件 IO 全链路
 - **子任务**: Agent+Runtime 联调 → ST 端到端 → FBD 端到端 → SFC+G-code → HMI 设计 → 硬件 IO → 收尾
 - **计划**: 7-8 周, `.sisyphus/plans/m1-3d-printer-platform/`
+
+
+## Studio 双端测试状态 (2026-07-27)
+
+| 测试类别 | 状态 | 详情 |
+|----------|:----:|------|
+| Rust 编译器 (ld/il/agent) | ✅ | 38+ tests pass, 0 fail |
+| Runtime Pipeline | ✅ | 7/7 pass (0.26s) |
+| Vitest (hmi-designer) | ⚠️ | 14/14 pass signal-validation, 3 suites fail (react module resolution) |
+| 浏览器访问 | ⚠️ | IDE 加载但未渲染 (@injectable decorator duplicate) |
+| Electron 应用 | ✅ | 独立启动正常，需先修复 npm run build |
+| npm run build | ❌ | esbuild 8 errors (嵌套 @theia/* symlink 后) |
+
+**Socket.IO 修复**: 捆绑 main.js 中的 engine.io allowRequest 处理器已损坏（调试残留导致所有请求返回 403）。node_modules 源码正确，仅捆绑版本受影响。已应用修复。详见 pitfalls.md。

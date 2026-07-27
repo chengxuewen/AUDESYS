@@ -361,3 +361,39 @@
 ### LD 编辑器空画布点击无反应 — 需先创建 rung
 - **问题**: 空 LD 模板 `rungs:[]`，点击触点/线圈工具后 canvas click handler 中 `findRungByY` 返回 null → 静默失败
 - **修复**: 空画布时自动创建 rung（仅限触点/线圈类工具）
+
+
+## Studio 双端构建与令牌修复 (2026-07-27)
+
+### 捆绑 main.js 中的 engine.io allowRequest 损坏
+
+- **问题**: lib/backend/main.js 中 engine.io 的 allowRequest 处理器缺少 if (!success) 检查 — ALL Socket.IO 请求无条件返回 403（FORBIDDEN）
+- **症状**: 浏览器控制台中 Socket.IO polling 请求出现 20+ 个 403 错误，应用无法加载
+- **原因**: 主JS捆绑文件中的调试修改残留：console.log('[DEBUG] calling allowRequest...') 和 console.log('[DEBUG] allowRequest callback...') — 回调忽略了 success 参数
+- **修复**: 将损坏的处理程序恢复为正确的 engine.io 代码（含 if (!success) 守卫）
+- **验证**: node_modules/engine.io/build/server.js 包含正确的原始代码 — 损坏仅存在于捆绑的 main.js 中
+- **预防**: (a) 不要手动编辑捆绑文件；(b) 调试日志在提交前移除；(c) 添加 postbuild 完整性检查验证 engine.io allowRequest 未被损坏
+
+### 双端测试状态 (2026-07-27)
+
+| 测试类别 | 状态 | 详情 |
+|----------|:----:|------|
+| Rust 编译器 (ld/il/agent) | ✅ | 38+ tests pass, 0 fail |
+| Runtime Pipeline | ✅ | 7/7 pass (0.26s) |
+| Vitest (hmi-designer) | ⚠️ | 14/14 pass signal-validation, 3 suites fail (react module) |
+| 浏览器访问 | ⚠️ | IDE 加载但未渲染 (@injectable 重复) |
+| Electron 应用 | ✅ | 独立启动正常 |
+| npm run build | ❌ | esbuild 8 errors (symlink后) |
+
+### 双模式测试快速检查清单
+
+**浏览器模式:**
+1. curl http://127.0.0.1:3100 — 预期 200 + HTML
+2. 浏览器访问 — 预期少于 5 个控制台错误（仅 favicon.ico 404 可接受）
+3. 零个 Socket.IO 403 响应
+4. 存在 .theia-app DOM 元素（IDE 完全渲染）
+
+**Electron 模式:**
+1. cargo test -p audesys-ld-compiler -p audesys-il-compiler -p audesys-agent
+2. cargo test -p audesys-runtime --test pipeline_test
+3. cd theia-extensions/audesys-hmi-designer && npx vitest run
