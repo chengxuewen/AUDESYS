@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { $$$ } from "@theia/core/shared/react";
 import type { HmiLayout, HmiWidgetState, HmiWidgetType, HmiWidgetPosition, HmiWidgetSize } from "../types/hmi";
 import { validateLayout } from "./useHmiLayoutValidator";
 import type { ValidationResult } from "./useHmiLayoutValidator";

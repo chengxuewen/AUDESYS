@@ -41,15 +41,8 @@ export class FbdPaletteContribution implements FrontendApplicationContribution {
         await this.openPalette();
     }
 
-    /**
-     * Fallback: also open on start in case initializeLayout doesn't fire
-     * (e.g. with a restored layout that doesn't include our widget).
-     * The addWidget call is idempotent if the widget already exists.
-     */
-    async onStart(app: FrontendApplication): Promise<void> {
-        // ponytail: addWidget is idempotent per shell id; safe to call twice
-        await this.openPalette();
-    }
+    // ponytail: removed onStart() to prevent duplicate widget creation
+    // addWidget is NOT idempotent - it creates a new widget each time
 
     private async openPalette(): Promise<void> {
         const widget = new FbdPaletteWidget(this.toolState);

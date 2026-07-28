@@ -20,6 +20,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FbdPaletteContribution = exports.FBD_PALETTE_TOGGLE_COMMAND = void 0;
 const inversify_1 = require("@theia/core/shared/inversify");
@@ -46,17 +47,11 @@ let FbdPaletteContribution = class FbdPaletteContribution {
      * saved layouts on subsequent launches.
      */
     async initializeLayout(app) {
+        console.log("[FbdPalette] initializeLayout called");
         await this.openPalette();
     }
-    /**
-     * Fallback: also open on start in case initializeLayout doesn't fire
-     * (e.g. with a restored layout that doesn't include our widget).
-     * The addWidget call is idempotent if the widget already exists.
-     */
-    async onStart(app) {
-        // ponytail: addWidget is idempotent per shell id; safe to call twice
-        await this.openPalette();
-    }
+    // ponytail: removed onStart() to prevent duplicate widget creation
+    // addWidget is NOT idempotent - it creates a new widget each time
     async openPalette() {
         const widget = new fbd_palette_widget_1.FbdPaletteWidget(this.toolState);
         await this.shell.addWidget(widget, {
@@ -70,7 +65,6 @@ exports.FbdPaletteContribution = FbdPaletteContribution = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(application_shell_1.ApplicationShell)),
     __param(1, (0, inversify_1.inject)(fbd_tool_state_1.FbdToolState)),
-    __metadata("design:paramtypes", [application_shell_1.ApplicationShell,
-        fbd_tool_state_1.FbdToolState])
+    __metadata("design:paramtypes", [typeof (_a = typeof application_shell_1.ApplicationShell !== "undefined" && application_shell_1.ApplicationShell) === "function" ? _a : Object, fbd_tool_state_1.FbdToolState])
 ], FbdPaletteContribution);
 //# sourceMappingURL=fbd-palette-contribution.js.map

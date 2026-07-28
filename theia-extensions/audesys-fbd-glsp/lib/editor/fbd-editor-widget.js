@@ -19,7 +19,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FbdEditorWidget = void 0;
-const react_1 = __importDefault(require("react"));
+const react_1 = __importDefault(require("@theia/core/shared/react"));
 const react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 const nodes_1 = require("../gmodel/nodes");
 // ============================================================================

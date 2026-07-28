@@ -1,4 +1,4 @@
-import React from "react";
+import React from "@theia/core/shared/react";
 interface HmiToolbarProps {
   editMode: boolean;
   onToggleMode: () => void;

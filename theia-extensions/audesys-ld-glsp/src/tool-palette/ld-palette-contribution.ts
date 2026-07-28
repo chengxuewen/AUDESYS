@@ -42,13 +42,9 @@ export class LdPaletteContribution implements FrontendApplicationContribution {
     }
 
     /**
-     * Fallback: also open on start in case initializeLayout doesn't fire
      * (e.g. with a restored layout that doesn't include our widget).
      * The addWidget call is idempotent if the widget already exists.
      */
-    async onStart(app: FrontendApplication): Promise<void> {
-        // ponytail: addWidget is idempotent per shell id; safe to call twice
-        await this.openPalette();
     }
 
     private async openPalette(): Promise<void> {

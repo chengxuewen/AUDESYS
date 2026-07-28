@@ -482,3 +482,46 @@
 - **问题**: Electron 窗口按下 F12 / Cmd+Option+I 无反应，DevTools 无法打开
 - **原因**: Theia 拦截了键盘事件，路由到 IPC 调用 `webContents.openDevTools()`，但 IPC 通道在应用初始化完成前不可用。`--auto-open-devtools-for-tabs` 通过 `theia start --electron-args` 传递时也会失效
 - **方案**: 在 `lib/backend/electron-main.js` 中直接注册 `globalShortcut.register('F12', ...)` 和 `Cmd+Option+I`，绕过 Theia 的 IPC 机制。已集成到 `fix-tokens.py` 自动修补
+
+## Theia Bundle 模块重复陷阱 (2026-07-28)
+
+### Symbol 型 DI 标识符对模块重复极度敏感
+- **问题**: LD palette contribution 绑定成功（console.log 确认），但 `initializeLayout` 从未被调用，widget 不显示
+- **原因**: Bundle 中有 **2 个** `Symbol("FrontendApplicationContribution")`。LD 扩展的 `node_modules/@theia/core` symlink 导致 esbuild 将同一物理文件打包为两个独立模块。Symbol 是唯一的——两个模块实例产生两个不同 Symbol，LD 绑定到 Symbol B，Theia 用 Symbol A 收集 contributions
+- **诊断方法**: `grep -c 'Symbol("FrontendApplicationContribution")' lib/frontend/bundle.js` — 必须为 1
+- **方案**: 删除所有扩展的 `node_modules/`，让所有依赖通过 `apps/studio/node_modules/` 解析（Theia 官方标准模式）
+- **验证**: `grep -c 'Symbol("FrontendApplicationContribution")' bundle.js` = 1
+- **失败尝试（禁止重蹈）**: esbuild alias → DI 崩溃；nodePaths → DI 崩溃；只删部分 symlink → 不一致；给所有扩展加 symlink → 10 个 Symbol
+- **教训**: 先调研 Theia 官方推荐方式再动手，不要凭直觉尝试 bundler 配置
+
+### node_modules symlink 导致 bundler 模块重复
+- **问题**: LD 扩展有 `node_modules/@theia/core -> apps/studio/node_modules/@theia/core` symlink，FBD 没有。Bundler 将 symlink 路径和直接解析路径视为不同模块
+- **原因**: esbuild/webpack 按解析路径（非物理路径）去重模块。symlink 改变了解析路径
+- **方案**: 扩展禁止拥有本地 `node_modules/`（包括 symlink 和物理副本）。所有共享依赖由 app 层提供
+- **禁止**: 不要在扩展中运行 `npm install`——这会创建本地 node_modules 导致模块重复
+
+### Theia 扩展 React 导入必须用 @theia/core/shared/react
+- **问题**: `Cannot read properties of null (reading 'useState')` — React hooks 全部崩溃
+- **原因**: 扩展直接从 `"react"` 导入，bundle 中产生多个 React 实例。React hooks 依赖单例 dispatcher，多实例导致 dispatcher 为 null
+- **方案**: 所有 Theia 扩展中 React 导入统一为 `import React from '@theia/core/shared/react'`，react-dom 用 `@theia/core/shared/react-dom/client`
+- **检查**: `grep -rn 'from "react"\|from '\''react'\''' theia-extensions/*/src packages/*/src --include="*.ts" --include="*.tsx" | grep -v "@theia/core/shared/react"` 必须为空
+
+### 源码与 lib/ 编译文件不同步
+- **问题**: FBD 图标重复——源码已删除 `onStart()` 方法，但 `lib/` 中仍有旧编译产物
+- **原因**: 修改 `.ts` 源码后未重新编译（`tsc -b`），或编译失败但旧 lib 文件残留
+- **方案**: (a) 修改源码后确认 `lib/` 同步更新；(b) 若 tsc 编译失败，直接整文件重写 lib/*.js（禁止用 sed 编辑编译后的 JS——sed 会破坏注释/括号结构）
+
+### 括号平衡检查优先于错误行号
+- **问题**: Playwright 报 `Unexpected token (95:0)` 指向空行，多次修复失败
+- **原因**: 真正问题是 `test.describe()` 缺少闭合 `});`（26 open / 25 close），错误信息指向 EOF 而非缺失位置
+- **方案**: 遇到 "unexpected token" 先运行 `node -e "const c=require('fs').readFileSync(f,'utf8'); console.log((c.match(/\{/g)||[]).length, (c.match(/\}/g)||[]).length)"` 检查括号平衡
+
+### 先调研官方推荐再动手（元教训）
+- **问题**: LD 图标消失后花了 3+ 小时尝试各种 bundler 配置（alias、nodePaths、symlink 增删），全部失败或引入新问题
+- **原因**: 没有先调研 Theia 官方推荐的扩展开发模式。官方模式很简单：扩展不应有本地 node_modules，所有依赖通过 app 层解析
+- **方案**: 遇到框架级问题时，第一步永远是查官方文档/社区经验，而不是凭直觉尝试配置。花 10 分钟调研可以省 3 小时试错
+
+### 服务器启动方式混淆
+- **问题**: `npm start` 启动 Electron 而非浏览器模式，导致测试连接失败
+- **方案**: 浏览器模式用 `node lib/backend/main.js --port=3100`，不用 `npm start` 或 `npx theia start`
+

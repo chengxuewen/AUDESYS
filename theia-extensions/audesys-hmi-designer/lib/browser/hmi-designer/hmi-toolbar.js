@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = HmiToolbar;
-const react_1 = __importDefault(require("react"));
+const react_1 = __importDefault(require("@theia/core/shared/react"));
 function HmiToolbar({ editMode, onToggleMode, onSave, onLoad, onClear, onDeploy }) {
     return (react_1.default.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", backgroundColor: "#141416", borderBottom: "1px solid #2a2a30", flexShrink: 0 } },
         react_1.default.createElement("button", { style: { fontSize: 12, padding: "4px 10px", border: "1px solid #2a2a30", borderRadius: 4, backgroundColor: "#1e1e22", color: "#e8e8ed", cursor: "pointer" }, onClick: onSave }, "Save"),

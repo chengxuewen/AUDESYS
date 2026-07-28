@@ -52,7 +52,7 @@ exports.HmiDesignerWidget = void 0;
  *
  * ponytail: thin wrapper around HmiDesignerTool to integrate with Theia dock panel.
  */
-const React = __importStar(require("react"));
+const React = __importStar(require("@theia/core/shared/react"));
 const react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 const inversify_1 = require("@theia/core/shared/inversify");
 const hmi_designer_tool_1 = __importDefault(require("./hmi-designer-tool"));

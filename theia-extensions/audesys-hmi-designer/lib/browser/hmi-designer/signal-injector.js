@@ -34,7 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = SignalInjector;
-const react_1 = __importStar(require("react"));
+const react_1 = __importStar(require("@theia/core/shared/react"));
 function buildEntries(widgets) {
     const m = new Map();
     for (const w of widgets) {

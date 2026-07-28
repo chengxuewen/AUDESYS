@@ -21,7 +21,7 @@ export const nodeOptions = {
     entryPoints: {
         'main': './src-gen/backend/main',
         'ipc-bootstrap': '@theia/core/lib/node/messaging/ipc-bootstrap',
-        'electron-main': './src-gen/backend/electron-main',
+        
         
         
         // Make sure the node-pty thread workers can be executed:

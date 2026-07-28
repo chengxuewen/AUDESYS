@@ -1,4 +1,4 @@
-import React from "react";
+import React from "@theia/core/shared/react";
 import type { HmiWidgetType } from "../types/hmi";
 
 interface WidgetPaletteProps {

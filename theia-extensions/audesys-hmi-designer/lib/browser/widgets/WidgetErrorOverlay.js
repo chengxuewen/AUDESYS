@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = WidgetErrorOverlay;
-const react_1 = __importDefault(require("react"));
+const react_1 = __importDefault(require("@theia/core/shared/react"));
 function WidgetErrorOverlay({ message, onDismiss }) {
     return (react_1.default.createElement("div", { onClick: onDismiss, style: {
             position: "absolute",

@@ -45,7 +45,7 @@ exports.default = HmiCanvas;
  * but stripped of outer wrapper — WidgetPalette, toolbar, SignalInjector are
  * handled by HmiDesignerTool.
  */
-const react_1 = __importStar(require("react"));
+const react_1 = __importStar(require("@theia/core/shared/react"));
 const react_rnd_1 = require("react-rnd");
 const GaugeWidget_1 = __importDefault(require("../../widgets/GaugeWidget"));
 const ButtonWidget_1 = __importDefault(require("../../widgets/ButtonWidget"));

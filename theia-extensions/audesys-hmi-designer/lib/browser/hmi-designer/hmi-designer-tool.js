@@ -43,7 +43,7 @@ exports.default = HmiDesignerTool;
  * ponytail: wraps useHmiLayout hook + sub-components in a flex layout,
  * matching the original HmiDesignerTool but without Tauri/platform deps.
  */
-const react_1 = __importStar(require("react"));
+const react_1 = __importStar(require("@theia/core/shared/react"));
 const useHmiLayout_1 = require("../hooks/useHmiLayout");
 const widget_palette_1 = __importDefault(require("./widget-palette"));
 const property_panel_1 = __importDefault(require("./property-panel"));

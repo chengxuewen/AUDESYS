@@ -34,7 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = PropertyPanel;
-const react_1 = __importStar(require("react"));
+const react_1 = __importStar(require("@theia/core/shared/react"));
 const CONFIG_FIELDS = {
     gauge: [
         { label: "Min", type: "number", key: "min", defaultVal: 0 },

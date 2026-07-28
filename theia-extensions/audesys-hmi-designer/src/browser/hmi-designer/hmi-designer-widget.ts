@@ -3,7 +3,7 @@
  *
  * ponytail: thin wrapper around HmiDesignerTool to integrate with Theia dock panel.
  */
-import * as React from "react";
+import * as React from "@theia/core/shared/react";
 import { ReactWidget } from "@theia/core/lib/browser/widgets/react-widget";
 import { Message } from "@theia/core/lib/browser/widgets/widget";
 import { injectable, postConstruct } from "@theia/core/shared/inversify";

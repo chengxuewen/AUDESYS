@@ -50,8 +50,8 @@ exports.HmiCanvasWidget = void 0;
  * Reference: docs/plans/t3p5-lumino-conflict-resolution.md §2.2
  */
 const widgets_1 = require("@lumino/widgets");
-const client_1 = require("react-dom/client");
-const React = __importStar(require("react"));
+const client_1 = require("@theia/core/shared/react-dom/client");
+const React = __importStar(require("@theia/core/shared/react"));
 const HmiCanvas_1 = __importDefault(require("./components/HmiCanvas"));
 // CSS class prefixes to isolate from Theia/Lumino globals
 const CANVAS_CLASS = "hmiapp-canvas";

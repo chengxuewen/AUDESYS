@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.useHmiLayout = useHmiLayout;
-const react_1 = require("react");
+const react_1 = require("@theia/core/shared/react");
 const useHmiLayoutValidator_1 = require("./useHmiLayoutValidator");
 const DEFAULT_CANVAS = { width: 1200, height: 800 };
 function createEmptyLayout(name) {

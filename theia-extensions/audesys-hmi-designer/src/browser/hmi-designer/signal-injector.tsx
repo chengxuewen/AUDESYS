@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React from "@theia/core/shared/react";
 import type { HmiWidgetState } from "../types/hmi";
 
 interface SignalInjectorProps {

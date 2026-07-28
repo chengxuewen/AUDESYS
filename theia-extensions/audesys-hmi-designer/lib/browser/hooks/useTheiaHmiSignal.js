@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.useTheiaHmiSignal = useTheiaHmiSignal;
-const react_1 = require("react");
+const react_1 = require("@theia/core/shared/react");
 /**
  * Theia-specific HMI signal hook.
  * Uses napi-rs bridge to read controller signals.

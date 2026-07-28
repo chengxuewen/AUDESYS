@@ -7,7 +7,7 @@
   "main": "lib/backend/electron-main.js",
   "license": "Apache-2.0",
   "theia": {
-    "target": "electron",
+    "target": "browser",
     "frontend": {
       "config": {
         "applicationName": "AUDESYS Studio",
@@ -58,7 +58,8 @@
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.5",
     "react-rnd": "^10.5.3",
-    "sprotty": "^1.4.0"
+    "sprotty": "^1.4.0",
+    "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

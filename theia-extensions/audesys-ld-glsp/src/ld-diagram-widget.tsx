@@ -8,7 +8,7 @@
  * Replace poll with push when LdGModelState gains onDidChange event.
  */
 
-import React from 'react';
+import React from '@theia/core/shared/react';
 import { Message } from '@lumino/messaging';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { Container } from '@theia/core/shared/inversify';

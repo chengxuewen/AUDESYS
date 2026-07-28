@@ -5,7 +5,6 @@
  * - FbdToolState (singleton, shared across palette + future canvas consumers)
  * - FbdPaletteContribution (FrontendApplicationContribution)
  */
-import { ContainerModule } from '@theia/core/shared/inversify';
-declare const _default: ContainerModule;
+declare const _default: any;
 export default _default;
 //# sourceMappingURL=fbd-palette-frontend-module.d.ts.map

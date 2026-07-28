@@ -21,6 +21,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FbdEditorCommandContribution = exports.FbdEditorOpenHandler = exports.FBD_EDITOR_COMMANDS = void 0;
 const inversify_1 = require("@theia/core/shared/inversify");
@@ -135,11 +136,9 @@ exports.FbdEditorOpenHandler = FbdEditorOpenHandler = __decorate([
     __param(2, (0, inversify_1.inject)(fbd_gmodel_state_1.FbdGModelState)),
     __param(3, (0, inversify_1.inject)(fbd_operation_handler_1.FbdOperationHandler)),
     __param(4, (0, inversify_1.inject)(file_service_1.FileService)),
-    __metadata("design:paramtypes", [application_shell_1.ApplicationShell,
-        fbd_tool_state_1.FbdToolState,
+    __metadata("design:paramtypes", [typeof (_a = typeof application_shell_1.ApplicationShell !== "undefined" && application_shell_1.ApplicationShell) === "function" ? _a : Object, fbd_tool_state_1.FbdToolState,
         fbd_gmodel_state_1.FbdGModelState,
-        fbd_operation_handler_1.FbdOperationHandler,
-        file_service_1.FileService])
+        fbd_operation_handler_1.FbdOperationHandler, typeof (_b = typeof file_service_1.FileService !== "undefined" && file_service_1.FileService) === "function" ? _b : Object])
 ], FbdEditorOpenHandler);
 // ============================================================================
 // FbdEditorCommandContribution
@@ -282,8 +281,6 @@ exports.FbdEditorCommandContribution = FbdEditorCommandContribution = __decorate
     __param(4, (0, inversify_1.inject)(file_service_1.FileService)),
     __metadata("design:paramtypes", [FbdEditorOpenHandler,
         fbd_gmodel_state_1.FbdGModelState,
-        fbd_operation_handler_1.FbdOperationHandler,
-        core_1.MessageService,
-        file_service_1.FileService])
+        fbd_operation_handler_1.FbdOperationHandler, typeof (_c = typeof core_1.MessageService !== "undefined" && core_1.MessageService) === "function" ? _c : Object, typeof (_d = typeof file_service_1.FileService !== "undefined" && file_service_1.FileService) === "function" ? _d : Object])
 ], FbdEditorCommandContribution);
 //# sourceMappingURL=fbd-editor-contribution.js.map

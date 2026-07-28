@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { $$$ } from "@theia/core/shared/react";
 import ReactECharts from "echarts-for-react";
 import { WidgetErrorOverlay } from "./WidgetErrorOverlay";
 import type { SharedWidgetProps } from "./types";

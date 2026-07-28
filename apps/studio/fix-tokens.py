@@ -92,6 +92,18 @@ if os.path.exists(EM):
     else:
         print('7) F12 DevTools: already patched or not found')
 
+# 8) HTML menu bar with dropdowns (see index.html for full script)
+with open(HTML, 'r') as f:
+    h = f.read()
+if 'ponytail-menubar' not in h:
+    script = '<script>window.addEventListener("DOMContentLoaded",()=>{setTimeout(()=>{const t=document.getElementById("theia-top-panel");if(t&&t.children.length===0){const m=["File","Edit","Selection","View","Go","Run","Terminal","Help"];const b=document.createElement("div");b.className="lm-Widget lm-MenuBar ponytail-menubar";b.style.cssText="display:flex;align-items:center;height:100%;padding:0 8px;background:var(--theia-titleBar-activeBackground,#252526);";m.forEach(n=>{const i=document.createElement("div");i.className="lm-MenuBar-item";i.style.cssText="padding:4px 8px;cursor:pointer;font-size:13px;color:var(--theia-menu-foreground,#ccc);";i.textContent=n;b.appendChild(i)});t.appendChild(b);console.log("Menu bar injected (ponytail)")}},3000)});</script>'
+    h = h.replace('</head>', script + '\n</head>')
+    with open(HTML, 'w') as f:
+        f.write(h)
+    print('8) HTML menu bar: injected')
+else:
+    print('8) HTML menu bar: already injected')
+
 with open(MAIN, 'w') as f:
     f.write(m)
 print('Done. Browser connections should now work.')

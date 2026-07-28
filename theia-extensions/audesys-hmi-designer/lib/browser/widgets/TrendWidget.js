@@ -37,7 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TrendWidget;
-const react_1 = __importStar(require("react"));
+const react_1 = __importStar(require("@theia/core/shared/react"));
 const echarts_for_react_1 = __importDefault(require("echarts-for-react"));
 const useStudioHmiSignal_1 = require("../hooks/useStudioHmiSignal");
 const WidgetErrorOverlay_1 = __importDefault(require("./WidgetErrorOverlay"));

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = WidgetPalette;
-const react_1 = __importDefault(require("react"));
+const react_1 = __importDefault(require("@theia/core/shared/react"));
 const WIDGET_PRESETS = [
     { type: "gauge", icon: "📊", label: "Gauge", desc: "Circular gauge with thresholds" },
     { type: "button", icon: "🔘", label: "Button", desc: "Toggle or momentary command" },

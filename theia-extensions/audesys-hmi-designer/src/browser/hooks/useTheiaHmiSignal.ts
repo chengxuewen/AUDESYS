@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { $$$ } from "@theia/core/shared/react";
 
 export interface HmiSignalResult {
   value: string | null;

@@ -12,7 +12,7 @@
  * Ponytail: plain SVG + React state. No GLSP rendering server, no canvas libs.
  */
 
-import React from 'react';
+import React from '@theia/core/shared/react';
 import { Message } from '@lumino/messaging';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { LdToolState, LdToolType } from '../tool-palette/ld-tool-state';

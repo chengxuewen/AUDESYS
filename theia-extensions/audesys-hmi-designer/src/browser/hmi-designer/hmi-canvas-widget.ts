@@ -12,8 +12,8 @@
  */
 import { Widget } from "@lumino/widgets";
 import { Message } from "@lumino/messaging";
-import { createRoot, Root } from "react-dom/client";
-import * as React from "react";
+import { $$$ } from "@theia/core/shared/react-dom/client";
+import * as React from "@theia/core/shared/react";
 
 import type { HmiWidgetState, HmiWidgetType } from "../types/hmi";
 import HmiCanvas from "./components/HmiCanvas";

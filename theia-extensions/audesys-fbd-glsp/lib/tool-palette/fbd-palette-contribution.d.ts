@@ -29,12 +29,6 @@ export declare class FbdPaletteContribution implements FrontendApplicationContri
      * saved layouts on subsequent launches.
      */
     initializeLayout(app: FrontendApplication): Promise<void>;
-    /**
-     * Fallback: also open on start in case initializeLayout doesn't fire
-     * (e.g. with a restored layout that doesn't include our widget).
-     * The addWidget call is idempotent if the widget already exists.
-     */
-    onStart(app: FrontendApplication): Promise<void>;
     private openPalette;
 }
 //# sourceMappingURL=fbd-palette-contribution.d.ts.map

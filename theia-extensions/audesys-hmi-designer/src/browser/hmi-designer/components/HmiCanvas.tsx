@@ -6,7 +6,7 @@
  * but stripped of outer wrapper — WidgetPalette, toolbar, SignalInjector are
  * handled by HmiDesignerTool.
  */
-import { useCallback } from "react";
+import { $$$ } from "@theia/core/shared/react";
 import { Rnd } from "react-rnd";
 import type { HmiWidgetState, HmiWidgetType } from "../../types/hmi";
 import { useTheiaHmiSignal } from "../../hooks/useTheiaHmiSignal";

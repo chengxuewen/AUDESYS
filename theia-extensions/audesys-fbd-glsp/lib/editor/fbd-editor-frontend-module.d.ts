@@ -16,7 +16,6 @@
  * Ponytail: separate palette module + editor module — clean separation.
  * The studio-theia app loads both modules via theiaExtensions in package.json.
  */
-import { ContainerModule } from '@theia/core/shared/inversify';
-declare const _default: ContainerModule;
+declare const _default: any;
 export default _default;
 //# sourceMappingURL=fbd-editor-frontend-module.d.ts.map

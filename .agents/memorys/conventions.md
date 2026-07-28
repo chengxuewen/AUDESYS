@@ -104,3 +104,62 @@
 - **Web**: Hub 插件，Monaco Editor + WASM 编译器
 - **Panel**: Tauri (桌面) + PWA (移动) + Docker (Kiosk)
 - **样式**: Tailwind CSS
+
+## Theia 扩展开发约束 (D97, 2026-07-28)
+
+### 强制规则（违反 = 构建失败或运行时 DI 静默失败）
+
+1. **React 导入必须用 `@theia/core/shared/react`**
+   - `import React from '@theia/core/shared/react'` ✅
+   - `import { useState } from '@theia/core/shared/react'` ✅
+   - `import React from 'react'` ❌ — 导致 bundle 中多 React 实例，hooks 崩溃
+   - react-dom 用 `@theia/core/shared/react-dom/client`
+
+2. **扩展禁止拥有本地 `node_modules/`**
+   - 扩展的 `node_modules/` 含 @theia、@eclipse-glsp、inversify 等物理副本
+   - esbuild 将不同路径的同一包视为不同模块 → Symbol 重复 → DI 静默失效
+   - 所有依赖通过 `apps/studio/node_modules/` 解析（file: link + preserveSymlinks walk-up）
+   - 扩展 package.json 中声明 `peerDependencies`，实际安装在 app 层
+   - 若扩展需要本地 dev 工具（vitest 等），用 `devDependencies` 但不影响 bundle
+
+3. **`preserveSymlinks = true` 不可删除**
+   - `esbuild.mjs` 中 `preserveSymlinks = true` 是 file: link 模式的基础
+   - 它让 esbuild 用 `apps/studio/node_modules/audesys-*` 路径解析依赖
+   - 删除后扩展无法解析 @theia/core → 构建失败
+
+4. **@theia/* 声明为 `peerDependencies`（精确版本）**
+   - `"@theia/core": "1.73.0"` ✅（精确）
+   - `"@theia/core": "^1.73.0"` ❌（可能安装 1.73.1 → @injectable 重复）
+
+5. **构建后验证 Symbol 唯一性**
+   - `grep -c 'Symbol("FrontendApplicationContribution")' lib/frontend/bundle.js` 必须 = 1
+   - 若 > 1，检查哪个扩展有本地 `node_modules/@theia` symlink
+
+### 项目结构约定
+
+| 项目 | 约定 | 原因 |
+|------|------|------|
+| 扩展位置 | `theia-extensions/audesys-*/` | 与 app 分离，独立版本控制 |
+| 引用方式 | `"file:../../theia-extensions/audesys-*"` | npm file: link |
+| @theia 解析 | 通过 app 的 node_modules walk-up | 不需要扩展本地 symlink |
+| 构建工具 | `theia build`（esbuild） | Theia 1.73+ 默认 |
+| 启动命令 | `node lib/backend/main.js --port=3100` | 浏览器模式 |
+
+### 诊断清单（扩展不显示时）
+
+```bash
+# 1. Symbol 唯一性
+grep -c 'Symbol("FrontendApplicationContribution")' lib/frontend/bundle.js  # 必须 = 1
+
+# 2. React 导入检查
+grep -rn 'from "react"\|from '\''react'\''' theia-extensions/*/src packages/*/src \
+  --include="*.ts" --include="*.tsx" | grep -v "@theia/core/shared/react"  # 必须为空
+
+# 3. 本地 @theia 检查
+find theia-extensions -path "*/node_modules/@theia/core" 2>/dev/null  # 必须为空
+
+# 4. 浏览器控制台
+# 无 'Cannot read properties of null (reading useState)' 错误
+# 无 'No matching bindings found' 错误
+```
+

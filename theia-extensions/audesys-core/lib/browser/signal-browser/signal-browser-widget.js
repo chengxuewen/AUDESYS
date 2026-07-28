@@ -44,7 +44,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var SignalBrowserWidget_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SignalBrowserWidget = void 0;
-const React = __importStar(require("react"));
+const React = __importStar(require("@theia/core/shared/react"));
 const inversify_1 = require("@theia/core/shared/inversify");
 const react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 const signal_bridge_protocol_1 = require("../../common/signal-bridge-protocol");

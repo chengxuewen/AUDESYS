@@ -116,6 +116,7 @@
 | openspec-archive | ✅ | 变更归档 |
 | openspec-sync-specs | ✅ | 增量规范同步 |
 | ref-codesys/ref-beckhoff/ref-qtouch | ✅ | Studio 参考技能（7 项） |
+| think-before-act | ✅ | 先调研→列方案→审批→执行，防蛮干（不限语言/框架） |
 
 ## 架构演进 (2026-07-24)
 
@@ -136,34 +137,50 @@
 - **计划**: 7-8 周, `.sisyphus/plans/m1-3d-printer-platform/`
 
 
-## Studio 双端测试状态 (2026-07-27)
+## Studio 双端测试状态 (2026-07-27) — 已废弃（被 2026-07-28 修复取代）
 
-| 测试类别 | 状态 | 详情 |
-|----------|:----:|------|
-| Rust 编译器 (ld/il/agent) | ✅ | 38+ tests pass, 0 fail |
-| Runtime Pipeline | ✅ | 7/7 pass (0.26s) |
-| Vitest (hmi-designer) | ⚠️ | 14/14 pass signal-validation, 3 suites fail (react module resolution) |
-| 浏览器访问 | ⚠️ | IDE 加载但未渲染 (@injectable decorator duplicate) |
-| Electron 应用 | ✅ | 独立启动正常，需先修复 npm run build |
-| npm run build | ❌ | esbuild 8 errors (嵌套 @theia/* symlink 后) |
+见下方 2026-07-28 章节
 
 **Socket.IO 修复**: 捆绑 main.js 中的 engine.io allowRequest 处理器已损坏（调试残留导致所有请求返回 403）。node_modules 源码正确，仅捆绑版本受影响。已应用修复。详见 pitfalls.md。
 
-## Studio 双端构建修复 (2026-07-27)
+## Studio 双端构建修复 (2026-07-27) — 已废弃（被 2026-07-28 修复取代）
 
-- **esbuild 构建修复**: 嵌套 @theia/* 物理副本 → symlink 去重, 0 errors
-- **Socket.IO 403 修复**: main.js engine.io allowRequest 恢复 if(!success) 守卫 + ElectronTokenValidator 修补
-- **@injectable 重复修复**: 10 扩展 react/@theia 物理副本 → symlink, FrontendApplicationConfigProvider 修复
-- **token-patch.py 增强**: 4 层令牌验证全部修补 (Express + Socket.IO allowRequest/allowConnect + ElectronTokenValidator)
-- **postbuild.sh 增强**: 添加 setTheme polyfill + 修复重复代码
+见下方 2026-07-28 章节
+## Studio 双端构建修复 (2026-07-28)
 
-### 双端测试状态 (2026-07-27)
+- **esbuild 构建修复**: 删除所有扩展 node_modules → Symbol 去重 → LD/FBD 图标正常
+- **浏览器菜单修复**: theia.target 改为 browser → browser-menu-module 加载 → 原生 Web 菜单可点击
+- **React hooks 修复**: 所有扩展 React 导入改为 @theia/core/shared/react, 0 errors
+- **@audesys/theia-bridge**: 添加到 studio dependencies（扩展不再自带）
+- **LD palette onStart 移除**: 防止重复创建 widget
+- **PC+Web 共存**: theia.target=browser, 一次构建 → 三目标 (browser/node/electron), 双端功能对齐
+- **think-before-act 技能**: 新增元约束技能，先调研→列方案→审批→执行
+
+### 双端测试状态 (2026-07-28)
 
 | 测试类别 | 状态 | 详情 |
 |----------|:----:|------|
 | Rust 编译器 (ld/il/agent) | ✅ | 38+ tests pass, 0 fail |
 | Runtime Pipeline | ✅ | 7/7 pass (0.26s) |
+| E2E Smoke (S1-S6) | ✅ | 6/6 pass (24.9s) |
 | Vitest (hmi-designer) | ⚠️ | 14/14 pass signal-validation, 3 suites fail (react module) |
-| 浏览器访问 | ✅ | IDE 渲染正常, 0 Socket.IO 错误 |
-| Electron 应用 | ⚠️ | 未独立验证 |
+| 浏览器访问 | ✅ | IDE 渲染正常, 菜单栏可点击, LD/FBD 图标正常, 0 Socket.IO 错误 |
+| Electron 应用 | ✅ | 窗口启动正常, 双端功能对齐, Web 渲染菜单替代原生 |
 | npm run build | ✅ | 0 errors, 3 targets (browser/node/electron) |
+
+### 诊断清单
+
+```bash
+# Symbol 唯一性（必须 = 1）
+grep -c 'Symbol("FrontendApplicationContribution")' lib/frontend/bundle.js
+
+# React 导入检查（必须为空）
+grep -rn 'from "react"' theia-extensions/*/src packages/*/src --include="*.ts" --include="*.tsx" | grep -v "@theia/core/shared/react"
+
+# 扩展本地 node_modules 检查（必须为空）
+find theia-extensions -path "*/node_modules/@theia*" 2>/dev/null
+
+# 启动命令
+# Web:  node lib/backend/main.js --port=3100
+# PC:   npx electron lib/backend/electron-main.js
+```

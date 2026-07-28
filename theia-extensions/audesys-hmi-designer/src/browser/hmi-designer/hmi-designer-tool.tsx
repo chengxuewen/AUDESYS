@@ -4,7 +4,7 @@
  * ponytail: wraps useHmiLayout hook + sub-components in a flex layout,
  * matching the original HmiDesignerTool but without Tauri/platform deps.
  */
-import React, { useState, useCallback } from "react";
+import React from "@theia/core/shared/react";
 import { useHmiLayout } from "../hooks/useHmiLayout";
 import type { HmiWidgetType } from "../types/hmi";
 

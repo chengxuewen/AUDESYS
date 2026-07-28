@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from "react";
+import { $$$ } from "@theia/core/shared/react";
 
 // ponytail: CameraView widget — MJPEG stream over <img> (browser-native MJPEG support).
 // StreamChannel subscription not implemented yet; waits for P2 push-mode SignalBridge.
