@@ -5,9 +5,10 @@ paths:
   - "**/*.js"
   - "**/*.jsx"
 ---
-# TypeScript/JavaScript Coding Style
+# TypeScript/JavaScript Rules
 
-> This file extends [common/coding-style.md](../common/coding-style.md) with TypeScript/JavaScript specific content.
+> This file consolidates TypeScript/JavaScript-specific rules (previously in `typescript/` directory).
+> Common TS/JS principles also apply from [common/coding-style.md](../common/coding-style.md), [common/hooks.md](../common/hooks.md), [common/patterns.md](../common/patterns.md), [common/security.md](../common/security.md), [common/testing.md](../common/testing.md).
 
 ## Types and Interfaces
 
@@ -83,11 +84,6 @@ function getErrorMessage(error: unknown): string {
 - Do not use `React.FC` unless there is a specific reason to do so
 
 ```typescript
-interface User {
-  id: string
-  email: string
-}
-
 interface UserCardProps {
   user: User
   onSelect: (id: string) => void
@@ -197,3 +193,89 @@ const validated: UserInput = userSchema.parse(input)
 - No `console.log` statements in production code
 - Use proper logging libraries instead
 - See hooks for automatic detection
+
+## Hooks
+
+Configure in `~/.claude/settings.json`:
+
+- **Prettier**: Auto-format JS/TS files after edit
+- **TypeScript check**: Run `tsc` after editing `.ts`/`.tsx` files
+- **console.log warning**: Warn about `console.log` in edited files
+
+### Stop Hooks
+
+- **console.log audit**: Check all modified files for `console.log` before session ends
+
+## Patterns
+
+### API Response Format
+
+```typescript
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+  meta?: {
+    total: number
+    page: number
+    limit: number
+  }
+}
+```
+
+### Custom Hooks Pattern
+
+```typescript
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(handler)
+  }, [value, delay])
+
+  return debouncedValue
+}
+```
+
+### Repository Pattern
+
+```typescript
+interface Repository<T> {
+  findAll(filters?: Filters): Promise<T[]>
+  findById(id: string): Promise<T | null>
+  create(data: CreateDto): Promise<T>
+  update(id: string, data: UpdateDto): Promise<T>
+  delete(id: string): Promise<void>
+}
+```
+
+## Security
+
+### Secret Management
+
+```typescript
+// NEVER: Hardcoded secrets
+const apiKey = "sk-proj-xxxxx"
+
+// ALWAYS: Environment variables
+const apiKey = process.env.OPENAI_API_KEY
+
+if (!apiKey) {
+  throw new Error('OPENAI_API_KEY not configured')
+}
+```
+
+### Agent Support
+
+- Use **security-reviewer** skill for comprehensive security audits
+
+## Testing
+
+### E2E Testing
+
+Use **Playwright** as the E2E testing framework for critical user flows.
+
+### Agent Support
+
+- **e2e-runner** — Playwright E2E testing specialist

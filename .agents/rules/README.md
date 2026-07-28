@@ -1,10 +1,10 @@
 # Rules
 
-Rules are part of the `.agents/` directory, organized into a **common** layer plus **language-specific** directories:
+Rules are part of the `.agents/` directory, organized into a **common** layer plus **language-specific** files:
 
 ```text
 .agents/rules/
-├── common/          # Language-agnostic principles (always install)
+├── common/          # Language-agnostic principles (always loaded)
 │   ├── coding-style.md
 │   ├── git-workflow.md
 │   ├── testing.md
@@ -12,61 +12,35 @@ Rules are part of the `.agents/` directory, organized into a **common** layer pl
 │   ├── patterns.md
 │   ├── hooks.md
 │   ├── agents.md
-│   └── security.md
-├── typescript/      # TypeScript/JavaScript specific
-├── python/          # Python specific
-├── golang/          # Go specific
-├── web/             # Web and frontend specific
-├── swift/           # Swift specific
-└── php/             # PHP specific
+│   ├── security.md
+│   ├── code-review.md
+│   ├── development-workflow.md
+│   ├── edit-safety.md
+│   ├── decision-gates.md
+│   └── lesson-memory.md
+├── rust.md          # Rust-specific rules (consolidated)
+└── typescript.md    # TypeScript/JavaScript-specific rules (consolidated)
 ```
 
 - **common/** contains universal principles — no language-specific code examples.
-- **Language directories** extend the common rules with framework-specific patterns, tools, and code examples. Each file references its common counterpart.
-
-Rules are project-local and read directly by the AI assistant from `.agents/rules/` — no copying to `~/.claude/` needed.
-
-## Rules vs Skills
-
-- **Rules** define standards, conventions, and checklists that apply broadly (e.g., "80% test coverage", "no hardcoded secrets").
-- **Skills** (`skills/` directory) provide deep, actionable reference material for specific tasks (e.g., `python-patterns`, `golang-testing`).
-
-Language-specific rule files reference relevant skills where appropriate. Rules tell you *what* to do; skills tell you *how* to do it.
-
-## Adding a New Language
-
-To add support for a new language (e.g., `rust/`):
-
-1. Create an `.agents/rules/rust/` directory
-2. Add files that extend the common rules:
-   - `coding-style.md` — formatting tools, idioms, error handling patterns
-   - `testing.md` — test framework, coverage tools, test organization
-   - `patterns.md` — language-specific design patterns
-   - `hooks.md` — PostToolUse hooks for formatters, linters, type checkers
-   - `security.md` — secret management, security scanning tools
-3. Each file should start with:
-   ```
-   > This file extends [common/xxx.md](../common/xxx.md) with <Language> specific content.
-   ```
-4. Reference existing skills if available, or create new ones under `skills/`.
-
-For non-language domains like `web/`, follow the same layered pattern when there is enough reusable domain-specific guidance to justify a standalone ruleset.
+- **rust.md** and **typescript.md** extend the common rules with language-specific patterns, tools, and code examples. Each references its common counterpart.
 
 ## Rule Priority
 
-When language-specific rules and common rules conflict, **language-specific rules take precedence** (specific overrides general). This follows the standard layered configuration pattern (similar to CSS specificity or `.gitignore` precedence).
+When language-specific rules and common rules conflict, **language-specific rules take precedence** (specific overrides general).
 
-- `.agents/rules/common/` defines universal defaults applicable to all projects.
-- `.agents/rules/golang/`, `.agents/rules/python/`, `.agents/rules/swift/`, `.agents/rules/php/`, `.agents/rules/typescript/`, etc. override those defaults where language idioms differ.
+## Adding a New Language
 
-### Example
+To add support for a new language (e.g., consolidate a `go.md` file):
 
-`common/coding-style.md` recommends immutability as a default principle. A language-specific `golang/coding-style.md` can override this:
+1. Create `.agents/rules/go.md` with frontmatter `paths:` for matching extensions
+2. Add the file to `.opencode/opencode.json` instructions array
+3. Content should start with a reference to the relevant common rule(s)
 
-> Idiomatic Go uses pointer receivers for struct mutation — see [common/coding-style.md](../common/coding-style.md) for the general principle, but Go-idiomatic mutation is preferred here.
+## Note on Deleted Files
 
-### Common rules with override notes
-
-Rules in `.agents/rules/common/` that may be overridden by language-specific files are marked with:
-
-> **Language note**: This rule may be overridden by language-specific rules for languages where this pattern is not idiomatic.
+The following were removed during consolidation (2026-07-28):
+- 8 unused language directories (dart, golang, java, kotlin, csharp, perl, php, swift) — zero source files in project
+- `zh/` — Chinese translations (AI reads English rules from `opencode.json`)
+- `web/` — no frontmatter, never loaded by agent
+- Old per-language multi-file structure replaced by consolidated single files per language

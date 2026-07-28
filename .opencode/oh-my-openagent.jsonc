@@ -78,15 +78,15 @@
     },
 
     "metis": {
-      "model": "new-api/fast",
-      "fallback_models": ["new-api/fast-1", "new-api/fast-2"],
-      "temperature": 0.0
+      "model": "new-api/premium",
+      "fallback_models": ["new-api/premium-1", "new-api/premium-2"],
+      "temperature": 0.1
     },
 
     "momus": {
-      "model": "new-api/fast",
-      "fallback_models": ["new-api/fast-1", "new-api/fast-2"],
-      "temperature": 0.0
+      "model": "new-api/premium",
+      "fallback_models": ["new-api/premium-1", "new-api/premium-2"],
+      "temperature": 0.3
     },
 
     "sisyphus-junior": {
@@ -163,7 +163,7 @@
   // Background Tasks
   "background_task": {
     "defaultConcurrency": 8,
-    "staleTimeoutMs": 300000
+    "staleTimeoutMs": 600000
   },
 
   // Runtime Fallback (disabled, using agent-level fallback_models)
@@ -178,7 +178,7 @@
 
   // Experimental
   "experimental": {
-    "aggressive_truncation": false,  // false+DCP: skip blind truncation; compaction.auto=false in opencode.json
+    "aggressive_truncation": false,  // false: use smart compaction (compaction.auto=true in opencode.json)
     "task_system": true
   },
 
