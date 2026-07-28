@@ -150,7 +150,7 @@ AUDESYS 的产品线包括：AUDESYS Studio（统一编辑器/IDE）、AUDESYS R
 
 | 产品 | 描述 | 技术栈 | 状态 |
 |------|------|--------|------|
-| AUDESYS Studio | 统一编辑器/IDE | TypeScript + Eclipse Theia (Electron) + Monaco Editor + GLSP + napi-rs | ✅ 已实现（Theia 迁移完成） |
+| AUDESYS Studio | 统一编辑器/IDE | TypeScript + Eclipse Theia (Electron) + Monaco Editor + GLSP (LD/FBD迁移中) + napi-rs | ✅ 已实现（Theia 迁移完成） |
 | AUDESYS HAL | 硬件抽象层协议 | Rust + FlatBuffers | 🟡 详细设计完成 |
 | AUDESYS Simulator | 设备模拟器 | Rust + SimulationHarness | 🟡 Inproc MVP |
 | AUDESYS Debug | 调试桥 | Rust + DAP | ✅ DAP 已实现 |
@@ -877,13 +877,13 @@ Web 模式:
 
 > ✅ **迁移完成** — Studio 已从 Tauri+React 迁移到 Eclipse Theia（D71, 2026-07-21）。详见 `docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md`
 
-> ✅ **当前 Theia 状态**: 10/11 扩展集成完成（core, debug, hmi-designer, backend, st-editor, il-editor, gcode-editor, sfc-editor, ld-glsp, fbd-glsp）。Electron + 浏览器双端可用（3层token + 38 API polyfill）。theia-bridge 21/30 函数真实实现（6编译器+7控制器+3模拟+2项目管理）。0 测试。待办: 9 debug stub + widget 复用。
+> ✅ **当前 Theia 状态**: 10/11 扩展集成完成（core, debug, hmi-designer, backend, st-editor, il-editor, gcode-editor, sfc-editor, ld-glsp, fbd-glsp）。Electron + 浏览器双端可用（3层token + 38 API polyfill）。theia-bridge 21/30 函数真实实现（6编译器+7控制器+3模拟+2项目管理）。0 测试。注意: LD/FBD 当前为自定义 React+SVG 渲染（非真正 GLSP 架构），迁移计划见 `.sisyphus/plans/glsp-migration/plan.md`。待办: 9 debug stub + widget 复用。
 
 ### 1. 产品定位
 
 **AUDESYS Studio** 是统一编辑器/IDE，受 UE（项目类型驱动）、VS Code（插件扩展）、TIA Portal（工业组态）启发。它通过可视化编辑器配置设备模板、流程逻辑和 HMI 界面，一键打包为桌面应用或部署为 Web 服务。
 
-**技术栈（迁移后）**: Eclipse Theia (Electron) + Monaco Editor + Eclipse GLSP + Rust napi-rs
+**技术栈（迁移后）**: Eclipse Theia (Electron) + Monaco Editor + Eclipse GLSP (LD/FBD 迁移中，当前为 React+SVG) + Rust napi-rs
 
 #### 创建端 vs 运行端
 
@@ -925,7 +925,7 @@ AUDESYS
 | **Theia 骨架** | `apps/studio/` — Electron + Theia 1.73.0 应用 | ✅ 已完成 |
 | **napi-rs 绑定层** | `crates/audesys-theia-bridge/` — ~25 函数，编译为 `.node` 原生二进制 | ✅ 已完成 |
 | **Theia Backend Service** | `theia-extensions/audesys-backend/` — JSON-RPC 代理 + RBAC + 审计 | ✅ 已完成 |
-| **10 Theia 扩展** | `theia-extensions/` — core/backend/st/il/gcode/sfc/ld-glsp/fbd-glsp/hmi/debug | ✅ 已完成 |
+| **10 Theia 扩展** | `theia-extensions/` — core/backend/st/il/gcode/sfc/ld-glsp/fbd-glsp/hmi/debug | ✅ 已完成（注: LD/FBD 扩展使用自定义 React+SVG，非真正 GLSP 架构） |
 
 #### 关键发现
 
@@ -949,10 +949,10 @@ RBAC 代码:   ██████████████░░░░░░░�
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │  Theia Frontend (Electron Renderer / Browser)                │   │
 │  │  ┌─────────┐ ┌──────────┐ ┌────────────┐ ┌───────────┐     │   │
-│  │  │ Monaco  │ │ GLSP     │ │ Custom     │ │ Theia     │     │   │
-│  │  │ Editor  │ │ Editor   │ │ React      │ │ Widgets   │     │   │
-│  │  │ (ST/IL/ │ │ (LD/FBD) │ │ Widgets    │ │ (Tree,    │     │   │
-│  │  │ G-code) │ │          │ │ (HMI/Scope)│ │  Panel)   │     │   │
+│  │  │ Monaco  │ │ React+SVG  │ │ Custom     │ │ Theia     │     │   │
+│  │  │ Editor  │ │ (LD/FBD)   │ │ React      │ │ Widgets   │     │   │
+│  │  │ (ST/IL/ │ │ →GLSP迁移  │ │ Widgets    │ │ (Tree,    │     │   │
+│  │  │ G-code) │ │ 计划中     │ │ (HMI/Scope)│ │  Panel)   │     │   │
 │  │  └─────────┘ └──────────┘ └────────────┘ └───────────┘     │   │
 │  └──────────────────────┬───────────────────────────────────┘     │   │
 │                         │ JSON-RPC (WebSocket)                   │   │
@@ -1042,15 +1042,15 @@ RBAC 代码:   ██████████████░░░░░░░�
 | **Data Designer** | data | 数据模型设计（表结构/字段） | Drizzle schema | 📄 设计 |
 | **Debug** | debug | MCAP 回放 + RPC 调试 + Topic 监控 | 已有 Debug SPA | ✅ 已实现 |
 | **ST/IL/G-code** | text | 文本编程语言 | **Monaco Editor**（Theia 内置）+ Monarch tokenizer | ✅ Theia 扩展已完成 |
-| **LD** | graph | 梯形图编程 | **Eclipse GLSP** + GModel + tool palette | ✅ GLSP 扩展已完成 |
-| **FBD** | graph | 功能块图编程 | **Eclipse GLSP** + GModel + tool palette | ✅ GLSP 扩展已完成 |
+| **LD** | graph | 梯形图编程 | 自定义 React+SVG (ReactWidget) → GLSP 迁移计划中 (Phase 0-3) | 🟡 React+SVG 实现，GLSP 迁移计划中 |
+| **FBD** | graph | 功能块图编程 | 自定义 React+SVG (ReactWidget) → GLSP 迁移计划中 (Phase 4) | 🟡 React+SVG 实现，GLSP 服务端缺失，迁移计划中 |
 | **SFC** | text | 顺序功能图编程 | **Monaco Editor**（Theia 内置）+ Monarch tokenizer | ✅ Theia 扩展已完成 |
 
-> **已实现编辑器（Theia 扩展）**: ST/IL/G-code/SFC (Monaco Editor + Monarch tokenizer)、LD/FBD (Eclipse GLSP 图形编辑器)、HMI 可视化设计器 (react-rnd + SVG widget 通过 ReactWidget 桥接)。
-> **Theia 迁移状态**: 骨架、napi-rs 桥接、10 个扩展均已完成。ST/IL/G-code/SFC 使用 Monaco Editor + Monarch tokenizer，LD/FBD 使用 GLSP 图形编辑器。HMI 设计器通过 ReactWidget 桥接。面板系统、打包和 E2E 测试进行中（P1 Phase 3-4）。
+> **已实现编辑器（Theia 扩展）**: ST/IL/G-code/SFC (Monaco Editor + Monarch tokenizer)、LD/FBD (自定义 React+SVG 渲染，GLSP 迁移计划中)、HMI 可视化设计器 (react-rnd + SVG widget 通过 ReactWidget 桥接)。
+> **Theia 迁移状态**: 骨架、napi-rs 桥接、10 个扩展均已完成。ST/IL/G-code/SFC 使用 Monaco Editor + Monarch tokenizer，LD/FBD 使用自定义 React+SVG 渲染（非真正 GLSP 架构）。HMI 设计器通过 ReactWidget 桥接。面板系统、打包和 E2E 测试进行中（P1 Phase 3-4）。
 > **愿景编辑器**: Flow Designer (DAG 流程, @xyflow/react)、Data Designer (数据模型, Drizzle schema)、App Builder (无代码)。
 > **编译器策略**: 当前为自研 6 种编译器（5 IEC + G-code），全部编译到 HalProgram 后端，Theia 迁移后通过 napi-rs 调用，编译器代码零修改。
-> **GLSP 规模警告（三审修正）**: LD 编辑器 6-10 周、FBD 编辑器 4-6 周。备选方案：@xyflow/react LD/FBD 通过 ReactWidget 迁移（1-2 周 vs 6-10 周）。详见迁移设计文档 §10.1。
+> **GLSP 迁移计划**: LD 编辑器执行完整 GLSP 迁移（Phase 0-3: 基础设施→客户端→服务端→测试），FBD 跟进（Phase 4）。当前为自定义 React+SVG 实现（929行 LdEditorWidget），sprotty/GLSP 依赖未安装。ld-views.tsx (323行 Sprotty IView) 已写但未使用。详见 `.sisyphus/plans/glsp-migration/plan.md`（Route C，预计 11-17 天）。
 
 ---
 

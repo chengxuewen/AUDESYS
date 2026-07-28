@@ -2,7 +2,7 @@
 
 > **来源**: `docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md`
 > **总项数**: 50
-> **决策**: 从 Tauri+React 自建架构迁移到 Eclipse Theia 框架（2026-07-21）
+> **总项数**: 54
 > **时间线**: 22-31 周（5 个 Phase，三审修订后）
 > **前置**: Fork VS Code 已排除，CodeBlitz 已排除
 
@@ -64,11 +64,12 @@
 
 ---
 
-## 3. STH-GLSP — GLSP 图形编辑器集成 (10 项)
+## 3. STH-GLSP — GLSP 图形编辑器集成 (14 项)
 
 > **参考**: Neuron Automation（logi.cals 基于 Theia+GLSP 的 IEC 61131-3 IDE）
 > **规模**: LD 单独 5000-9000 行（GModel 800-1500 + GLSP 操作 1200-2000 + 工具面板 400-600 + 布局引擎 1000-2000 + 属性视图 500-800 + Theia 集成 600-1000 + IEC 61131-3 特性 600-1000）
 > **Phase 2a**: LD 6-10 周，Phase 2b: FBD 4-6 周
+> **迁移计划**: `.sisyphus/plans/glsp-migration/plan.md`（Phase 0-3 LD + Phase 4 FBD）
 
 **STH-021**: LD GModel — 梯形图图形模型定义：ContactNode（常开/常闭）、CoilNode（普通/取反/置位/复位）、PowerRail（左母线/右母线）、WireConnection（连线）、Rung（梯级容器）
 
@@ -90,6 +91,15 @@
 
 **STH-030**: Theia GLSP 集成 — diagram 配置文件注册（.ld → LD Editor, .fbd → FBD Editor）、CSS 主题适配（深色/浅色）、Toolbar 贡献点（撤销/重做/缩放/对齐/网格切换）
 
+**STH-031**: GLSP Client 架构 — Sprotty SVG 渲染管线：GLSP Client (@eclipse-glsp/client) 通过 JSON-RPC over WebSocket 连接到 GLSP Server；Sprotty IView 自定义节点渲染（复用 ld-views.tsx 的 ContactView/CoilView）；ToolPalette 和 ContextMenu 由 GLSP 原生管理
+
+**STH-032**: GLSP Server 架构 — Node.js JSON-RPC 服务端 (@eclipse-glsp/server)：LdDiagramModule 注册 DiagramConfiguration、OperationHandlers（CreateNodeOperationHandler、DeleteElementOperationHandler、ChangeContactTypeOperationHandler、CompileActionHandler）；GModelState 管理源模型生命周期；JSON-RPC over WebSocket 传输协议
+
+**STH-033**: GLSP 节点类型 — 梯形图 GModel 节点体系：ContactNode（常开/常闭, type 切换 via ChangeContactTypeOperation）、CoilNode（普通/取反/置位/复位）、PowerRailNode（左/右母线, 只读, 自动生成）、FbPlaceholderNode（功能块占位符, 待 Phase 4 扩展）、WireConnection（连线, 正交路由）、Rung（梯级容器, id 自动 001-999 编号）
+
+**STH-034**: napi-rs Compiler Bridge — GLSP Server 通过 napi-rs 调用 Rust 编译器：客户端发送 RequestCompileAction → GLSP Server CompileActionHandler → napi-rs → audesys-ld-compiler → HalProgram；编译结果（diagnostics 数组、programJson 字符串）通过 JSON-RPC 返回客户端；napi-rs 调用在 worker_thread 池中执行（避免阻塞 GLSP Server 主线程）
+
+
 ---
 
 ## 4. STH-MONACO — Monaco 语言服务器 (10 项)
@@ -98,25 +108,25 @@
 > **规模**: ST Monarch tokenizer 400-700 行，IL 需自定义 tokenizer，G-code 200-300 行
 > **LSP 集成**: 通过 napi-rs 桥接 Rust 编译器诊断
 
-**STH-031**: ST Monarch tokenizer — 结构化文本语法高亮（400-700 行）：大小写不敏感关键字（IF/THEN/ELSE/END_IF/FOR/WHILE/CASE/FUNCTION_BLOCK 等）、IEC 类型（BOOL/INT/REAL/STRING/TIME）、注释（(*...*)）、字符串
+**STH-035**: ST Monarch tokenizer — 结构化文本语法高亮（400-700 行）：大小写不敏感关键字（IF/THEN/ELSE/END_IF/FOR/WHILE/CASE/FUNCTION_BLOCK 等）、IEC 类型（BOOL/INT/REAL/STRING/TIME）、注释（(*...*)）、字符串
 
-**STH-032**: ST 补全提供器 — Monaco CompletionItemProvider：IEC 类型自动补全、关键字补全、已定义变量/功能块补全（从 Rust 编译器符号表获取）
+**STH-036**: ST 补全提供器 — Monaco CompletionItemProvider：IEC 类型自动补全、关键字补全、已定义变量/功能块补全（从 Rust 编译器符号表获取）
 
-**STH-033**: ST 诊断 — napi-rs 编译错误 → Monaco markers：错误行号、错误消息、严重程度（Error/Warning/Info）；去抖动 500ms 后触发编译
+**STH-037**: ST 诊断 — napi-rs 编译错误 → Monaco markers：错误行号、错误消息、严重程度（Error/Warning/Info）；去抖动 500ms 后触发编译
 
-**STH-034**: ST 语义标记 — 通过 LSP（非 Monarch）实现变量/函数块/类型的高亮区分；napi-rs 返回 semantic tokens 数组 → Monaco DocumentSemanticTokensProvider
+**STH-038**: ST 语义标记 — 通过 LSP（非 Monarch）实现变量/函数块/类型的高亮区分；napi-rs 返回 semantic tokens 数组 → Monaco DocumentSemanticTokensProvider
 
-**STH-035**: ST 代码折叠 — Monarch folding provider：IF/END_IF、FOR/END_FOR、WHILE/END_WHILE、CASE/END_CASE、FUNCTION_BLOCK/END_FUNCTION_BLOCK 配对折叠
+**STH-039**: ST 代码折叠 — Monarch folding provider：IF/END_IF、FOR/END_FOR、WHILE/END_WHILE、CASE/END_CASE、FUNCTION_BLOCK/END_FUNCTION_BLOCK 配对折叠
 
-**STH-036**: IL tokenizer — 指令表自定义 tokenizer（Monarch 默认无状态，IL 基于累加器模型）：LD/ST/AND/OR/ADD/SUB/MUL/DIV/JMP 等指令高亮、累加器值注释、标签识别（LABEL:）
+**STH-040**: IL tokenizer — 指令表自定义 tokenizer（Monarch 默认无状态，IL 基于累加器模型）：LD/ST/AND/OR/ADD/SUB/MUL/DIV/JMP 等指令高亮、累加器值注释、标签识别（LABEL:）
 
-**STH-037**: G-code Monarch tokenizer — RS274 子集语法高亮（200-300 行）：G 代码（G0/G1/G2/G3/G17-G21/G90/G91）、M 代码（M3/M4/M5/M30）、坐标轴（X/Y/Z/A/B/C）、进给率（F）、主轴转速（S）
+**STH-041**: G-code Monarch tokenizer — RS274 子集语法高亮（200-300 行）：G 代码（G0/G1/G2/G3/G17-G21/G90/G91）、M 代码（M3/M4/M5/M30）、坐标轴（X/Y/Z/A/B/C）、进给率（F）、主轴转速（S）
 
-**STH-038**: 快速修复 — Monaco CodeActionProvider：编译器错误 → 建议修复（如 "undeclared variable 'x'" → "declare x as INT"），通过 napi-rs 获取修复建议列表
+**STH-042**: 快速修复 — Monaco CodeActionProvider：编译器错误 → 建议修复（如 "undeclared variable 'x'" → "declare x as INT"），通过 napi-rs 获取修复建议列表
 
-**STH-039**: 文档符号 — Monaco DocumentSymbolProvider：解析 PROGRAM、FUNCTION、FUNCTION_BLOCK 结构，生成 POU 树（程序组织单元层级）
+**STH-043**: 文档符号 — Monaco DocumentSymbolProvider：解析 PROGRAM、FUNCTION、FUNCTION_BLOCK 结构，生成 POU 树（程序组织单元层级）
 
-**STH-040**: 大纲视图 — Theia Outline View 贡献：显示当前文件的 POU 树（Program → Function/FB → 变量/方法），点击跳转到定义位置
+**STH-044**: 大纲视图 — Theia Outline View 贡献：显示当前文件的 POU 树（Program → Function/FB → 变量/方法），点击跳转到定义位置
 
 ---
 
@@ -127,22 +137,22 @@
 > **CI**: GitHub Actions macOS × Linux × Windows 矩阵
 > **包体积**: DMG < 200MB, 安装后 < 550MB
 
-**STH-041**: macOS DMG 构建 — electron-builder 配置：target=dmg、代码签名（Apple Developer ID）、公证（notarize: true）、Hardened Runtime 启用
+**STH-045**: macOS DMG 构建 — electron-builder 配置：target=dmg、代码签名（Apple Developer ID）、公证（notarize: true）、Hardened Runtime 启用
 
-**STH-042**: Windows 构建 — electron-builder 配置：target=nsis+msi、Authenticode 签名、安装目录 Program Files、开始菜单快捷方式
+**STH-046**: Windows 构建 — electron-builder 配置：target=nsis+msi、Authenticode 签名、安装目录 Program Files、开始菜单快捷方式
 
-**STH-043**: Linux AppImage 构建 — electron-builder 配置：target=AppImage、无签名要求、Desktop Entry 注册、MIME 类型关联（.st/.il/.gcode）
+**STH-047**: Linux AppImage 构建 — electron-builder 配置：target=AppImage、无签名要求、Desktop Entry 注册、MIME 类型关联（.st/.il/.gcode）
 
-**STH-044**: napi-rs 交叉编译 — 四目标预编译：macOS x86_64、macOS ARM64 (Apple Silicon)、Linux x86_64、Windows x86_64；使用 GitHub Actions matrix 或 Zig 交叉编译
+**STH-048**: napi-rs 交叉编译 — 四目标预编译：macOS x86_64、macOS ARM64 (Apple Silicon)、Linux x86_64、Windows x86_64；使用 GitHub Actions matrix 或 Zig 交叉编译
 
-**STH-045**: CI 流水线 — GitHub Actions：macOS 14 (ARM64) + macOS 13 (x86_64) + ubuntu-latest + windows-latest 矩阵；qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ electron-builder 打包
+**STH-049**: CI 流水线 — GitHub Actions：macOS 14 (ARM64) + macOS 13 (x86_64) + ubuntu-latest + windows-latest 矩阵；qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ electron-builder 打包
 
-**STH-046**: 包体积限制 — DMG < 200MB（移除不需要的内置扩展：TypeScript/HTML/Java 语言服务）；安装后 < 550MB（含 .node 原生二进制 ~50MB + Electron 运行时 ~180MB + VS Code 扩展 ~100MB）
+**STH-050**: 包体积限制 — DMG < 200MB（移除不需要的内置扩展：TypeScript/HTML/Java 语言服务）；安装后 < 550MB（含 .node 原生二进制 ~50MB + Electron 运行时 ~180MB + VS Code 扩展 ~100MB）
 
-**STH-047**: 自动更新 — electron-updater 集成：启动时检查 GitHub Releases 最新版本、差分更新（delta 补丁 < 50MB）、静默下载 + 下次启动安装
+**STH-051**: 自动更新 — electron-updater 集成：启动时检查 GitHub Releases 最新版本、差分更新（delta 补丁 < 50MB）、静默下载 + 下次启动安装
 
-**STH-048**: VS Code 扩展预装 — 白名单机制：10 个核心扩展（LSP servers、GitLens、主题等）打包进 installer；启动时不从 Open VSX 拉取（离线可用）
+**STH-052**: VS Code 扩展预装 — 白名单机制：10 个核心扩展（LSP servers、GitLens、主题等）打包进 installer；启动时不从 Open VSX 拉取（离线可用）
 
-**STH-049**: 启动时间 — 冷启动 < 5s（首次启动，含扩展激活）、热启动 < 2s（已缓存）；测量项：Electron 启动 → Theia workbench 可交互
+**STH-053**: 启动时间 — 冷启动 < 5s（首次启动，含扩展激活）、热启动 < 2s（已缓存）；测量项：Electron 启动 → Theia workbench 可交互
 
-**STH-050**: 内存占用 — 空闲状态 < 300MB（仅打开空工作区）、编辑状态 < 500MB（打开 1 个 ST 文件 + Monaco + LSP）；使用 Chrome DevTools Memory 快照测量
+**STH-054**: 内存占用 — 空闲状态 < 300MB（仅打开空工作区）、编辑状态 < 500MB（打开 1 个 ST 文件 + Monaco + LSP）；使用 Chrome DevTools Memory 快照测量

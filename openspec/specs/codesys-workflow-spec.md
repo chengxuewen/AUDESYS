@@ -1,6 +1,6 @@
 # AUDESYS Studio CODESYS 工作流 SDD 规范
 
-> **来源**: `theia-extensions/audesys-core/src/browser/iec-new-file-contribution.ts` + `theia-extensions/audesys-ld-glsp/src/editor/ld-editor-contribution.ts` + `crates/audeys-theia-bridge/` + `docs/modules/runtime/panel-architecture-design.md`
+> **来源**: `theia-extensions/audesys-core/src/browser/iec-new-file-contribution.ts` + `.sisyphus/plans/glsp-migration/plan.md` + `crates/audeys-theia-bridge/` + `docs/modules/runtime/panel-architecture-design.md`
 > **总项数**: 30
 > **工作流**: 工程创建 → 文件创建 → LD 编辑 → 编译 → 部署 → 调试 → HMI 绑定
 > **关联决策**: D22, D25, D55, D56, D57, D68, D71
@@ -196,7 +196,7 @@ FBD、SFC、IL、HMI、G-code 各有独立模板，生成方式与 ST/LD 一致�
   - 非 .ld 文件 → `canHandle` 返回 0，由其他 OpenHandler 处理
 - **测试**: `test_ld_file_opens_glsp_editor` (Playwright E2E)
 
-> **实现参考**: `LdEditorOpenHandler.canHandle()` / `open()` — `ld-editor-contribution.ts:81-134`
+> **实现参考**: `GLSP Theia Integration` — `ld-theia-glsp-module.ts` (Phase 1, `.sisyphus/plans/glsp-migration/plan.md` — 迁移后替换为 `@eclipse-glsp/theia-integration` DiagramOpener)
 
 ### WF-LD-002: 工具面板拖放触点
 
@@ -249,7 +249,7 @@ LD 编辑器支持标准的 Undo/Redo 操作链。
   - 外部文件变更（其他编辑器修改同文件）→ Undo 历史失效，提示重新加载
 - **测试**: `test_ld_undo_redo_chain` (vitest, 基于 `LdGModelState`)
 
-> **实现参考**: `LdEditorCommandContribution.undo()` / `redo()` — `ld-editor-contribution.ts:262-269`
+> **实现参考**: `GLSP UndoRedoOperationHandler` (Phase 2, `.sisyphus/plans/glsp-migration/plan.md` — 迁移后由 GLSP Server 的 OperationHandler 管理)
 
 ### WF-LD-005: 梯形图保存
 
@@ -267,7 +267,7 @@ LD 编辑器将当前 GModel 序列化为 JSON 并写回 .ld 文件。
   - 序列化失败（模型数据异常）→ 错误提示 `"Failed to serialize LD graph"`
 - **测试**: `test_ld_save_writes_gmodel_json` (vitest)
 
-> **实现参考**: `LdEditorCommandContribution.save()` — `ld-editor-contribution.ts:232-258`
+> **实现参考**: `GLSP GModelState.save()` (Phase 2, `.sisyphus/plans/glsp-migration/plan.md` — 迁移后由 GModelState 持久化到 .ld JSON)
 
 ---
 
@@ -291,7 +291,7 @@ LD 编辑器右键 Compile 触发完整编译链：LD GModel → IL 中间表示
   - 编译超时 30s → `success: false`，消息 `"Compilation timed out"`
 - **测试**: `test_ld_compile_basic` (vitest), `test_ld_compile_with_error` (vitest)
 
-> **实现参考**: `LdEditorCommandContribution.compile()` — `ld-editor-contribution.ts:210-228`
+> **实现参考**: `GLSP CompilerBridge` — napi-rs → `audesys-ld-compiler` (Phase 2, `.sisyphus/plans/glsp-migration/plan.md` — 迁移后由 GLSP Server 的 CompileActionHandler 触发)
 
 ### WF-COMPILE-002: 编译输出格式
 
