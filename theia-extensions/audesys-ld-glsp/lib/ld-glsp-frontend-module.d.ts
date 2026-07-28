@@ -3,7 +3,7 @@
  *
  * Phase 1 (GLSP migration): Editor open/compile/undo/redo superseded by
  * GLSP Theia Integration. Kept: LdToolState, LdGModelState, LdOperationHandler,
- * LdPropertyState, LdPaletteContribution.
+ * LdPaletteContribution. (LdPropertyState bound in ld-property-frontend-module)
  */
 import { ContainerModule } from '@theia/core/shared/inversify';
 declare const _default: ContainerModule;
