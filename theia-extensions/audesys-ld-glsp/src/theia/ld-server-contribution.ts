@@ -17,7 +17,7 @@ export class LdServerContribution extends GLSPSocketServerContribution {
 
     createContributionOptions(): Partial<GLSPSocketServerContributionOptions> {
         return {
-            executable: require.resolve('../../src/server/index'),
+            executable: require.resolve('../../lib/server/index'),
             socketConnectionOptions: {
                 port: getPort(PORT_ARG_KEY, DEFAULT_PORT),
                 host: '127.0.0.1'

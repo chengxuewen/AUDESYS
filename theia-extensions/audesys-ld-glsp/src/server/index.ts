@@ -320,3 +320,21 @@ export class LdDiagramModule extends GModelDiagramModule {
         binding.add(LdCompileHandler as unknown as OperationHandlerConstructor);
     }
 }
+
+// Standalone launcher — used when running as a separate server process
+import { createAppModule, createSocketCliParser, ServerModule, SocketServerLauncher } from '@eclipse-glsp/server/node';
+import { Container } from 'inversify';
+
+export async function launch(argv: string[] = process.argv): Promise<void> {
+    const options = createSocketCliParser().parse(argv);
+    const appContainer = new Container();
+    appContainer.load(createAppModule(options));
+    const launcher = appContainer.resolve(SocketServerLauncher);
+    const serverModule = new ServerModule().configureDiagramModule(new LdDiagramModule());
+    launcher.configure(serverModule);
+    launcher.start({ port: options.port, host: options.host });
+}
+
+if (require.main === module) {
+    launch().catch(error => console.error('LD GLSP server failed:', error));
+}

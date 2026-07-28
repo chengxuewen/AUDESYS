@@ -149,3 +149,7 @@ apps/studio-theia-test/node_modules/
 theia-*.png
 signal-*.png
 *.png
+
+# Theia extension build artifacts
+theia-extensions/*/lib/
+theia-extensions/*/node_modules/

@@ -7,7 +7,7 @@
   "main": "lib/backend/electron-main.js",
   "license": "Apache-2.0",
   "theia": {
-    "target": "browser",
+    "target": "electron",
     "frontend": {
       "config": {
         "applicationName": "AUDESYS Studio",

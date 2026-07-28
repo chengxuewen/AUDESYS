@@ -477,3 +477,8 @@
 - **问题**: 127 个单元/集成测试全部通过，但未发现浏览器白屏问题
 - **原因**: 所有测试都是逻辑层验证（OperationHandler、IView 渲染、ModelState），没有 E2E 冒烟测试验证 Theia 启动和页面渲染
 - **方案**: 每次构建后必须运行 E2E 冒烟测试（`startup-browser.spec.ts`），验证 HTTP 200 + 无 403 + 无 @injectable 错误 + IDE shell 渲染
+
+### F12 DevTools 不弹出
+- **问题**: Electron 窗口按下 F12 / Cmd+Option+I 无反应，DevTools 无法打开
+- **原因**: Theia 拦截了键盘事件，路由到 IPC 调用 `webContents.openDevTools()`，但 IPC 通道在应用初始化完成前不可用。`--auto-open-devtools-for-tabs` 通过 `theia start --electron-args` 传递时也会失效
+- **方案**: 在 `lib/backend/electron-main.js` 中直接注册 `globalShortcut.register('F12', ...)` 和 `Cmd+Option+I`，绕过 Theia 的 IPC 机制。已集成到 `fix-tokens.py` 自动修补

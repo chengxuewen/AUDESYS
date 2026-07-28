@@ -77,6 +77,21 @@ if n > 0:
     m = m.replace(old_sio_ac, new_sio_ac)
     print(f'6) Socket.IO allowConnect: {n} instances patched')
 
+# 7) F12 DevTools shortcut for Electron mode
+EM = 'lib/backend/electron-main.js'
+if os.path.exists(EM):
+    with open(EM, 'r') as f:
+        em = f.read()
+    old_dt1 = "electron_1.app.whenReady().then(async () => {"
+    new_dt1 = "electron_1.app.whenReady().then(async () => {\n            electron_1.globalShortcut.register('F12', () => { electron_1.BrowserWindow.getFocusedWindow()?.webContents.toggleDevTools(); });\n            electron_1.globalShortcut.register('CommandOrControl+Option+I', () => { electron_1.BrowserWindow.getFocusedWindow()?.webContents.toggleDevTools(); });\n            console.log('DevTools shortcuts registered: F12, Cmd+Option+I');"
+    if old_dt1 in em and 'DevTools shortcuts registered' not in em:
+        em = em.replace(old_dt1, new_dt1)
+        with open(EM, 'w') as f:
+            f.write(em)
+        print('7) F12 DevTools: 1 instance patched')
+    else:
+        print('7) F12 DevTools: already patched or not found')
+
 with open(MAIN, 'w') as f:
     f.write(m)
 print('Done. Browser connections should now work.')
