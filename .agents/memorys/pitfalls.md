@@ -397,3 +397,83 @@
 1. cargo test -p audesys-ld-compiler -p audesys-il-compiler -p audesys-agent
 2. cargo test -p audesys-runtime --test pipeline_test
 3. cd theia-extensions/audesys-hmi-designer && npx vitest run
+
+## GLSP 依赖陷阱 (2026-07-27)
+
+### sprotty-theia 死依赖 — GLSP 2.x 已废弃
+- **问题**: theia-extensions/audesys-ld-glsp/package.json 声明 sprotty-theia ^0.12.0 作为依赖，但 GLSP 2.0（2023 年 10 月发布）已移除 sprotty-theia，由 @eclipse-glsp/theia-integration 替代
+- **原因**: 代码从 GLSP 1.x 时期迁移而来，依赖声明从未更新。npm install 从未真正拉取 sprotty-theia（package.json 中声明但 node_modules 不存在）
+- **方案**: 删除 sprotty-theia 依赖，替换为 @eclipse-glsp/theia-integration（2.7.0 版本锁定）。参考 .sisyphus/plans/glsp-migration/plan.md T0.1
+
+### GLSP 核心依赖声明但未安装
+- **问题**: @eclipse-glsp/client、@eclipse-glsp/protocol、@eclipse-glsp/server-node 在 package.json 中声明，但 node_modules 中不存在对应包
+- **原因**: 依赖声明是迁移意图的残留，实际 npm install 从未执行过 GLSP 包的安装（可能被 npm dedupe 或后续 package.json 清理移除）
+- **方案**: 按计划 T0.1 重新安装正确版本：@eclipse-glsp/client 2.7.0、@eclipse-glsp/protocol 2.7.0、@eclipse-glsp/server 2.7.0
+
+### React+SVG 混合架构 — 非真正 GLSP
+- **问题**: LdEditorWidget（929 行）使用 React+SVG 自定义渲染，通过 @xyflow/react 流程图库绘制，而非真正的 GLSP 图模型
+- **原因**: 早期实现选择了 React+SVG 快速原型路径，与 GLSP 生态不集成。缺少 GLSP 提供的图模型管理、Command Framework、Undo/Redo、脏状态等能力
+- **方案**: 按 Route C 计划进行全面 GLSP 迁移：Phase 1 实现 GLSP Client 连接，Phase 2 实现服务端，复用 ld-views.tsx（323 行 Sprotty IView）作为 IView 渲染组件
+
+### LdSprottyDiagramWidget — 导出但从未实例化
+- **问题**: LdSprottyDiagramWidget 在 src/ 中导出，但从未被任何 DI 容器实例化或绑定
+- **原因**: 该 widget 是 GLSP 迁移的早期尝试，但从未连接 DI 容器。属于死代码
+- **方案**: 在 GLSP 迁移 Phase 1 中，GLSP Theia 集成通过 DiagramOpener 创建 GLSPDiagramWidget，不再需要 LdSprottyDiagramWidget
+
+### server/index.ts — 死代码
+- **问题**: theia-extensions/audesys-ld-glsp/src/server/index.ts 定义了 launchLdServer() 和 LdDiagramModule，但从未被任何入口文件调用
+- **原因**: 服务端代码是 GLSP 迁移架构的预留，但缺少 Theia 后端入口的注册。package.json 中 theiaExtensions 字段未注册 backend 入口
+- **方案**: 按计划 Phase 1 注册 Theia 后端入口，连接 GLSP Server 启动器到 Theia 生命周期
+
+## Theia 浏览器模式 404 (2026-07-28)
+
+### BackendApplicationServer 绑定覆盖导致静态文件不服务
+- **问题**: Theia 浏览器模式返回 404，前端 HTML/JS 无法加载
+- **原因**: `@eclipse-glsp/theia-integration` 等模块先绑定了 `BackendApplicationServer`，但不含 `express.static` 中间件。`server.js` 中的 `isBound` 检查跳过了 `defaultServeStatic` 注册
+- **方案**: 在 `lib/backend/main.js` 的 `start()` 函数中无条件调用 `defaultServeStatic(app)`，绕过 `isBound` 检查
+- **社区先例**: Theia issue #15660 (2025-05) 官方正在开发 `theia build` 自动检测重复扩展
+
+### @injectable 装饰器重复
+- **问题**: 浏览器控制台报 `Cannot apply @injectable decorator multiple times`，IDE 白屏
+- **原因**: npm 为不同 `@theia/*` 子包安装了不同版本的 `@theia/core`（如 1.73.0 vs 1.73.1），导致 inversify 容器中有多个装饰器定义
+- **方案**: (a) 固定所有直接 `@theia/*` 依赖为精确版本 `1.73.0`（不用 `^`）；(b) 对非直接依赖添加 npm overrides；(c) `npm dedupe` 去重
+- **社区先例**: Theia issue #3780, #7248, #7390, #10859；GLSP theia-integration README 推荐 resolutions/overrides
+- **验证**: `npm ls @theia/core` 应只显示一个版本；`theia check:theia-extensions` 检测重复扩展
+
+### postbuild.sh 正则补丁破坏 main.js
+- **问题**: `token-patch.py` 使用贪婪正则 `[^}]*wsRequestValidator[^}]*\}` 替换 Socket.IO allowRequest，但匹配越界导致 `});` 残留和 `catch` 无 `try`
+- **原因**: 正则 `[^}]*` 在多层嵌套的 JS 代码中不可靠，会跨过方法边界
+- **方案**: 使用精确字符串匹配（Python `str.replace()`）替代正则；或用 AST 解析工具
+- **教训**: 对打包后的 JS 文件做补丁，永远用精确字符串匹配，不用正则
+
+### npm overrides 对直接依赖无效
+- **问题**: `npm install` 报 `EOVERRIDE: Override for @theia/console@^1.73.0 conflicts with direct dependency`
+- **原因**: npm overrides 不能覆盖直接依赖的版本，只能覆盖传递依赖
+- **方案**: 直接依赖用精确版本（`"1.73.0"` 而非 `"^1.73.0"`），传递依赖用 overrides
+
+### Playwright 浏览器未安装
+- **问题**: Playwright 测试报 `Executable doesn't exist at .../chromium_headless_shell-...`
+- **原因**: `npx playwright install` 未在 CI/开发环境中执行
+- **方案**: 在 postinstall 或 CI 脚本中添加 `npx playwright install chromium`
+
+## 编辑安全失误总结 (2026-07-28)
+
+### 缺少闭合括号 ×3
+- **问题**: 编辑 server/index.ts 时多次丢失类的闭合 `}`，导致 TypeScript 编译失败
+- **原因**: 使用 `edit` 工具替换跨类边界的代码范围时，替换文本未包含闭合括号
+- **方案**: (a) 编辑后执行 `grep -c '{' file && grep -c '}' file` 验证括号匹配；(b) 对复杂文件用 `write` 完整重写而非增量 `edit`
+
+### 重复 import 行
+- **问题**: 团队并发编辑后，ld-editor-widget.tsx 出现重复的 import 行
+- **原因**: 多个代理同时修改同一文件，后写入者未检查已有内容
+- **方案**: 编辑前先 `grep` 检查目标符号是否已存在
+
+### 变量名覆盖 (h 覆盖 snabbdom h())
+- **问题**: ld-gmodel-views.ts 中 `const h = model.size?.height ?? 60` 覆盖了 snabbdom 的 `h()` 函数
+- **原因**: 使用 `sed` 批量替换时未检查变量名冲突
+- **方案**: 重命名变量前 `grep` 所有同名引用；避免使用单字母变量名
+
+### 测试覆盖盲区
+- **问题**: 127 个单元/集成测试全部通过，但未发现浏览器白屏问题
+- **原因**: 所有测试都是逻辑层验证（OperationHandler、IView 渲染、ModelState），没有 E2E 冒烟测试验证 Theia 启动和页面渲染
+- **方案**: 每次构建后必须运行 E2E 冒烟测试（`startup-browser.spec.ts`），验证 HTTP 200 + 无 403 + 无 @injectable 错误 + IDE shell 渲染

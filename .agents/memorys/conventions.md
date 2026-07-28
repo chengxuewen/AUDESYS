@@ -46,6 +46,14 @@
 - Zod 用于模式验证（边界层）
 - 禁止 `console.log`（生产代码），禁止 `as any` / `@ts-ignore`
 
+### 编辑代码约束
+1. 编辑前读取目标区域 ±5 行
+2. 编辑后立即 `tsc --noEmit` 验证语法
+3. 同一文件 3+ 次 edit → 改用 write 整体重写
+4. range replace 的 end 锚点禁止选闭合括号行
+5. 同一文件第 2 次 edit 前必须 re-read
+6. 编辑后 `grep -c '{' file && grep -c '}' file` 验证括号匹配
+
 ## HAL 协议设计约定
 - 命名规范：Signal = `component.interface.name`，StreamChannel = `domain.stream_name`，RPC = `action.{id}.{status|feedback}`（命名模式，非第四原语）
 - 组件名：kebab-case，Pin 名：snake_case

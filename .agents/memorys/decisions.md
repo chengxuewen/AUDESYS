@@ -529,3 +529,36 @@
 - **日期**: 2026-07-24
 - **决定**: M1 以光固化 3D 打印机为实战项目。7 子任务: Agent→ST→FBD→SFC→HMI→IO→收尾。M2-M6 按 Hub→巡逻车→多机→云端→生态。
 - **参考**: `docs/superpowers/specs/2026-07-24-robotics-architecture-design.md` §46, `.sisyphus/plans/m1-3d-printer-platform/`
+
+## D92: LD/FBD GLSP 迁移 = Route C（LD 先行→FBD 跟进）
+- **日期**: 2026-07-27
+- **决定**: LD 编辑器从当前 React+SVG 自定义方案迁移到完整 Eclipse GLSP 架构，采用 Route C（LD 先行→FBD 跟进）。迁移目标：前端 GLSP Client（Sprotty）通过 JSON-RPC/WebSocket 连接 GLSP Server（Node.js），Server 通过 napi-rs 桥接 Rust 编译器。GLSP Theia 集成（@eclipse-glsp/theia-integration）自动处理 .ld 文件打开、dirty state、save、undo/redo，替换当前 LdEditorWidget（929 行 React+SVG）和 LdOperationHandler 直接调用模式。FBD 编辑器复用相同模式。
+- **理由**: (a) 当前 React+SVG 方案与 Theia+GLSP 生态系统不集成，缺少 GLSP 提供的图模型管理、Command Framework、Undo/Redo、脏状态等开箱即用能力；(b) Eclipse GLSP 已被 Neuron Automation 验证可用于 IEC 61131-3 工业编程；(c) 调研发现当前扩展中 sprotty-theia 是死依赖（GLSP 2.x 已废弃）、@eclipse-glsp/* 依赖声明但未安装、LdSprottyDiagramWidget 从未实例化、server/index.ts 是死代码——说明迁移意图已存在但从未落地，现在是系统化执行的最佳时机；(d) 复用已有 ld-views.tsx 中的 SVG 视图组件作为 GLSP IView，降低迁移风险。
+> - **取代决策**: 无（新决策）。与 D71（Theia 迁移）互补——GLSP 是 Theia 生态中的图形编辑器框架。
+- **参考**: .sisyphus/plans/glsp-migration/plan.md（Phase 0 基础设施验证 + Phase 1 LD 客户端 + Phase 2 服务端 + Phase 3 FBD 复制）
+
+## D93: LdGModelState → GLSP DefaultModelState 迁移
+- **日期**: 2026-07-27
+- **决定**: LD GLSP 迁移中，当前前端 singleton 的 `LdGModelState`（118行，JSON 快照 undo/redo）替换为 GLSP 服务端 `DefaultModelState` + `JsonModelState<T>`。GLSP 自带 `UndoRedoHandler`，基于操作命令（非快照）实现 undo/redo，不需要额外的 undo 栈管理。
+- **理由**: (a) GLSP 2.x 架构要求 ModelState 在服务端管理源模型；(b) `DefaultModelState` 已集成 undo/redo、dirty state、model update；(c) JSON 快照方案在 GLSP 命令式框架中冗余且可能导致双系统冲突
+- **参考**: GLSP node-json-theia 模板 `tasklist-model-state.ts`
+
+## D94: Compiler worker_thread 池隔离
+- **日期**: 2026-07-27
+- **决定**: napi-rs Rust 编译器调用从 GLSP server 主线程隔离到 Node.js `worker_threads` 池。编译在独立 worker 线程中同步执行（sync napi-rs 不阻塞事件循环），1-2 workers。
+- **理由**: (a) sync napi-rs 调用在 Node.js 主线程执行会阻塞所有 GLSP 操作（50ms+ 编译时间）；(b) GLSP server 使用事件循环处理多个客户端请求，单次编译阻塞会卡住所有用户操作
+- **参考**: plan.md T2.6（worker_thread 池执行）
+
+## D95: Theia 浏览器模式静态文件服务修复
+- **日期**: 2026-07-28
+- **决定**: 在 `lib/backend/main.js` 的 `start()` 函数中无条件调用 `defaultServeStatic(app)`，绕过 `BackendApplicationServer` 的 `isBound` 检查。同时使用 `fix-tokens.py`（精确字符串匹配）替代 `token-patch.py`（正则匹配）进行令牌补丁。
+- **理由**: (a) `@eclipse-glsp/theia-integration` 等模块先绑定 `BackendApplicationServer` 但不含 `express.static`，导致浏览器 404；(b) 正则补丁在多层嵌套 JS 中不可靠，多次破坏 main.js 语法
+- **社区先例**: Theia issue #15660 (2025-05) 官方正在开发 `theia build` 自动检测；GLSP theia-integration README 推荐 resolutions/overrides
+- **参考**: `.agents/rules/common/edit-safety.md` Rule 10-12
+
+## D96: @theia/* 依赖版本统一策略
+- **日期**: 2026-07-28
+- **决定**: 所有直接 `@theia/*` 依赖固定为精确版本 `1.73.0`（不用 `^`），非直接依赖通过 npm `overrides` 强制统一。每次 `npm install` 后执行 `npm dedupe`。
+- **理由**: npm 为不同 `@theia/*` 子包安装不同版本的 `@theia/core`（1.73.0 vs 1.73.1），导致 inversify 容器中 `@injectable` 装饰器重复定义，IDE 白屏
+- **社区先例**: Theia issue #3780, #7248, #7390, #10859；GLSP theia-integration README
+- **验证**: `npm ls @theia/core` 只显示一个版本；`find node_modules -name core -path '*/@theia/*' -type d | grep -v '^node_modules/@theia/core$'` 为空
