@@ -17,6 +17,7 @@ import { LdToolState } from '../tool-palette/ld-tool-state';
 import { LdGModelState } from '../server/ld-gmodel-state';
 import { LdOperationHandler } from '../server/ld-operation-handler';
 import { LdEditorWidget } from './ld-editor-widget';
+import { LdPropertyState } from '../property-view/ld-property-state';
 export declare const LD_EDITOR_COMMANDS: {
     COMPILE: {
         id: string;
@@ -52,9 +53,10 @@ export declare class LdEditorOpenHandler implements OpenHandler {
     private readonly modelState;
     private readonly handler;
     private readonly fileService;
+    private readonly propertyState;
     readonly id = "audesys-ld-editor-handler";
     private editors;
-    constructor(shell: ApplicationShell, toolState: LdToolState, modelState: LdGModelState, handler: LdOperationHandler, fileService: FileService);
+    constructor(shell: ApplicationShell, toolState: LdToolState, modelState: LdGModelState, handler: LdOperationHandler, fileService: FileService, propertyState: LdPropertyState);
     canHandle(uri: URI): number;
     open(uri: URI): Promise<LdEditorWidget | undefined>;
     /** Get the currently active LD editor widget. */

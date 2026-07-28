@@ -17,5 +17,6 @@
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true
     },
-    "include": ["src"]
+    "include": ["src"],
+    "exclude": ["src/ld-diagram-config.ts", "src/ld-diagram-widget.tsx", "src/ld-views.tsx"]
 }

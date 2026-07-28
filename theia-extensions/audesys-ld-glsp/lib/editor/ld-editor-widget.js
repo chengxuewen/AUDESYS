@@ -30,7 +30,7 @@ const RAIL_WIDTH = 4;
 const COIL_X_OFFSET = 600;
 const RUNG_OFFSET = 80;
 const CANVAS_PADDING = 40;
-const LdEditor = ({ toolState, modelState, handler, onSelectionChange, onDirtyChange }) => {
+const LdEditor = ({ toolState, modelState, handler, propertyState, onSelectionChange, onDirtyChange }) => {
     const [graph, setGraph] = react_1.default.useState(modelState.graph);
     const [selectedId, setSelectedId] = react_1.default.useState(null);
     const [hoveredId, setHoveredId] = react_1.default.useState(null);
@@ -47,6 +47,20 @@ const LdEditor = ({ toolState, modelState, handler, onSelectionChange, onDirtyCh
         });
         return () => { console.debug('[LdEditor] unsubscribing from toolState'); sub.dispose(); };
     }, [toolState]);
+    // Sync property changes
+    react_1.default.useEffect(() => {
+        if (!propertyState)
+            return;
+        const sub = propertyState.onDidChangeProperty((event) => {
+            const next = applyPropertyChange(graph, event);
+            if (next) {
+                modelState.applyOperation(() => next);
+                setGraph(next);
+            }
+        });
+        return () => sub.dispose();
+    }, [toolState, graph, propertyState, modelState, handler]);
+    // Refresh graph + notify dirty on re-render
     // Refresh graph + notify dirty on re-render
     const refreshGraph = (g) => {
         setGraph(g);
@@ -436,6 +450,55 @@ const LdEditor = ({ toolState, modelState, handler, onSelectionChange, onDirtyCh
 // ============================================================================
 // Helpers
 // ============================================================================
+/** Apply a property change to the graph, returning the updated graph or null if no-op. */
+function applyPropertyChange(graph, event) {
+    const { elementId, property, value } = event;
+    const nodeIdx = graph.nodes.findIndex((n) => n.id === elementId);
+    if (nodeIdx < 0)
+        return null;
+    const node = graph.nodes[nodeIdx];
+    const next = JSON.parse(JSON.stringify(graph));
+    if (node.type === 'node:contact') {
+        const c = next.nodes[nodeIdx];
+        if (property === 'variableName') {
+            c.variableName = value;
+            return next;
+        }
+        if (property === 'contactType') {
+            c.contactType = value;
+            return next;
+        }
+    }
+    if (node.type === 'node:coil') {
+        const c = next.nodes[nodeIdx];
+        if (property === 'variableName') {
+            c.variableName = value;
+            return next;
+        }
+        if (property === 'coilType') {
+            c.coilType = value;
+            return next;
+        }
+    }
+    if (node.type === 'node:fb') {
+        const fb = next.nodes[nodeIdx];
+        if (property === 'fbType') {
+            fb.fbType = value;
+            return next;
+        }
+    }
+    if (node.type === 'node:powerrail' || node.type === 'node:contact' || node.type === 'node:coil') {
+        // No editable properties for rails, contacts/coils handled above
+        return null;
+    }
+    // ponytail: rung comment update — handled via rung array
+    const rungIdx = graph.rungs.findIndex((r) => r.elementIds.includes(elementId));
+    if (rungIdx >= 0 && property === 'comment') {
+        next.rungs[rungIdx] = { ...next.rungs[rungIdx], comment: value };
+        return next;
+    }
+    return null;
+}
 function findRungByY(graph, y) {
     const rungIdx = Math.floor((y - CANVAS_PADDING) / RUNG_OFFSET);
     if (rungIdx >= 0 && rungIdx < graph.rungs.length) {
@@ -447,9 +510,13 @@ function findRungByY(graph, y) {
 // Widget
 // ============================================================================
 class LdEditorWidget extends react_widget_1.ReactWidget {
-    constructor(toolState, modelState, handler) {
+    constructor(toolState, modelState, handler, propertyState) {
         super();
         this._dirty = false;
+        this.toolState = toolState;
+        this.modelState = modelState;
+        this.handler = handler;
+        this.propertyState = propertyState;
         this.toolState = toolState;
         this.modelState = modelState;
         this.handler = handler;
@@ -474,6 +541,7 @@ class LdEditorWidget extends react_widget_1.ReactWidget {
             toolState: this.toolState,
             modelState: this.modelState,
             handler: this.handler,
+            propertyState: this.propertyState,
             onSelectionChange: this.onSelectionChange,
             onDirtyChange: (d) => { this._dirty = d; },
         });

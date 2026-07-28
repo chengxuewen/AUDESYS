@@ -6,12 +6,9 @@
   "license": "Apache-2.0",
   "main": "lib/index.js",
   "theiaExtensions": [
-    {
-      "frontend": "lib/ld-glsp-frontend-module"
-    },
-    {
-      "frontend": "lib/property-view/ld-property-frontend-module"
-    }
+    { "frontend": "lib/ld-glsp-frontend-module" },
+    { "frontend": "lib/property-view/ld-property-frontend-module" },
+    { "frontend": "lib/theia/ld-theia-frontend-module", "backend": "lib/theia/ld-theia-backend-module" }
   ],
   "scripts": {
     "build": "tsc -b",
@@ -24,12 +21,12 @@
   },
   "dependencies": {
     "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge",
-    "@eclipse-glsp/client": "^2.7.0",
-    "@eclipse-glsp/protocol": "^2.7.0",
-    "@eclipse-glsp/server-node": "^1.0.0",
+    "@eclipse-glsp/client": "2.7.0",
+    "@eclipse-glsp/protocol": "2.7.0",
+    "@eclipse-glsp/server": "2.7.0",
+    "@eclipse-glsp/theia-integration": "2.7.0",
     "@lumino/messaging": "^2.0.0",
-    "sprotty": "^1.4.0",
-    "sprotty-theia": "^0.12.0"
+    "sprotty": "^1.4.0"
   },
   "peerDependencies": {
     "@theia/core": "1.73.0",

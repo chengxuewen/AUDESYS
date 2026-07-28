@@ -20,9 +20,6 @@ import { LdGModelState } from '../server/ld-gmodel-state';
 import { LdOperationHandler } from '../server/ld-operation-handler';
 import { LdPropertyState, PropertyChangeEvent } from '../property-view/ld-property-state';
 import { LdGraph, Rung } from '../gmodel/model';
-import { LdGModelState } from '../server/ld-gmodel-state';
-import { LdOperationHandler, AddContactParams, AddCoilParams, DeleteElementParams, ChangeContactTypeParams } from '../server/ld-operation-handler';
-import { LdGraph, Rung } from '../gmodel/model';
 import { BaseNode, ContactNode, CoilNode, PowerRailNode, FbPlaceholderNode, Point, ContactType, CoilType, PowerRailSide } from '../gmodel/nodes';
 import { BaseEdge, WireConnection, PowerConnection } from '../gmodel/edges';
 
@@ -67,6 +64,7 @@ interface ContextMenuState {
 interface EditorProps {
     toolState: LdToolState;
     modelState: LdGModelState;
+    handler: LdOperationHandler;
     propertyState?: LdPropertyState;
     onSelectionChange?: (sel: LdEditorSelection | null) => void;
     onDirtyChange?: (dirty: boolean) => void;
@@ -89,7 +87,6 @@ const LdEditor: React.FC<EditorProps> = ({ toolState, modelState, handler, prope
             setToolType(t);
         });
         return () => { console.debug('[LdEditor] unsubscribing from toolState'); sub.dispose(); };
-    }, [toolState]);
     }, [toolState]);
 
     // Sync property changes
@@ -755,7 +752,7 @@ function applyPropertyChange(graph: LdGraph, event: PropertyChangeEvent): LdGrap
   const next = JSON.parse(JSON.stringify(graph)) as LdGraph;
 
   if (node.type === 'node:contact') {
-    const c = next.nodes[nodeIdx] as { variableName: string; contactType: string };
+    const c = next.nodes[nodeIdx] as unknown as { variableName: string; contactType: string };
     if (property === 'variableName') {
       c.variableName = value as string;
       return next;
@@ -767,7 +764,7 @@ function applyPropertyChange(graph: LdGraph, event: PropertyChangeEvent): LdGrap
   }
 
   if (node.type === 'node:coil') {
-    const c = next.nodes[nodeIdx] as { variableName: string; coilType: string };
+    const c = next.nodes[nodeIdx] as unknown as { variableName: string; coilType: string };
     if (property === 'variableName') {
       c.variableName = value as string;
       return next;
@@ -779,7 +776,7 @@ function applyPropertyChange(graph: LdGraph, event: PropertyChangeEvent): LdGrap
   }
 
   if (node.type === 'node:fb') {
-    const fb = next.nodes[nodeIdx] as { fbType: string };
+    const fb = next.nodes[nodeIdx] as unknown as { fbType: string };
     if (property === 'fbType') {
       fb.fbType = value as string;
       return next;
@@ -821,7 +818,6 @@ export class LdEditorWidget extends ReactWidget {
     private readonly modelState: LdGModelState;
     private readonly handler: LdOperationHandler;
     private readonly propertyState?: LdPropertyState;
-    private onSelectionChange?: (sel: LdEditorSelection | null) => void;
     private onSelectionChange?: (sel: LdEditorSelection | null) => void;
     private _dirty: boolean = false;
 
@@ -865,7 +861,6 @@ export class LdEditorWidget extends ReactWidget {
             modelState: this.modelState,
             handler: this.handler,
             propertyState: this.propertyState,
-            onSelectionChange: this.onSelectionChange,
             onSelectionChange: this.onSelectionChange,
             onDirtyChange: (d: boolean) => { this._dirty = d; },
         });
@@ -925,5 +920,4 @@ export class LdEditorWidget extends ReactWidget {
         `;
         document.head.appendChild(style);
     }
-}
 }

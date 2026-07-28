@@ -40,4 +40,7 @@ Object.defineProperty(exports, "fromJSON", { enumerable: true, get: function () 
 Object.defineProperty(exports, "validateGraph", { enumerable: true, get: function () { return serialization_1.validateGraph; } });
 Object.defineProperty(exports, "isValid", { enumerable: true, get: function () { return serialization_1.isValid; } });
 Object.defineProperty(exports, "roundTrip", { enumerable: true, get: function () { return serialization_1.roundTrip; } });
+// Sprotty diagram widget (disabled — Phase 1 GLSP migration)
+// export { LdSprottyDiagramWidget } from './ld-diagram-widget';
+// export { LD_NODE_TYPES } from './ld-diagram-config';
 //# sourceMappingURL=index.js.map

@@ -17,6 +17,7 @@ import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { LdToolState } from '../tool-palette/ld-tool-state';
 import { LdGModelState } from '../server/ld-gmodel-state';
 import { LdOperationHandler } from '../server/ld-operation-handler';
+import { LdPropertyState } from '../property-view/ld-property-state';
 export interface LdEditorSelection {
     elementId: string;
     elementType: string;
@@ -28,9 +29,10 @@ export declare class LdEditorWidget extends ReactWidget {
     private readonly toolState;
     private readonly modelState;
     private readonly handler;
+    private readonly propertyState?;
     private onSelectionChange?;
     private _dirty;
-    constructor(toolState: LdToolState, modelState: LdGModelState, handler: LdOperationHandler);
+    constructor(toolState: LdToolState, modelState: LdGModelState, handler: LdOperationHandler, propertyState?: LdPropertyState);
     get dirty(): boolean;
     setSelectionCallback(fn: (sel: LdEditorSelection | null) => void): void;
     protected onAfterAttach(msg: Message): void;

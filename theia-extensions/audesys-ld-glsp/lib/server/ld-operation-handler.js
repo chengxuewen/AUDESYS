@@ -37,10 +37,19 @@ function rungToLdText(rung, graph) {
         }
         else if (node.type === 'node:coil') {
             const c = node;
-            lines.push(`  ${c.coilType} ${c.variableName}`);
+            const token = mapCoilTypeToLdToken(c.coilType);
+            lines.push(`  ${token} ${c.variableName}`);
         }
     }
     return lines.join('\n');
+}
+function mapCoilTypeToLdToken(coilType) {
+    switch (coilType) {
+        case nodes_1.CoilType.Normal: return 'OUT';
+        case nodes_1.CoilType.Set: return 'SET';
+        case nodes_1.CoilType.Reset: return 'RESET';
+        case nodes_1.CoilType.Negated: return 'OUT'; // ponytail: LD text has no OUTN; maps to OUT
+    }
 }
 function graphToLdText(graph) {
     if (graph.rungs.length === 0)

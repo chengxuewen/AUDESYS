@@ -17,20 +17,13 @@ const react_1 = __importDefault(require("@theia/core/shared/react"));
 const react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 /** All palette tool items, ordered for display. */
 const TOOL_ITEMS = [
-    // Section: Contacts & Coils
-    { type: 'no-contact', icon: '─┤ ├─', label: 'NO Contact', section: 'contacts-coils' },
-    { type: 'nc-contact', icon: '─┤/├─', label: 'NC Contact', section: 'contacts-coils' },
-    { type: 'coil', icon: '─( )─', label: 'Coil', section: 'contacts-coils' },
-    { type: 'negated-coil', icon: '─(/ )─', label: 'Negated Coil', section: 'contacts-coils' },
-    { type: 'set-coil', icon: '─(S)─', label: 'Set Coil', section: 'contacts-coils' },
-    { type: 'reset-coil', icon: '─(R)─', label: 'Reset Coil', section: 'contacts-coils' },
-    { type: 'fb-placeholder', icon: '[FB]', label: 'FB Placeholder', section: 'contacts-coils' },
-    // Section: Structure
-    { type: 'horizontal-wire', icon: '───', label: 'Horizontal Wire', section: 'structure' },
-    { type: 'vertical-wire', icon: '│', label: 'Vertical Wire', section: 'structure' },
-    { type: 'power-rail-left', icon: '╟─', label: 'Power Rail Left', section: 'structure' },
-    { type: 'power-rail-right', icon: '─╢', label: 'Power Rail Right', section: 'structure' },
-    { type: 'rung', icon: '☰', label: 'Rung', section: 'structure' },
+    { type: 'no-contact', icon: '─┤ ├─', label: 'NO Contact' },
+    { type: 'nc-contact', icon: '─┤/├─', label: 'NC Contact' },
+    { type: 'coil', icon: '─( )─', label: 'Normal Coil' },
+    { type: 'negated-coil', icon: '─(/ )─', label: 'Negated Coil' },
+    { type: 'set-coil', icon: '─(S)─', label: 'Set (Latch) Coil' },
+    { type: 'reset-coil', icon: '─(R)─', label: 'Reset Coil' },
+    { type: 'rung', icon: '☰', label: 'Add Rung' },
 ];
 const ToolButton = ({ item, isSelected, onSelect }) => {
     const handleClick = () => {
@@ -60,13 +53,7 @@ const Palette = ({ toolState }) => {
             toolState.selectTool(type);
         }
     };
-    const contactsItems = TOOL_ITEMS.filter((i) => i.section === 'contacts-coils');
-    const structureItems = TOOL_ITEMS.filter((i) => i.section === 'structure');
-    return (react_1.default.createElement("div", { className: "ld-palette" },
-        react_1.default.createElement(SectionHeader, { title: "Contacts & Coils" }),
-        contactsItems.map((item) => (react_1.default.createElement(ToolButton, { key: item.type, item: item, isSelected: selected === item.type, onSelect: handleSelect }))),
-        react_1.default.createElement(SectionHeader, { title: "Structure" }),
-        structureItems.map((item) => (react_1.default.createElement(ToolButton, { key: item.type, item: item, isSelected: selected === item.type, onSelect: handleSelect })))));
+    return (react_1.default.createElement("div", { className: "ld-palette" }, TOOL_ITEMS.map((item) => (react_1.default.createElement(ToolButton, { key: item.type, item: item, isSelected: selected === item.type, onSelect: handleSelect })))));
 };
 // ============================================================================
 // CSS-in-JS Styles
@@ -191,5 +178,7 @@ class LdPaletteWidget extends react_widget_1.ReactWidget {
 exports.LdPaletteWidget = LdPaletteWidget;
 LdPaletteWidget.ID = 'audesys-ld-palette';
 LdPaletteWidget.LABEL = 'LD Tool Palette';
-const SectionHeader = ({ title }) => (react_1.default.createElement("div", { className: "ld-palette-section-header", dangerouslySetInnerHTML: { __html: title } }));
+// ============================================================================
+// Section Header Component
+// ============================================================================
 //# sourceMappingURL=ld-palette-widget.js.map

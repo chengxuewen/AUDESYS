@@ -66,6 +66,6 @@ export {
   roundTrip,
 } from './gmodel/serialization';
 
-// Sprotty diagram widget
-export { LdSprottyDiagramWidget } from './ld-diagram-widget';
-export { LD_NODE_TYPES } from './ld-diagram-config';
+// Sprotty diagram widget (disabled — Phase 1 GLSP migration)
+// export { LdSprottyDiagramWidget } from './ld-diagram-widget';
+// export { LD_NODE_TYPES } from './ld-diagram-config';

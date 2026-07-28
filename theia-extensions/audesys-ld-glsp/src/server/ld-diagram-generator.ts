@@ -15,11 +15,11 @@ import {
     GLabel,
     GNode,
     GModelRoot,
-} from '@eclipse-glsp/graph';
+} from '@eclipse-glsp/server';
 import {
     ModelState,
     GModelFactory,
-} from '@eclipse-glsp/server-node';
+} from '@eclipse-glsp/server';
 import { LdGraph, Rung } from '../gmodel/model';
 import {
     BaseNode,

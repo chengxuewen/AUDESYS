@@ -33,6 +33,7 @@ const ld_tool_state_1 = require("../tool-palette/ld-tool-state");
 const ld_gmodel_state_1 = require("../server/ld-gmodel-state");
 const ld_operation_handler_1 = require("../server/ld-operation-handler");
 const ld_editor_widget_1 = require("./ld-editor-widget");
+const ld_property_state_1 = require("../property-view/ld-property-state");
 const serialization_1 = require("../gmodel/serialization");
 // ============================================================================
 // Commands
@@ -70,12 +71,13 @@ exports.LD_EDITOR_COMMANDS = {
 // LdEditorOpenHandler
 // ============================================================================
 let LdEditorOpenHandler = class LdEditorOpenHandler {
-    constructor(shell, toolState, modelState, handler, fileService) {
+    constructor(shell, toolState, modelState, handler, fileService, propertyState) {
         this.shell = shell;
         this.toolState = toolState;
         this.modelState = modelState;
         this.handler = handler;
         this.fileService = fileService;
+        this.propertyState = propertyState;
         this.id = 'audesys-ld-editor-handler';
         // Track which widget is currently open for which URI
         this.editors = new Map();
@@ -108,7 +110,7 @@ let LdEditorOpenHandler = class LdEditorOpenHandler {
         this.modelState.applyOperation(() => graph);
         this.modelState.markClean();
         // Create editor widget
-        const widget = new ld_editor_widget_1.LdEditorWidget(this.toolState, this.modelState, this.handler);
+        const widget = new ld_editor_widget_1.LdEditorWidget(this.toolState, this.modelState, this.handler, this.propertyState);
         widget.title.label = uri.displayName;
         widget.title.caption = uri.path.toString();
         widget.title.closable = true;
@@ -143,11 +145,13 @@ exports.LdEditorOpenHandler = LdEditorOpenHandler = __decorate([
     __param(2, (0, inversify_1.inject)(ld_gmodel_state_1.LdGModelState)),
     __param(3, (0, inversify_1.inject)(ld_operation_handler_1.LdOperationHandler)),
     __param(4, (0, inversify_1.inject)(file_service_1.FileService)),
+    __param(5, (0, inversify_1.inject)(ld_property_state_1.LdPropertyState)),
     __metadata("design:paramtypes", [application_shell_1.ApplicationShell,
         ld_tool_state_1.LdToolState,
         ld_gmodel_state_1.LdGModelState,
         ld_operation_handler_1.LdOperationHandler,
-        file_service_1.FileService])
+        file_service_1.FileService,
+        ld_property_state_1.LdPropertyState])
 ], LdEditorOpenHandler);
 // ============================================================================
 // LdEditorCommandContribution
