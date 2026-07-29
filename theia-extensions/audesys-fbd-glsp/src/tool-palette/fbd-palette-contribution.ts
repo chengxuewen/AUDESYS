@@ -41,8 +41,16 @@ export class FbdPaletteContribution implements FrontendApplicationContribution {
         await this.openPalette();
     }
 
-    // ponytail: removed onStart() to prevent duplicate widget creation
-    // addWidget is NOT idempotent - it creates a new widget each time
+    /**
+     * Called every startup after shell layout is ready.
+     * Ensures palette is visible even when layout is restored from saved state.
+     * @see https://theia-ide.org/docs/frontend_application_contribution/
+     */
+    async onDidInitializeLayout(app: FrontendApplication): Promise<void> {
+        if (!this.shell.getWidgetById(FbdPaletteWidget.ID)) {
+            await this.openPalette();
+        }
+    }
 
     private async openPalette(): Promise<void> {
         const widget = new FbdPaletteWidget(this.toolState);

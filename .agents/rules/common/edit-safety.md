@@ -100,3 +100,18 @@ curl -s -o /dev/null -w '%{http_code}' http://localhost:3100  # must be 200
 THEIA_URL=http://127.0.0.1:3100 npx playwright test e2e/smoke/startup-browser.spec.ts
 ```
 Unit tests passing ≠ app works. E2E smoke test is the ONLY proof the app renders.
+
+### 13. Theia 扩展修改后必须验证 lib/ 编译产物
+After modifying `.ts` source files in `theia-extensions/*/src/`, ALWAYS verify the compiled `.js` contains the changes:
+```bash
+# Check that new method exists in compiled output
+grep -c 'onDidInitializeLayout\|newMethodName' theia-extensions/*/lib/**/*.js
+```
+If count is 0, the change was NOT compiled. `theia build` only bundles pre-compiled `.js` — it does NOT compile `.ts`. Compile extensions via `npm run build` in `apps/studio/`, or manually:
+```bash
+# Option 1: App-level build (compiles all linked extensions)
+cd apps/studio && npm run build
+# Option 2: Manual compilation (needs node_modules symlink)
+cd theia-extensions/audesys-xx && ln -sf ../../apps/studio/node_modules/@types node_modules/ && npm run build
+```
+**Seen**: 2026-07-29 — LD palette fix was source-only for hours because lib/ was stale.

@@ -29,6 +29,12 @@ export declare class FbdPaletteContribution implements FrontendApplicationContri
      * saved layouts on subsequent launches.
      */
     initializeLayout(app: FrontendApplication): Promise<void>;
+    /**
+     * Called every startup after shell layout is ready.
+     * Ensures palette is visible even when layout is restored from saved state.
+     * @see https://theia-ide.org/docs/frontend_application_contribution/
+     */
+    onDidInitializeLayout(app: FrontendApplication): Promise<void>;
     private openPalette;
 }
 //# sourceMappingURL=fbd-palette-contribution.d.ts.map

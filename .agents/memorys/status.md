@@ -225,3 +225,9 @@ find theia-extensions -path "*/node_modules/@theia*" 2>/dev/null
 ### OMSPBase 对比扫描
 - 配置已同步: prometheus/metis/reasoningEffort/timeout
 - 无需额外添加: teams 配置、platform.md
+
+### LD/FBD 工具面板修复 (2026-07-29)
+- 根因: `initializeLayout()` 仅在首次启动时调用，后续启动恢复保存的布局
+- 修复: 添加 `onDidInitializeLayout()` + 防重复守卫（Theia 官方推荐模式）
+- 发现: lib/ 编译产物过期导致修复在源码中存在但编译后不生效
+- 教训: 修改源码后必须验证 lib/ 编译产物（已添加 edit-safety Rule 13）

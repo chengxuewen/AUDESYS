@@ -7,6 +7,7 @@
   "main": "lib/index.js",
   "theiaExtensions": [
     { "frontend": "lib/ld-glsp-frontend-module" },
+    { "frontend": "lib/tool-palette/ld-palette-frontend-module" },
     { "frontend": "lib/property-view/ld-property-frontend-module" },
     { "frontend": "lib/theia/ld-theia-frontend-module", "backend": "lib/theia/ld-theia-backend-module" }
   ],

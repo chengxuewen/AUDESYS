@@ -41,6 +41,17 @@ export class LdPaletteContribution implements FrontendApplicationContribution {
         await this.openPalette();
     }
 
+    /**
+     * Called every startup after shell layout is ready.
+     * Ensures palette is visible even when layout is restored from saved state.
+     * @see https://theia-ide.org/docs/frontend_application_contribution/
+     */
+    async onDidInitializeLayout(app: FrontendApplication): Promise<void> {
+        if (!this.shell.getWidgetById(LdPaletteWidget.ID)) {
+            await this.openPalette();
+        }
+    }
+
     private async openPalette(): Promise<void> {
         const widget = new LdPaletteWidget(this.toolState);
         await this.shell.addWidget(widget, {

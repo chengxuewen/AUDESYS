@@ -47,11 +47,18 @@ let FbdPaletteContribution = class FbdPaletteContribution {
      * saved layouts on subsequent launches.
      */
     async initializeLayout(app) {
-        console.log("[FbdPalette] initializeLayout called");
         await this.openPalette();
     }
-    // ponytail: removed onStart() to prevent duplicate widget creation
-    // addWidget is NOT idempotent - it creates a new widget each time
+    /**
+     * Called every startup after shell layout is ready.
+     * Ensures palette is visible even when layout is restored from saved state.
+     * @see https://theia-ide.org/docs/frontend_application_contribution/
+     */
+    async onDidInitializeLayout(app) {
+        if (!this.shell.getWidgetById(fbd_palette_widget_1.FbdPaletteWidget.ID)) {
+            await this.openPalette();
+        }
+    }
     async openPalette() {
         const widget = new fbd_palette_widget_1.FbdPaletteWidget(this.toolState);
         await this.shell.addWidget(widget, {

@@ -553,3 +553,17 @@
 - **问题**: 声称 Phase A 完成，但实际未测试打开 .ld 文件
 - **方案**: 任何功能修复必须通过 E2E 测试确认（Playwright 打开文件、检查渲染、无报错）
 
+### lib/ 编译产物过期导致源码修改无效
+- **问题**: 修改源码添加 `onDidInitializeLayout()` 方法后，Theia 行为不变——方法在 `.ts` 源码中存在，但编译后的 `lib/*.js` 中不存在
+- **原因**: 修改源码后未执行 `tsc -b` 或 `npm run build` 重新编译。Theia 的 `theia build` 只打包已编译的 JS 文件，不编译 TS 源码。扩展独立编译需 `@types/node`，缺少本地 node_modules 则编译失败
+- **方案**: (a) 修改源码后执行 `npm run build`（app 级）；(b) 需要独立编译时，先创建必要的 symlink: `ln -sf ../../apps/studio/node_modules/@theia node_modules/@theia`
+- **验证**: `grep -c '新方法名' lib/**/*.js` 确认编译产物包含修改
+- **禁止**: 只改源码不重新编译就测试——这是本次会话的核心错误，耗费大量时间在已修复但未生效的问题上
+
+### 非根因诊断链条过长
+- **问题**: LD 面板不显示的调试中，先后尝试了 3 个错误方向：Symbol 重复（已排除）→ @injectable 缺失（非根因，FBD 也缺失但工作）→ Socket.IO 403（非主因），最终通过团队审核发现根因是 lib/ 过期
+- **原因**: 单视角调试容易陷入局部最优——每个诊断都有部分证据支持但非全局根因
+- **方案**: 复杂调试时使用团队审核模式（>2 次失败尝试后自动升级），多视角交叉验证
+- **验证**: team_create 3 成员 server/client/completeness → team_task_create 并行分析
+- **禁止**: 连续 3+ 次失败诊断后继续单打独斗（应升级到团队模式或 Oracle）
+
