@@ -6,6 +6,8 @@
  */
 import { VNode, h } from 'snabbdom';
 import { SNodeImpl } from 'sprotty';
+import { injectable } from 'inversify';
+
 
 // ============================================================================
 // Shared Layout Constants
@@ -50,6 +52,7 @@ function isSelected(model: SNodeImpl): boolean {
 // Contact View — NO / NC
 // ============================================================================
 
+@injectable()
 export class LdContactView {
     render(model: SNodeImpl): VNode {
         const { x, y } = model.position;
@@ -125,6 +128,7 @@ export class LdContactView {
 // Coil View — Normal / Negated / Set / Reset
 // ============================================================================
 
+@injectable()
 export class LdCoilView {
     render(model: SNodeImpl): VNode {
         const { x, y } = model.position;
@@ -204,6 +208,7 @@ export class LdCoilView {
 // Power Rail View — Left / Right vertical line
 // ============================================================================
 
+@injectable()
 export class LdPowerRailView {
     render(model: SNodeImpl): VNode {
         const { x, y } = model.position;
@@ -227,6 +232,7 @@ export class LdPowerRailView {
 // Function Block View
 // ============================================================================
 
+@injectable()
 export class LdFbView {
     render(model: SNodeImpl): VNode {
         const { x, y } = model.position;

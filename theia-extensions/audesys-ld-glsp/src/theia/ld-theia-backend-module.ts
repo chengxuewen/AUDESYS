@@ -10,5 +10,5 @@ import { LdServerContribution } from './ld-server-contribution';
 
 export default new ContainerModule(bind => {
     bind(LdServerContribution).toSelf().inSingletonScope();
-    bind(GLSPServerContribution).toService(LdServerContribution);
+    bind(GLSPServerContribution).to(LdServerContribution).inSingletonScope();
 });

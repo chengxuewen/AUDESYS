@@ -9,6 +9,7 @@
  */
 
 import { VNode, h } from 'snabbdom';
+import { injectable } from 'inversify';
 import {
     IView,
     RenderingContext,
@@ -51,6 +52,7 @@ const C = {
 // Contact View — NO / NC
 // ============================================================================
 
+@injectable()
 export class LdContactView implements IView {
     render(model: Readonly<SNode>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
@@ -133,6 +135,7 @@ export class LdContactView implements IView {
 // Coil View — Normal / Negated / Set / Reset
 // ============================================================================
 
+@injectable()
 export class LdCoilView implements IView {
     render(model: Readonly<SNode>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
@@ -218,6 +221,7 @@ export class LdCoilView implements IView {
 // Power Rail View — Left / Right vertical line
 // ============================================================================
 
+@injectable()
 export class LdPowerRailView implements IView {
     render(model: Readonly<SNode>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
@@ -248,6 +252,7 @@ export class LdPowerRailView implements IView {
 // Function Block View
 // ============================================================================
 
+@injectable()
 export class LdFbView implements IView {
     render(model: Readonly<SNode>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;

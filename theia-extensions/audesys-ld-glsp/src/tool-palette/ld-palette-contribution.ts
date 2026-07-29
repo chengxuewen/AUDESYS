@@ -41,12 +41,6 @@ export class LdPaletteContribution implements FrontendApplicationContribution {
         await this.openPalette();
     }
 
-    /**
-     * (e.g. with a restored layout that doesn't include our widget).
-     * The addWidget call is idempotent if the widget already exists.
-     */
-    }
-
     private async openPalette(): Promise<void> {
         const widget = new LdPaletteWidget(this.toolState);
         await this.shell.addWidget(widget, {

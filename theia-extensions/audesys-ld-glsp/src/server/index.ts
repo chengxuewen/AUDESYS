@@ -21,6 +21,8 @@ import {
     RequestModelAction,
     SaveModelAction,
     ShapeTypeHint,
+    TriggerNodeCreationAction,
+    PaletteItem,
 } from '@eclipse-glsp/protocol';
 import {
     DiagramConfiguration,
@@ -33,18 +35,17 @@ import {
     BindingTarget,
     InstanceMultiBinding,
     OperationHandlerConstructor,
-    getDefaultMapping,
-    GModelElement,
-    GModelElementConstructor,
     Command,
+    ToolPaletteItemProvider,
 } from '@eclipse-glsp/server';
+
+import { GModelElement, GModelElementConstructor } from '@eclipse-glsp/graph';
 
 import { LdGraph, createLdGraph } from '../gmodel/model';
 import { ContactType, CoilType, PowerRailSide } from '../gmodel/nodes';
 import { LdDiagramGenerator, LD_SOURCE_KEY } from './ld-diagram-generator';
 import { LdOperationHandler } from './ld-operation-handler';
 import { compileLdAsync, CompileResult } from './compile-bridge';
-
 // ============================================================================
 // Re-exports
 // ============================================================================
@@ -117,7 +118,7 @@ export class LdDiagramConfiguration implements DiagramConfiguration {
     ] as any;
 
     get typeMapping(): Map<string, GModelElementConstructor<GModelElement>> {
-        return getDefaultMapping();
+        return new Map();
     }
 }
 
@@ -319,10 +320,14 @@ export class LdDiagramModule extends GModelDiagramModule {
         binding.add(LdChangeContactTypeHandler as unknown as OperationHandlerConstructor);
         binding.add(LdCompileHandler as unknown as OperationHandlerConstructor);
     }
+
+    protected override bindToolPaletteItemProvider(): BindingTarget<ToolPaletteItemProvider> {
+        return LdToolPaletteItemProvider;
+    }
 }
 
 // Standalone launcher — used when running as a separate server process
-import { createAppModule, createSocketCliParser, ServerModule, SocketServerLauncher } from '@eclipse-glsp/server/node';
+import { createAppModule, createSocketCliParser, ServerModule, SocketServerLauncher } from '@eclipse-glsp/server';
 import { Container } from 'inversify';
 
 export async function launch(argv: string[] = process.argv): Promise<void> {
