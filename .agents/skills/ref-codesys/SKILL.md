@@ -1,3 +1,8 @@
+---
+name: ref-codesys
+description: "CODESYS IDE 平台参考 — IEC 61131-3 工业控制开发平台架构、IDE 设计模式、运行时模型。用于 AUDESYS Studio 设计决策。"
+---
+
 # ref-codesys
 
 **CODESYS IDE Platform Reference for AUDESYS Studio Design**

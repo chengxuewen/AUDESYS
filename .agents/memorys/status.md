@@ -117,6 +117,9 @@
 | openspec-sync-specs | ✅ | 增量规范同步 |
 | ref-codesys/ref-beckhoff/ref-qtouch | ✅ | Studio 参考技能（7 项） |
 | think-before-act | ✅ | 先调研→列方案→审批→执行，防蛮干（不限语言/框架） |
+| ecosystem-scan | ✅ | 双层审计（Quick/Full）+ 生态扫描 + 安全门禁 |
+| skill-guide | ✅ | 常驻技能选择指南（决策树 + 场景组合） |
+| skill-router | ✅ | 主动技能路由分析（任务分类→技能匹配） |
 
 ## 架构演进 (2026-07-24)
 
@@ -184,3 +187,41 @@ find theia-extensions -path "*/node_modules/@theia*" 2>/dev/null
 # Web:  node lib/backend/main.js --port=3100
 # PC:   npx electron lib/backend/electron-main.js
 ```
+
+## Ecosystem Scan (2026-07-29)
+
+### P0 完成
+- D97 重复合并 → decisions.md 1 个 D97
+- openspec-apply-change 删除（被 openspec-apply 取代）
+- openspec-archive-change 删除（被 openspec-archive 取代）
+
+### P1 内部完成
+- testing.md: +5 条可执行命令
+- security.md: +1 条可执行命令
+
+### P1 外部
+- testmu-ai/playwright-skill: GitHub 0 结果，仓库不存在
+- testmu-ai/vitest-skill: GitHub 0 结果，仓库不存在
+- trailofbits/security-skills: GitHub 0 结果，仓库不存在
+- 已有覆盖: Playwright MCP + vitest 实际使用 + security.md 规则
+
+### 技能数
+- 删除: 2 (openspec-apply-change, openspec-archive-change)
+- 新增: 4 (ecosystem-scan, lesson-review, skill-guide, skill-router)
+- 净变化: +2（23 → 25）
+
+### Agent 模型分层优化 (2026-07-29)
+- prometheus: premium → premium-max（计划生成错误代价最大）
+- metis: premium → fast（度量分析是 pattern matching）
+- oracle/prometheus: +reasoningEffort: "high"
+- ultrabrain: +reasoningEffort: "high"
+- unspecified-high: +reasoningEffort: "medium"
+- explore: temperature 0.0 → 0.1
+- timeout_seconds: 30 → 60
+
+### 技能 frontmatter 修复
+- 9 个技能添加 name + description: lesson-review, think-before-act, ref-beckhoff, ref-codesys, ref-fuxa, ref-ignition, ref-intouch, ref-labview, ref-qtouch
+
+### OMSPBase 对比扫描
+- 配置已同步: prometheus/metis/reasoningEffort/timeout
+- 无需额外添加: teams 配置、platform.md

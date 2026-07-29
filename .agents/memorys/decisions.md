@@ -563,18 +563,11 @@
 - **社区先例**: Theia issue #3780, #7248, #7390, #10859；GLSP theia-integration README
 - **验证**: `npm ls @theia/core` 只显示一个版本；`find node_modules -name core -path '*/@theia/*' -type d | grep -v '^node_modules/@theia/core$'` 为空
 
-## D97: Bundle Symbol 去重 = bundler resolve alias
-- **日期**: 2026-07-28
-- **决定**: 通过 bundler 层 resolve alias 确保所有 `@theia/core` 解析到同一物理路径，消除 `Symbol("FrontendApplicationContribution")` 重复。禁止通过删除/添加 node_modules symlink 修复——必须在 bundler 配置层解决。
-- **理由**: LD 扩展的 `node_modules/@theia/core` symlink 导致 esbuild 将同一物理文件打包为两个独立模块。Symbol 是唯一的——两个模块实例产生两个不同 Symbol，LD 的 DI 绑定到 Symbol B，Theia 用 Symbol A 收集 contributions，导致 LD palette 永远不被实例化。删除 symlink 会导致模块解析崩溃（扩展无独立 @theia/core 副本）。
-- **诊断**: `grep -c 'Symbol("FrontendApplicationContribution")' lib/frontend/bundle.js` 必须为 1
-- **参考**: pitfalls.md §Theia Bundle 模块重复陷阱, D96 (@theia/* 版本统一)
-
-## D97: Bundle Symbol 去重 = 删除扩展本地 node_modules（修订）
+## D97: Bundle Symbol 去重 = 删除扩展本地 node_modules
 - **日期**: 2026-07-28
 - **决定**: 删除所有扩展的 `node_modules/`，让所有依赖通过 `apps/studio/node_modules/` 解析（Theia 官方标准模式）。`preserveSymlinks=true` 保留（file: link 解析需要）。`@audesys/theia-bridge` 添加到 studio 的 dependencies。
 - **理由**: 扩展本地 node_modules 含 @theia、@eclipse-glsp、inversify 物理副本，esbuild 将不同路径视为不同模块 → Symbol 重复 → DI 静默失效。删除后 `Symbol("FrontendApplicationContribution")` = 1，LD/FBD 图标正常显示。
-- **取代**: 原 D97（bundler resolve alias 方案已废弃——alias 导致 DI 崩溃）
+- **已废弃方案**: bundler resolve alias（alias 导致 DI 崩溃）；nodePaths（DI 错误）；只删部分 symlink（不一致）
 - **诊断**: `grep -c 'Symbol("FrontendApplicationContribution")' lib/frontend/bundle.js` 必须为 1
 - **参考**: pitfalls.md §Theia Bundle 模块重复陷阱, D96 (@theia/* 版本统一)
 

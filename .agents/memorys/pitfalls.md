@@ -525,3 +525,31 @@
 - **问题**: `npm start` 启动 Electron 而非浏览器模式，导致测试连接失败
 - **方案**: 浏览器模式用 `node lib/backend/main.js --port=3100`，不用 `npm start` 或 `npx theia start`
 
+## GLSP 迁移陷阱 (2026-07-29)
+
+### 手动编辑 lib/*.js 是错误做法
+- **问题**: 直接编辑编译产物 lib/*.js，导致源码与 lib 不同步，下次编译丢失修改
+- **原因**: 不理解构建流程。lib/ 是 tsc 编译产物，不是手写代码
+- **方案**: 修源码 → `tsc -b` 编译 → 验证。禁止手动编辑 lib/
+- **例外**: 仅当 tsc 完全不可用时（如缺少依赖），可临时补丁 lib，但必须同时修源码
+
+### 扩展 node_modules 的正确用法
+- **问题**: 完全删除扩展 node_modules 导致 tsc 无法编译（找不到 @theia 类型）
+- **原因**: 混淆了构建时依赖和运行时依赖
+- **方案**: 扩展 node_modules 用 **symlink** 指向 app 的 node_modules（构建用），esbuild 通过 preserveSymlinks=true 使用 app 模块（运行时无重复）
+- **结构**: `theia-extensions/audesys-ld-glsp/node_modules/@theia/core -> ../../../apps/studio/node_modules/@theia/core`
+
+### GLSP 视图类必须 @injectable
+- **问题**: 打开 .ld 文件报错 `Views should be @injectable: MMn`
+- **原因**: GLSP/Sprotty 要求所有 IView 实现类必须用 @injectable() 装饰
+- **方案**: 所有视图类添加 `@injectable()` 装饰器，从 'inversify' 导入
+- **检查**: `grep -n "class.*View" src/client/*.ts` 确认每个视图类都有 @injectable
+
+### 编辑后必须验证
+- **问题**: 多次 edit 后源码语法损坏（重复 import、多余括号）
+- **方案**: 每次编辑后运行 `npx tsc --noEmit` 验证语法，不要积累未验证的修改
+
+### 声称完成前必须 E2E 测试
+- **问题**: 声称 Phase A 完成，但实际未测试打开 .ld 文件
+- **方案**: 任何功能修复必须通过 E2E 测试确认（Playwright 打开文件、检查渲染、无报错）
+

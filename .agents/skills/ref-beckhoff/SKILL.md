@@ -1,3 +1,8 @@
+---
+name: ref-beckhoff
+description: "Beckhoff TwinCAT 3 平台参考 — 工业自动化架构、ADS 协议、TwinCAT IDE 设计模式。用于 AUDESYS Studio 和 Runtime 设计。"
+---
+
 # ref-beckhoff
 
 **Beckhoff TwinCAT 3 Platform Reference for AUDESYS Studio Design**

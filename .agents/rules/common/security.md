@@ -27,3 +27,20 @@ If security issue found:
 3. Fix CRITICAL issues before continuing
 4. Rotate any exposed secrets
 5. Review entire codebase for similar issues
+
+## 可执行审计命令
+
+```bash
+# 秘密检测
+grep -rn 'API_KEY\|api.key\|password\|secret\|token' --include='*.rs' --include='*.ts' --include='*.tsx' --exclude-dir=node_modules --exclude-dir=target
+
+# Rust 依赖审计
+cargo audit
+cargo deny check
+
+# npm 审计
+npm audit --production
+
+# MODACS 残留检查
+grep -ri modacs . --exclude-dir=.git --exclude-dir=.sisyphus --exclude-dir=node_modules --exclude-dir=target
+```

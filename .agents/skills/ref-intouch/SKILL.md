@@ -1,3 +1,8 @@
+---
+name: ref-intouch
+description: "AVEVA InTouch HMI/SCADA 参考 — WindowViewer/OMI 架构、ISA-101 高密度画面、告警管理。用于 AUDESYS HMI 设计。"
+---
+
 # ref-intouch: AVEVA InTouch HMI/SCADA Reference
 
 > **Domain**: Industrial HMI / SCADA Platform  

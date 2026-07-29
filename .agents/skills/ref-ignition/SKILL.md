@@ -1,3 +1,8 @@
+---
+name: ref-ignition
+description: "Ignition SCADA 平台参考 — Perspective Web HMI、Vision 客户端、模块化架构、Jython 脚本引擎。用于 AUDESYS Studio HMI 和 Runtime 设计。"
+---
+
 # ref-ignition: Ignition SCADA Platform Reference
 
 > **Domain**: Industrial SCADA / HMI Platform  

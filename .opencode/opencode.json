@@ -6,7 +6,7 @@
   "plugin": [
     "superpowers@git+https://github.com/obra/superpowers.git",
     "@dietrichgebert/ponytail",
-    "oh-my-opencode",
+    "oh-my-opencode@latest",
     "context-mode"
   ],
   "instructions": [
@@ -28,6 +28,7 @@
     ".agents/rules/common/edit-safety.md",
     ".agents/rules/common/decision-gates.md",
     ".agents/rules/common/lesson-memory.md",
+    ".agents/rules/common/skill-guide.md",
     ".agents/rules/typescript.md",
     ".agents/rules/rust.md"
   ],

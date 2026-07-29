@@ -55,3 +55,21 @@ test('returns empty array when no markets match query', () => {})
 test('throws error when API key is missing', () => {})
 test('falls back to substring search when Redis is unavailable', () => {})
 ```
+
+## 可执行命令
+
+```bash
+# Rust
+cargo test --workspace
+cargo llvm-cov --fail-under-lines 80
+
+# TypeScript
+npx vitest run
+npx vitest run --coverage
+
+# E2E
+cd apps/studio && THEIA_URL=http://127.0.0.1:3100 npx playwright test --config=e2e/playwright.e2e.config.ts
+
+# Smoke
+cargo test --workspace -- smoke
+```

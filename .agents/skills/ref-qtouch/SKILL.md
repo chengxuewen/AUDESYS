@@ -1,3 +1,8 @@
+---
+name: ref-qtouch
+description: "QiTech Control / QTouch 跨平台组态 SCADA 参考 — NixOS 部署、Tauri IDE、黑盒交付模式。用于 AUDESYS Studio 和 Runtime 设计。"
+---
+
 # ref-qtouch — QiTech Control / QTouch 平台参考
 
 ## Metadata

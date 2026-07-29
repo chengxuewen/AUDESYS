@@ -115,7 +115,12 @@
    - `import React from 'react'` ❌ — 导致 bundle 中多 React 实例，hooks 崩溃
    - react-dom 用 `@theia/core/shared/react-dom/client`
 
-2. **扩展禁止拥有本地 `node_modules/`**
+2. **扩展 node_modules 必须用 symlink（禁止物理副本）**
+   - 扩展需要 node_modules 用于 **构建**（tsc 解析类型）
+   - 但必须是 **symlink** 指向 app 的 node_modules，禁止物理副本
+   - 物理副本 → esbuild 打包为独立模块 → Symbol 重复 → DI 静默失败
+   - 结构: `theia-extensions/*/node_modules/@theia/core -> ../../../apps/studio/node_modules/@theia/core`
+   - esbuild 通过 `preserveSymlinks=true` 使用 app 模块（运行时无重复）
    - 扩展的 `node_modules/` 含 @theia、@eclipse-glsp、inversify 等物理副本
    - esbuild 将不同路径的同一包视为不同模块 → Symbol 重复 → DI 静默失效
    - 所有依赖通过 `apps/studio/node_modules/` 解析（file: link + preserveSymlinks walk-up）

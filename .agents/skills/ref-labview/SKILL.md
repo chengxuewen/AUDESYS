@@ -1,3 +1,8 @@
+---
+name: ref-labview
+description: "LabVIEW 图形编程参考 — G 语言数据流、.vi 二进制格式教训、硬件集成模式。用于 AUDESYS 可视化设计器和 HAL 设计。"
+---
+
 # ref-labview — LabVIEW Graphical Programming Reference for AUDESYS
 
 **Name**: ref-labview

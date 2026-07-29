@@ -35,6 +35,15 @@
     "oracle": {
       "model": "new-api/premium-max",
       "fallback_models": ["new-api/premium-max-1", "new-api/premium-max-2"],
+      "reasoningEffort": "high",
+      "temperature": 0.2
+    },
+
+    "prometheus": {
+      "model": "new-api/premium-max",
+      "fallback_models": ["new-api/premium-max-1", "new-api/premium-max-2"],
+      "prompt_append": "Leverage deep & quick agents heavily, always in parallel.",
+      "reasoningEffort": "high",
       "temperature": 0.2
     },
 
@@ -48,13 +57,6 @@
     "hephaestus": {
       "model": "new-api/premium",
       "fallback_models": ["new-api/premium-1", "new-api/premium-2"],
-      "temperature": 0.2
-    },
-
-    "prometheus": {
-      "model": "new-api/premium",
-      "fallback_models": ["new-api/premium-1", "new-api/premium-2"],
-      "prompt_append": "Leverage deep & quick agents heavily, always in parallel.",
       "temperature": 0.2
     },
 
@@ -74,12 +76,12 @@
     "explore": {
       "model": "new-api/fast",
       "fallback_models": ["new-api/fast-1", "new-api/fast-2"],
-      "temperature": 0.0
+      "temperature": 0.1
     },
 
     "metis": {
-      "model": "new-api/premium",
-      "fallback_models": ["new-api/premium-1", "new-api/premium-2"],
+      "model": "new-api/fast",
+      "fallback_models": ["new-api/fast-1", "new-api/fast-2"],
       "temperature": 0.1
     },
 
@@ -119,6 +121,7 @@
     "ultrabrain": {
       "model": "new-api/premium-max",
       "fallback_models": ["new-api/premium-max-1", "new-api/premium-max-2"],
+      "reasoningEffort": "high",
       "temperature": 0.2
     },
 
@@ -131,6 +134,7 @@
     "unspecified-high": {
       "model": "new-api/premium",
       "fallback_models": ["new-api/premium-1", "new-api/premium-2"],
+      "reasoningEffort": "medium",
       "temperature": 0.1
     },
 
@@ -172,7 +176,7 @@
     "retry_on_errors": [402, 429, 500, 502, 503, 504],
     "max_fallback_attempts": 2,
     "cooldown_seconds": 60,
-    "timeout_seconds":  30,
+    "timeout_seconds":  60,
     "notify_on_fallback": true
   },
 
