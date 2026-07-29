@@ -37,6 +37,7 @@ import {
     OperationHandlerConstructor,
     Command,
     ToolPaletteItemProvider,
+    DefaultToolPaletteItemProvider,
 } from '@eclipse-glsp/server';
 
 import { GModelElement, GModelElementConstructor } from '@eclipse-glsp/graph';
@@ -322,7 +323,7 @@ export class LdDiagramModule extends GModelDiagramModule {
     }
 
     protected override bindToolPaletteItemProvider(): BindingTarget<ToolPaletteItemProvider> {
-        return LdToolPaletteItemProvider;
+        return DefaultToolPaletteItemProvider;
     }
 }
 

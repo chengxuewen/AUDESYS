@@ -9,7 +9,7 @@
  */
 
 import { VNode, h } from 'snabbdom';
-import { injectable } from 'inversify';
+import { injectable } from '@theia/core/shared/inversify';
 import {
     IView,
     RenderingContext,

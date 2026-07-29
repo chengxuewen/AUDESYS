@@ -6,7 +6,7 @@
  */
 import { VNode, h } from 'snabbdom';
 import { SNodeImpl } from 'sprotty';
-import { injectable } from 'inversify';
+import { injectable } from '@theia/core/shared/inversify';
 
 
 // ============================================================================
