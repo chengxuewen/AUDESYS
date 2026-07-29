@@ -21,8 +21,6 @@ import {
     RequestModelAction,
     SaveModelAction,
     ShapeTypeHint,
-    TriggerNodeCreationAction,
-    PaletteItem,
 } from '@eclipse-glsp/protocol';
 import {
     DiagramConfiguration,
@@ -37,7 +35,6 @@ import {
     OperationHandlerConstructor,
     Command,
     ToolPaletteItemProvider,
-    DefaultToolPaletteItemProvider,
 } from '@eclipse-glsp/server';
 
 import { GModelElement, GModelElementConstructor } from '@eclipse-glsp/graph';
@@ -47,6 +44,7 @@ import { ContactType, CoilType, PowerRailSide } from '../gmodel/nodes';
 import { LdDiagramGenerator, LD_SOURCE_KEY } from './ld-diagram-generator';
 import { LdOperationHandler } from './ld-operation-handler';
 import { compileLdAsync, CompileResult } from './compile-bridge';
+import { LdToolPaletteItemProvider } from './ld-tool-palette-provider';
 // ============================================================================
 // Re-exports
 // ============================================================================
@@ -63,6 +61,7 @@ export type {
     DeleteRungParams,
     MoveRungParams,
     AddPowerRailParams,
+    AddFbParams,
     CompileDiagnostic,
     CompileResult,
 } from './ld-operation-handler';
@@ -98,6 +97,13 @@ export class LdDiagramConfiguration implements DiagramConfiguration {
             elementTypeId: 'node:powerrail',
             repositionable: false,
             deletable: false,
+            resizable: false,
+            reparentable: false,
+        },
+        {
+            elementTypeId: 'node:fb',
+            repositionable: true,
+            deletable: true,
             resizable: false,
             reparentable: false,
         },
@@ -188,6 +194,11 @@ export class LdCreateNodeHandler extends OperationHandler {
             case 'node:powerrail': {
                 graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Left });
                 graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Right });
+                break;
+            }
+            case 'node:fb': {
+                const fbType = (args.fbType as string) || 'TON';
+                graph = this.handler.addFb(graph, { position: pos, fbType, rungId: rungId! });
                 break;
             }
             default:
@@ -323,7 +334,7 @@ export class LdDiagramModule extends GModelDiagramModule {
     }
 
     protected override bindToolPaletteItemProvider(): BindingTarget<ToolPaletteItemProvider> {
-        return DefaultToolPaletteItemProvider;
+        return LdToolPaletteItemProvider;
     }
 }
 

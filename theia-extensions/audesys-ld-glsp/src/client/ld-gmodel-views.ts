@@ -5,7 +5,7 @@
  * Adapted from the original ld-views.tsx for GLSP 2.x GModel types.
  */
 import { VNode, h } from 'snabbdom';
-import { SNodeImpl } from 'sprotty';
+import { SNodeImpl, IView, RenderingContext } from 'sprotty';
 import { injectable } from '@theia/core/shared/inversify';
 
 
@@ -53,8 +53,8 @@ function isSelected(model: SNodeImpl): boolean {
 // ============================================================================
 
 @injectable()
-export class LdContactView {
-    render(model: SNodeImpl): VNode {
+export class LdContactView implements IView {
+    render(model: Readonly<SNodeImpl>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
         const contactType = getArg(model, 'contactType', 'NO');
         const variableName = getArg(model, 'variableName', '??');
@@ -129,8 +129,8 @@ export class LdContactView {
 // ============================================================================
 
 @injectable()
-export class LdCoilView {
-    render(model: SNodeImpl): VNode {
+export class LdCoilView implements IView {
+    render(model: Readonly<SNodeImpl>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
         const coilType = getArg(model, 'coilType', 'Normal') as string;
         const variableName = getArg(model, 'variableName', '??');
@@ -209,8 +209,8 @@ export class LdCoilView {
 // ============================================================================
 
 @injectable()
-export class LdPowerRailView {
-    render(model: SNodeImpl): VNode {
+export class LdPowerRailView implements IView {
+    render(model: Readonly<SNodeImpl>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
         const side = getArg(model, 'side', 'Left');
         const totalHeight = model.size?.height ?? 400;
@@ -233,8 +233,8 @@ export class LdPowerRailView {
 // ============================================================================
 
 @injectable()
-export class LdFbView {
-    render(model: SNodeImpl): VNode {
+export class LdFbView implements IView {
+    render(model: Readonly<SNodeImpl>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
         const fbType = getArg(model, 'fbType', 'FB');
         const w = model.size?.width ?? 120;

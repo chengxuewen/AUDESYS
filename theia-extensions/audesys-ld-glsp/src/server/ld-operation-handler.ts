@@ -20,6 +20,7 @@ import {
   createContact,
   createCoil,
   createPowerRail,
+  createFb,
   createRung,
   createWire,
   createLdGraph,
@@ -32,6 +33,8 @@ import {
   PowerRailNode,
   PowerRailSide,
   BaseNode,
+  FbPlaceholderNode,
+  Pin,
   Point,
 } from '../gmodel/nodes';
 import { BaseEdge, WireConnection } from '../gmodel/edges';
@@ -89,6 +92,12 @@ export interface MoveRungParams {
 export interface AddPowerRailParams {
   side: PowerRailSide;
 }
+export interface AddFbParams {
+  position: Point;
+  fbType: string;
+  rungId: string;
+}
+
 
 // ============================================================================
 // Compile Result Types
@@ -615,6 +624,32 @@ export class LdOperationHandler {
     next.nodes.push(rail);
     return next;
   }
+  addFb(graph: LdGraph, params: AddFbParams): LdGraph {
+    const rung = findRung(graph, params.rungId);
+    const snapped = snapToGrid(params.position);
+
+    // Default TON pins: EN, ENO, IN1, OUT1
+    const inputPins: Pin[] = [
+      { name: 'EN', dataType: 'BOOL', position: { x: 0, y: 0 } },
+      { name: 'IN1', dataType: 'BOOL', position: { x: 0, y: 40 } },
+    ];
+    const outputPins: Pin[] = [
+      { name: 'ENO', dataType: 'BOOL', position: { x: 120, y: 0 } },
+      { name: 'OUT1', dataType: 'BOOL', position: { x: 120, y: 40 } },
+    ];
+
+    const fb = createFb(params.fbType, inputPins, outputPins, snapped);
+    const next = cloneGraph(graph);
+    next.nodes.push(fb);
+
+    // Add to rung element list
+    const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
+    const elements = [...rung.elementIds, fb.id];
+    next.rungs[rungIdx] = { ...rung, elementIds: elements };
+
+    return next;
+  }
+
 
   // ── Validation & Compilation ──────────────────────────────
 
