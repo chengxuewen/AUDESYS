@@ -10,7 +10,7 @@
  * It directly creates and opens a GLSPDiagramWidget via DiagramServiceProvider.
  */
 import { ContainerContext, DiagramConfiguration, GLSPTheiaFrontendModule } from '@eclipse-glsp/theia-integration';
-import { OpenHandler } from '@theia/core/lib/browser/opener-service';
+import { FrontendApplicationContribution } from '@theia/core/lib/browser/frontend-application-contribution';
 import { LdDiagramLanguage } from './ld-language';
 import { LdTheiaDiagramConfiguration } from './ld-theia-diagram-configuration';
 import { LdEditorOpenHandler } from './ld-theia-opener';
@@ -25,7 +25,8 @@ export class LdTheiaFrontendModule extends GLSPTheiaFrontendModule {
     }
 
     configure(context: ContainerContext): void {
-        context.bind(OpenHandler).to(LdEditorOpenHandler).inSingletonScope();
+        context.bind(LdEditorOpenHandler).toSelf().inSingletonScope();
+        context.bind(FrontendApplicationContribution).toService(LdEditorOpenHandler);
     }
 }
 

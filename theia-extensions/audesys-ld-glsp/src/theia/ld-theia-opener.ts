@@ -7,7 +7,9 @@
  * and opens a GLSPDiagramWidget instead of returning undefined.
  */
 import { injectable, inject } from '@theia/core/shared/inversify';
-import { OpenHandler } from '@theia/core/lib/browser/opener-service';
+import { OpenHandler, OpenerService } from '@theia/core/lib/browser/opener-service';
+import { FrontendApplicationContribution } from '@theia/core/lib/browser/frontend-application-contribution';
+import { FrontendApplication } from '@theia/core/lib/browser/frontend-application';
 import { ApplicationShell } from '@theia/core/lib/browser/shell/application-shell';
 import { URI } from '@theia/core/lib/common/uri';
 import { DiagramServiceProvider } from '@eclipse-glsp/theia-integration/lib/browser';
@@ -15,17 +17,26 @@ import { GLSPDiagramWidgetOptions } from '@eclipse-glsp/theia-integration/lib/br
 import { LdDiagramLanguage } from './ld-language';
 
 @injectable()
-export class LdEditorOpenHandler implements OpenHandler {
+export class LdEditorOpenHandler implements OpenHandler, FrontendApplicationContribution {
     readonly id = 'audesys-ld-opener';
     readonly label = 'LD Ladder Diagram Editor';
+    readonly canHandlePriority = 500;
 
     private widgetCount = 0;
+
+    @inject(OpenerService)
+    protected openerService!: OpenerService;
 
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
 
     @inject(DiagramServiceProvider)
     protected readonly diagramServiceProvider!: DiagramServiceProvider;
+
+    // Self-register via official API — bypasses ContributionProvider caching
+    onStart(_app: FrontendApplication): void {
+        this.openerService.addHandler?.(this);
+    }
 
     canHandle(uri: URI): number {
         return uri.path.ext === '.ld' ? 1000 : 0;
