@@ -5,7 +5,7 @@
  * Adapted from the original ld-views.tsx for GLSP 2.x GModel types.
  */
 import { VNode, h } from 'snabbdom';
-import { SNodeImpl, IView, RenderingContext } from '@eclipse-glsp/sprotty';
+import { GNode, IView, RenderingContext } from '@eclipse-glsp/client';
 import { injectable } from '@theia/core/shared/inversify';
 
 
@@ -37,14 +37,14 @@ const C = {
 // ============================================================================
 
 /** Read a property from a GLSP GModel element (args or properties). */
-function getArg<T = string>(model: SNodeImpl, key: string, defaultValue: T): T {
+function getArg<T = string>(model: GNode, key: string, defaultValue: T): T {
     const args = (model as any).args;
     if (args && key in args) return args[key] as T;
     return defaultValue;
 }
 
 /** Check if element is selected (has the 'selected' CSS class). */
-function isSelected(model: SNodeImpl): boolean {
+function isSelected(model: GNode): boolean {
     return (model as any).cssClasses?.includes('selected') ?? false;
 }
 
@@ -54,7 +54,7 @@ function isSelected(model: SNodeImpl): boolean {
 
 @injectable()
 export class LdContactView implements IView {
-    render(model: Readonly<SNodeImpl>, context: RenderingContext): VNode | undefined {
+    render(model: Readonly<GNode>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
         const contactType = getArg(model, 'contactType', 'NO');
         const variableName = getArg(model, 'variableName', '??');
@@ -130,7 +130,7 @@ export class LdContactView implements IView {
 
 @injectable()
 export class LdCoilView implements IView {
-    render(model: Readonly<SNodeImpl>, context: RenderingContext): VNode | undefined {
+    render(model: Readonly<GNode>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
         const coilType = getArg(model, 'coilType', 'Normal') as string;
         const variableName = getArg(model, 'variableName', '??');
@@ -210,7 +210,7 @@ export class LdCoilView implements IView {
 
 @injectable()
 export class LdPowerRailView implements IView {
-    render(model: Readonly<SNodeImpl>, context: RenderingContext): VNode | undefined {
+    render(model: Readonly<GNode>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
         const side = getArg(model, 'side', 'Left');
         const totalHeight = model.size?.height ?? 400;
@@ -234,7 +234,7 @@ export class LdPowerRailView implements IView {
 
 @injectable()
 export class LdFbView implements IView {
-    render(model: Readonly<SNodeImpl>, context: RenderingContext): VNode | undefined {
+    render(model: Readonly<GNode>, context: RenderingContext): VNode | undefined {
         const { x, y } = model.position;
         const fbType = getArg(model, 'fbType', 'FB');
         const w = model.size?.width ?? 120;

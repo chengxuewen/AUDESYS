@@ -42,6 +42,7 @@ import {
     ToolPaletteItemProvider,
 } from '@eclipse-glsp/server';
 
+import { ComputedBoundsActionHandler } from '@eclipse-glsp/server/node';
 import { GModelElement, GModelElementConstructor } from '@eclipse-glsp/graph';
 
 import { LdGraph, createLdGraph } from '../gmodel/model';
@@ -362,6 +363,7 @@ export class LdDiagramModule extends GModelDiagramModule {
     ): void {
         super.configureActionHandlers(binding);
         binding.add(StatusActionNoOpHandler as unknown as ActionHandlerConstructor);
+        binding.add(ComputedBoundsActionHandler as unknown as ActionHandlerConstructor);
     }
     protected override configureOperationHandlers(
         binding: InstanceMultiBinding<OperationHandlerConstructor>,

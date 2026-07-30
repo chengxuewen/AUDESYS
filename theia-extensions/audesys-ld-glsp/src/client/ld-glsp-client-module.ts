@@ -2,18 +2,17 @@
  * LD GLSP Client Module — registers LD diagram types with GLSP client.
  *
  * Enables interactive features: select, move, delete, resize, viewport.
- * In GLSP 2.x, configureModelElement is from 'sprotty'.
+ * In GLSP 2.x, all Sprotty imports come from '@eclipse-glsp/client' (D99/D101).
  */
 import { ContainerModule } from '@theia/core/shared/inversify';
 import {
+    configureDefaultModelElements,
     configureModelElement,
-    SNodeImpl,
+    GNode,
     SEdgeImpl,
     SGraphImpl,
     PolylineEdgeView,
     SGraphView,
-} from '@eclipse-glsp/sprotty';
-import {
     selectFeature,
     moveFeature,
     deletableFeature,
@@ -22,7 +21,7 @@ import {
     fadeFeature,
     hoverFeedbackFeature,
     popupFeature,
-} from 'sprotty';
+} from '@eclipse-glsp/client';
 
 // LD views
 import { LdContactView, LdCoilView, LdPowerRailView, LdFbView } from './ld-gmodel-views';
@@ -46,6 +45,9 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     const context = { bind, unbind, isBound, rebind };
 
     // Default GLSP model elements (graph root, labels, etc.)
+    // Register ALL standard Sprotty views (SGraphView, PolylineEdgeView, etc.)
+    // with correct GLSP DI Symbols. This is the ROOT CAUSE fix.
+    configureDefaultModelElements(context);
 
     // Graph root — viewport (zoom/pan/fit)
     configureModelElement(context, LD_NODE_TYPES.GRAPH, SGraphImpl, SGraphView, {
@@ -53,22 +55,22 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     });
 
     // Contact — select, move, delete, bounds
-    configureModelElement(context, LD_NODE_TYPES.CONTACT, SNodeImpl, LdContactView, {
+    configureModelElement(context, LD_NODE_TYPES.CONTACT, GNode, LdContactView, {
         enable: [selectFeature, moveFeature, deletableFeature, boundsFeature, hoverFeedbackFeature, popupFeature],
     });
 
     // Coil — select, move, delete, bounds
-    configureModelElement(context, LD_NODE_TYPES.COIL, SNodeImpl, LdCoilView, {
+    configureModelElement(context, LD_NODE_TYPES.COIL, GNode, LdCoilView, {
         enable: [selectFeature, moveFeature, deletableFeature, boundsFeature, hoverFeedbackFeature, popupFeature],
     });
 
     // Power Rail — select only (not movable/deletable)
-    configureModelElement(context, LD_NODE_TYPES.POWERRAIL, SNodeImpl, LdPowerRailView, {
+    configureModelElement(context, LD_NODE_TYPES.POWERRAIL, GNode, LdPowerRailView, {
         enable: [selectFeature, fadeFeature],
     });
 
     // FB — select, move, delete, bounds
-    configureModelElement(context, LD_NODE_TYPES.FB, SNodeImpl, LdFbView, {
+    configureModelElement(context, LD_NODE_TYPES.FB, GNode, LdFbView, {
         enable: [selectFeature, moveFeature, deletableFeature, boundsFeature, hoverFeedbackFeature, popupFeature],
     });
 
