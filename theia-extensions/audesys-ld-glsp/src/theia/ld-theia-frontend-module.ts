@@ -5,15 +5,12 @@
  * and language definition. Theia automatically handles file opening,
  * dirty state, save, undo/redo for .ld files.
  *
- * The manual LdEditorOpenHandler ensures .ld file routing even when
- * GLSP's toService() OpenHandler binding doesn't work in inversify 6.2.2.
- * It directly creates and opens a GLSPDiagramWidget via DiagramServiceProvider.
+ * OpenHandler registration is in ld-glsp-frontend-module.ts
+ * (plain ContainerModule, direct bind — same pattern as FBD).
  */
 import { ContainerContext, DiagramConfiguration, GLSPTheiaFrontendModule } from '@eclipse-glsp/theia-integration';
-import { FrontendApplicationContribution } from '@theia/core/lib/browser/frontend-application-contribution';
 import { LdDiagramLanguage } from './ld-language';
 import { LdTheiaDiagramConfiguration } from './ld-theia-diagram-configuration';
-import { LdEditorOpenHandler } from './ld-theia-opener';
 import { injectLdCssVariables } from '../client/ld-css-inject';
 import '../client/ld-palette-icons.css';
 
@@ -22,11 +19,6 @@ export class LdTheiaFrontendModule extends GLSPTheiaFrontendModule {
 
     bindDiagramConfiguration(context: ContainerContext): void {
         context.bind(DiagramConfiguration).to(LdTheiaDiagramConfiguration);
-    }
-
-    configure(context: ContainerContext): void {
-        context.bind(LdEditorOpenHandler).toSelf().inSingletonScope();
-        context.bind(FrontendApplicationContribution).toService(LdEditorOpenHandler);
     }
 }
 

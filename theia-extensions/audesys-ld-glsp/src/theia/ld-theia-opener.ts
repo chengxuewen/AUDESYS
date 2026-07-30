@@ -1,42 +1,29 @@
 /**
- * LD Editor OpenHandler — ensures .ld files open in the GLSP diagram editor.
+ * LD Editor OpenHandler — opens .ld files in the GLSP diagram editor.
  *
  * Priority 1000: above Monaco text editor (100), below GLSPDiagramManager (1001).
- * If the GLSP framework's toService() OpenHandler binding works, this handler is never
- * selected. If it doesn't (known inversify 6.2.2 issue), this handler directly creates
- * and opens a GLSPDiagramWidget instead of returning undefined.
+ * Bound directly in ld-glsp-frontend-module.ts (plain ContainerModule — same
+ * pattern as proven-working FBD editor).
  */
 import { injectable, inject } from '@theia/core/shared/inversify';
-import { OpenHandler, OpenerService } from '@theia/core/lib/browser/opener-service';
-import { FrontendApplicationContribution } from '@theia/core/lib/browser/frontend-application-contribution';
-import { FrontendApplication } from '@theia/core/lib/browser/frontend-application';
+import { OpenHandler } from '@theia/core/lib/browser/opener-service';
 import { ApplicationShell } from '@theia/core/lib/browser/shell/application-shell';
 import { URI } from '@theia/core/lib/common/uri';
-import { DiagramServiceProvider } from '@eclipse-glsp/theia-integration/lib/browser';
-import { GLSPDiagramWidgetOptions } from '@eclipse-glsp/theia-integration/lib/browser';
+import { DiagramServiceProvider, GLSPDiagramWidgetOptions } from '@eclipse-glsp/theia-integration/lib/browser';
 import { LdDiagramLanguage } from './ld-language';
 
 @injectable()
-export class LdEditorOpenHandler implements OpenHandler, FrontendApplicationContribution {
+export class LdEditorOpenHandler implements OpenHandler {
     readonly id = 'audesys-ld-opener';
     readonly label = 'LD Ladder Diagram Editor';
-    readonly canHandlePriority = 500;
 
     private widgetCount = 0;
-
-    @inject(OpenerService)
-    protected openerService!: OpenerService;
 
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
 
     @inject(DiagramServiceProvider)
     protected readonly diagramServiceProvider!: DiagramServiceProvider;
-
-    // Self-register via official API — bypasses ContributionProvider caching
-    onStart(_app: FrontendApplication): void {
-        this.openerService.addHandler?.(this);
-    }
 
     canHandle(uri: URI): number {
         return uri.path.ext === '.ld' ? 1000 : 0;
@@ -65,7 +52,6 @@ export class LdEditorOpenHandler implements OpenHandler, FrontendApplicationCont
             };
 
             const diContainer = config.createContainer(diagramOptions);
-
             const factory = this.diagramServiceProvider.getDiagramWidgetFactory(diagramType);
             const widget = factory.create(options, diContainer);
             widget.listenToFocusState(this.shell);
