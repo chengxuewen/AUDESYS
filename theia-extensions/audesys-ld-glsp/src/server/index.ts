@@ -195,52 +195,51 @@ export class LdSourceModelStorage implements SourceModelStorage {
 @injectable()
 export class LdCreateNodeHandler extends OperationHandler {
     readonly operationType = CreateNodeOperation.KIND;
+    override createCommand(_operation: Operation): Command | undefined { return undefined; }
     private handler = new LdOperationHandler();
 
-    override createCommand(operation: Operation): Command | undefined {
+    override execute(operation: Operation): any {
         const op = operation as CreateNodeOperation;
-        return this.commandOf(() => {
-            let graph = this.modelState.get<LdGraph>(LD_SOURCE_KEY) ?? createLdGraph();
-            const pos = op.location ?? { x: 0, y: 0 };
-            const args = (op as Record<string, unknown>).args as Record<string, unknown> ?? {};
-            let rungId: string | undefined;
+        let graph = this.modelState.get<LdGraph>(LD_SOURCE_KEY) ?? createLdGraph();
+        const pos = op.location ?? { x: 0, y: 0 };
+        const args = (op as any).args as Record<string, unknown> ?? {};
+        let rungId: string | undefined;
 
-            if (args.rungId && typeof args.rungId === 'string') {
-                const found = graph.rungs.find((r) => r.id === args.rungId);
-                if (!found) throw new Error(`Rung not found: ${args.rungId}`);
-                rungId = args.rungId as string;
-            } else {
-                graph = this.handler.addRung(graph);
-                rungId = graph.rungs[0].id;
+        if (args.rungId && typeof args.rungId === 'string') {
+            const found = graph.rungs.find((r) => r.id === args.rungId);
+            if (!found) throw new Error(`Rung not found: ${args.rungId}`);
+            rungId = args.rungId as string;
+        } else {
+            graph = this.handler.addRung(graph);
+            rungId = graph.rungs[0].id;
+        }
+
+        switch (op.elementTypeId) {
+            case 'node:contact': {
+                const contactType: ContactType = (args.contactType as ContactType) || 'NO';
+                graph = this.handler.addContact(graph, { position: pos, type: contactType, rungId: rungId! });
+                break;
             }
-
-            switch (op.elementTypeId) {
-                case 'node:contact': {
-                    const contactType: ContactType = (args.contactType as ContactType) || 'NO';
-                    graph = this.handler.addContact(graph, { position: pos, type: contactType, rungId: rungId! });
-                    break;
-                }
-                case 'node:coil': {
-                    const coilType: CoilType = (args.coilType as CoilType) || 'Normal';
-                    graph = this.handler.addCoil(graph, { position: pos, type: coilType, rungId: rungId! });
-                    break;
-                }
-                case 'node:powerrail': {
-                    graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Left });
-                    graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Right });
-                    break;
-                }
-                case 'node:fb': {
-                    const fbType = (args.fbType as string) || 'TON';
-                    graph = this.handler.addFb(graph, { position: pos, fbType, rungId: rungId! });
-                    break;
-                }
-                default:
-                    return;
+            case 'node:coil': {
+                const coilType: CoilType = (args.coilType as CoilType) || 'Normal';
+                graph = this.handler.addCoil(graph, { position: pos, type: coilType, rungId: rungId! });
+                break;
             }
+            case 'node:powerrail': {
+                graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Left });
+                graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Right });
+                break;
+            }
+            case 'node:fb': {
+                const fbType = (args.fbType as string) || 'TON';
+                graph = this.handler.addFb(graph, { position: pos, fbType, rungId: rungId! });
+                break;
+            }
+            default:
+                return;
+        }
 
-            this.modelState.set(LD_SOURCE_KEY, graph);
-        });
+        this.modelState.set(LD_SOURCE_KEY, graph);
     }
 }
 
