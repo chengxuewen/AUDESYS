@@ -195,55 +195,54 @@ export class LdSourceModelStorage implements SourceModelStorage {
 @injectable()
 export class LdCreateNodeHandler extends OperationHandler {
     readonly operationType = CreateNodeOperation.KIND;
-    override createCommand(_operation: Operation): Command | undefined { return undefined; }
-    override handles(_operation: Operation): boolean { return true; }
     private handler = new LdOperationHandler();
 
-    override execute(operation: Operation): any {
+    override createCommand(operation: Operation): Command | undefined {
         const op = operation as CreateNodeOperation;
-        let graph = this.modelState.get<LdGraph>(LD_SOURCE_KEY) ?? createLdGraph();
-        const pos = op.location ?? { x: 0, y: 0 };
-        const args = (op as Record<string, unknown>).args as Record<string, unknown> ?? {};
-        let rungId: string | undefined;
+        return this.commandOf(() => {
+            let graph = this.modelState.get<LdGraph>(LD_SOURCE_KEY) ?? createLdGraph();
+            const pos = op.location ?? { x: 0, y: 0 };
+            const args = (op as Record<string, unknown>).args as Record<string, unknown> ?? {};
+            let rungId: string | undefined;
 
-        if (args.rungId && typeof args.rungId === 'string') {
-            const found = graph.rungs.find((r) => r.id === args.rungId);
-            if (!found) throw new Error(`Rung not found: ${args.rungId}`);
-            rungId = args.rungId as string;
-        } else {
-            graph = this.handler.addRung(graph);
-            rungId = graph.rungs[0].id;
-        }
+            if (args.rungId && typeof args.rungId === 'string') {
+                const found = graph.rungs.find((r) => r.id === args.rungId);
+                if (!found) throw new Error(`Rung not found: ${args.rungId}`);
+                rungId = args.rungId as string;
+            } else {
+                graph = this.handler.addRung(graph);
+                rungId = graph.rungs[0].id;
+            }
 
-        switch (op.elementTypeId) {
-            case 'node:contact': {
-                const contactType: ContactType = (args.contactType as ContactType) || 'NO';
-                graph = this.handler.addContact(graph, { position: pos, type: contactType, rungId: rungId! });
-                break;
+            switch (op.elementTypeId) {
+                case 'node:contact': {
+                    const contactType: ContactType = (args.contactType as ContactType) || 'NO';
+                    graph = this.handler.addContact(graph, { position: pos, type: contactType, rungId: rungId! });
+                    break;
+                }
+                case 'node:coil': {
+                    const coilType: CoilType = (args.coilType as CoilType) || 'Normal';
+                    graph = this.handler.addCoil(graph, { position: pos, type: coilType, rungId: rungId! });
+                    break;
+                }
+                case 'node:powerrail': {
+                    graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Left });
+                    graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Right });
+                    break;
+                }
+                case 'node:fb': {
+                    const fbType = (args.fbType as string) || 'TON';
+                    graph = this.handler.addFb(graph, { position: pos, fbType, rungId: rungId! });
+                    break;
+                }
+                default:
+                    return;
             }
-            case 'node:coil': {
-                const coilType: CoilType = (args.coilType as CoilType) || 'Normal';
-                graph = this.handler.addCoil(graph, { position: pos, type: coilType, rungId: rungId! });
-                break;
-            }
-            case 'node:powerrail': {
-                graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Left });
-                graph = this.handler.addPowerRail(graph, { side: PowerRailSide.Right });
-                break;
-            }
-            case 'node:fb': {
-                const fbType = (args.fbType as string) || 'TON';
-                graph = this.handler.addFb(graph, { position: pos, fbType, rungId: rungId! });
-                break;
-            }
-            default:
-                return;
-        }
 
-        this.modelState.set(LD_SOURCE_KEY, graph);
+            this.modelState.set(LD_SOURCE_KEY, graph);
+        });
     }
 }
-
 
 // ============================================================================
 // Delete Element Operation Handler
@@ -380,8 +379,9 @@ export class LdDiagramModule extends GModelDiagramModule {
     }
 }
 
-// Standalone launcher — used when running as a separate server process
-import { createAppModule, createSocketCliParser, ServerModule, SocketServerLauncher } from '@eclipse-glsp/server';
+// Standalone launcher — GLSP 2.7.0 API
+import { createAppModule, createSocketCliParser, SocketServerLauncher } from '@eclipse-glsp/server/node';
+import { ServerModule } from '@eclipse-glsp/server';
 import { Container } from 'inversify';
 
 export async function launch(argv: string[] = process.argv): Promise<void> {
@@ -393,7 +393,6 @@ export async function launch(argv: string[] = process.argv): Promise<void> {
     launcher.configure(serverModule);
     launcher.start({ port: options.port, host: options.host });
 }
-
 if (require.main === module) {
     launch().catch(error => console.error('LD GLSP server failed:', error));
 }
