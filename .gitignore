@@ -121,6 +121,7 @@ theia-plugins/
 
 # Development sandbox (complete ignore)
 apps/studio-theia-test/
+test-*
 
 # napi-rs bridge artifacts
 crates/audesys-theia-bridge/node_modules/
