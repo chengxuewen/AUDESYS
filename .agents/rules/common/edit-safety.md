@@ -115,3 +115,34 @@ cd apps/studio && npm run build
 cd theia-extensions/audesys-xx && ln -sf ../../apps/studio/node_modules/@types node_modules/ && npm run build
 ```
 **Seen**: 2026-07-29 — LD palette fix was source-only for hours because lib/ was stale.
+
+### 14. GLSP server debug logging → use console.error, not console.log
+GLSP server is spawned as child process by `GLSPSocketServerContribution`. Its stdout is consumed
+for port discovery — ALL other stdout lines are DISCARDED. Use `console.error()` (stderr) instead.
+
+**Seen**: 2026-07-30 — `[LD] loadSourceModel called` never appeared until switching to console.error
+
+### 15. GLSP server kill → kill by process name, not just port
+`kill $(lsof -t -i:3100)` only kills the Theia backend. GLSP server runs on a random port.
+Must kill ALL ld-glsp server processes manually:
+```bash
+ps aux | grep 'ld-glsp.*server/index' | grep -v grep | awk '{print $2}' | xargs kill
+```
+
+**Seen**: 2026-07-30 — patched code not loaded because old GLSP server (random port) still running
+
+### 16. edit() to same file → Read after every edit
+Multiple `edit()` calls to the same file can leave duplicate code (duplicate `const`, duplicate `.type()`, duplicate `console.error`). Read the file after EACH edit to verify.
+
+**Seen**: 2026-07-30 — duplicate `const existing`, duplicate `.type(edge.type)`, duplicate `console.error`
+
+### 17. GLSP actions need explicit handlers
+GLSP framework does NOT auto-handle actions. Every dispatched action (StatusAction, SetDirtyStateAction, etc.) needs a registered handler, or `doDispatch()` throws `GLSPServerError("No handler registered for action kind: ...")`.
+
+**Seen**: 2026-07-30 — `reportModelLoading()` dispatches StatusAction → no handler → GLSPServerError → RejectAction sent to client
+
+### 18. Minified JS patch patterns break on rebuild
+`fix-tokens.py` uses exact string patterns that match the minified code. Each `npm run build`
+produces different minified variable names. Patterns must be updated after every build.
+
+**Seen**: 2026-07-30 — Socket.IO 403 errors returned after rebuild because patches no longer matched

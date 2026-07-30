@@ -578,3 +578,16 @@
 - **启动方式**: Web: `node lib/backend/main.js --port=3100` | PC: `npx electron lib/backend/electron-main.js`
 - **代价**: PC 端无原生 OS 菜单栏（macOS 顶部菜单条），用 Web 渲染菜单替代
 - **参考**: @theia/core package.json 的 frontend vs frontendElectron 字段
+
+## D99: GLSP 模块隔离 — sprotty vs @eclipse-glsp/sprotty
+- **日期**: 2026-07-30
+- **决定**: configureModelElement 和视图类（SGraphView, PolylineEdgeView）从 @eclipse-glsp/sprotty 导入以确保 DI Symbol 一致；features（selectFeature, moveFeature 等）从 sprotty 导入以避免 DEFAULT_FEATURES 未定义错误
+- **理由**: @eclipse-glsp/sprotty 是 GLSP 对 sprotty 的 fork，使用不同的 DI Symbol（ViewRegistration, ActionDispatcher 等）。从 sprotty 导入视图会导致注册在错误 Symbol 上，ViewRegistry 不可见。但 @eclipse-glsp/sprotty 的 features 通过 CJS __exportStar 重导出，esbuild 打包后 DEFAULT_FEATURES 可能为 undefined
+- **方案**: 混合导入：views 从 @eclipse-glsp/sprotty，features 从 sprotty
+- **参考**: pitfalls.md
+
+## D100: Neuron Automation 技术栈修正
+- **日期**: 2026-07-30
+- **决定**: 修正 D71 中"Neuron Automation 已验证 Theia+GLSP"的参考。实际 Neuron Smart Engineer（2026-06-30 发布）使用 VS Code 扩展架构（非 Eclipse Theia），专有 FBD/LD 编辑器（非 GLSP）
+- **理由**: Neuron Automation 官网和产品数据表确认 Smart Engineer 基于 VS Code 扩展架构。D71 可能参考了 Neuron 的早期原型
+- **参考**: docs/reference/neuron-smart-engineer.md, docs/reference/theia-projects.md

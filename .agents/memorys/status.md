@@ -231,3 +231,26 @@ find theia-extensions -path "*/node_modules/@theia*" 2>/dev/null
 - 修复: 添加 `onDidInitializeLayout()` + 防重复守卫（Theia 官方推荐模式）
 - 发现: lib/ 编译产物过期导致修复在源码中存在但编译后不生效
 - 教训: 修改源码后必须验证 lib/ 编译产物（已添加 edit-safety Rule 13）
+
+## Theia 参考文档 + GLSP 调试 (2026-07-30)
+
+### GLSP 编辑器验证 (ld-glsp-verify-editor)
+- **状态**: 9/15 任务完成，图表渲染阻塞
+- **修复**: loadSourceModel 文件读取 ✅、StatusAction handler ✅、边缘 type 默认值 ✅、Socket.IO 403 ✅
+- **阻塞**: sprotty vs @eclipse-glsp/sprotty DI Symbol 不匹配导致 ViewRegistry 找不到 graph view
+- **方案**: 混合导入 — views 从 @eclipse-glsp/sprotty，features 从 sprotty（D99）
+
+### 参考文档库扩展
+- 新增: `docs/reference/theia.md` (310行) — Eclipse Theia 产品画像
+- 新增: `docs/reference/neuron-smart-engineer.md` (216行) — Neuron Smart Engineer 分析
+- 新增: `docs/reference/theia-projects.md` (104行) — Theia 工业生态对比
+- 修正: Neuron Smart Engineer 使用 VS Code 扩展架构（非 Theia）— D100
+
+### 技能库更新
+- pitfalls.md: 追加 GLSP 调试章节 (7条) — stdout 消费、StatusAction handler、进程 kill、边缘 type、CJS 导出、并行 edit
+- edit-safety.md: 追加 Rule 14-18
+- decisions.md: 追加 D99 (GLSP 模块隔离), D100 (Neuron 技术栈修正)
+
+### 清理
+- .sisyphus/ 过时文件已清理（审计、旧计划、旧 spec、旧 teams）
+- 保留活跃文件: ld-glsp-verify-editor.md, ld-glsp-cleanup.md, dual-mode-test-report.md

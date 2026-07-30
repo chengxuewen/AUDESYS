@@ -567,3 +567,43 @@
 - **验证**: team_create 3 成员 server/client/completeness → team_task_create 并行分析
 - **禁止**: 连续 3+ 次失败诊断后继续单打独斗（应升级到团队模式或 Oracle）
 
+
+## GLSP 编辑器调试 (2026-07-30)
+
+### GLSP 服务器 stdout 被端口发现机制消费
+- **问题**: `console.log()` 在 GLSP 服务器进程中不输出到 Theia 日志
+- **原因**: `GLSPSocketServerContribution` 读取子进程 stdout 用于端口发现，其他行被丢弃
+- **方案**: GLSP 服务器调试日志必须使用 `console.error()`（stderr），stderr 被 Theia 后端捕获并写入日志文件
+- **验证**: `grep '[PREFIX]' /tmp/theia-server.log` 出现日志即表示 stderr 通路正常
+- **禁止**: GLSP 服务器代码中禁止使用 `console.log()` 调试——输出被吞掉
+
+### GLSP StatusAction 分发失败导致 loadSourceModel 不被调用
+- **问题**: 打开 .ld 文件后 loadSourceModel() 从未被调用，浏览器显示 rejectRequest 错误
+- **原因**: RequestModelActionHandler.execute() 在 try/catch 之外调用 reportModelLoading()，该方法 dispatch StatusAction。如果无 handler 注册，doDispatch() 抛出 GLSPServerError("No handler registered for action kind: statusAction")
+- **方案**: 在 LdDiagramModule.configureActionHandlers() 中注册 StatusActionNoOpHandler
+- **关键代码**: apps/studio/node_modules/@eclipse-glsp/server/lib/common/features/model/request-model-action-handler.js 第 46 行
+- **禁止**: 不要假设 GLSP 框架自动处理所有 action——每个 dispatched action 都需要 handler
+
+### GLSP 服务器进程无法通过端口 kill 终止
+- **问题**: kill $(lsof -t -i:3100) 只终止 Theia 后端，GLSP 服务器（随机端口）继续运行旧代码
+- **原因**: GLSP 服务器由 GLSPSocketServerContribution 以独立进程启动，监听随机端口
+- **方案**: 重启前务必杀掉所有残留 GLSP 服务器进程
+- **验证命令**: `ps aux | grep 'ld-glsp.*server/index' | grep -v grep | awk '{print $2}' | xargs kill; ps aux | grep 'ld-glsp.*server/index' | grep -v grep | wc -l` 必须为 0
+
+### Edge type 为 undefined 导致 GModelIndex 抛出
+- **问题**: GModelIndex.doIndex() 抛出 "The type property of a GModelElement must not be undefined"
+- **原因**: 测试用 .ld JSON 文件中 edges 缺少 type 字段，LdDiagramGenerator 直接使用 edge.type（undefined）
+- **方案**: 使用 edge.type ?? 'edge:wire' 提供默认值
+- **禁止**: 不要假设 JSON 文件中的字段都存在——生成器代码应使用默认值或 nullish coalescing
+
+### esbuild 的 CJS 命名导出 re-export 不可靠
+- **问题**: `import { SGraphView } from 'sprotty'` 在 esbuild 打包后为 undefined，Sprotty 报 "missing graph view"
+- **原因**: sprotty 是 CJS 模块（exports.SGraphView = ...），通过 `export * from './graph/views'` re-export。esbuild 的 export * 处理对 CJS 命名导出不可靠
+- **方案**: 从子路径直接导入: `import { SGraphView } from 'sprotty/lib/graph/views'`
+- **注意**: 此问题可能仍未完全解决——需进一步验证
+
+### 并行 edit() 导致重复代码
+- **问题**: 多次 edit() 调用导致重复的 const existing、重复的 .type(edge.type)、重复的 console.error 行
+- **原因**: 每次 edit 替换时未确认目标范围已被前次 edit 修改，产生残留代码
+- **方案**: 每次 edit 后 Read 验证文件内容；同一文件 3 次以上 edit 使用 Write 整体重写
+- **验证**: `grep -c '重复关键字' file.ts` 检查无意外重复计数 > 1
