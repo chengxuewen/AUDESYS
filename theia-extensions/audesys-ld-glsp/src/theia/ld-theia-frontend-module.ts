@@ -7,8 +7,7 @@
  *
  * The manual LdEditorOpenHandler ensures .ld file routing even when
  * GLSP's toService() OpenHandler binding doesn't work in inversify 6.2.2.
- * The handler returns undefined so Theia falls through to the
- * GLSPDiagramManager (priority 1001) for actual widget creation.
+ * It directly creates and opens a GLSPDiagramWidget via DiagramServiceProvider.
  */
 import { ContainerContext, DiagramConfiguration, GLSPTheiaFrontendModule } from '@eclipse-glsp/theia-integration';
 import { OpenHandler } from '@theia/core/lib/browser/opener-service';
