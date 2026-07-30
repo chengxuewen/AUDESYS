@@ -71,7 +71,10 @@
     "start:dev": "npx electron lib/backend/electron-main.js --no-cluster",
     "build": "theia build --mode production",
     "clean": "theia clean",
-    "postinstall": "echo skip"
+    "postinstall": "echo skip",
+    "build:glsp": "bash scripts/build-glsp.sh",
+    "check:symbols": "for s in OpenHandler FrontendApplicationContribution OpenerService WidgetFactory; do count=$(grep -c \"Symbol(\\\"$s\\\")\" lib/frontend/bundle.js); [ \"$count\" = \"1\" ] || (echo FAIL: $s=$count && exit 1); done && echo OK"
+  },
   },
   "overrides": {
     "@theia/file-search": "1.73.0",
