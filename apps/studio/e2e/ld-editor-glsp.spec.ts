@@ -5,7 +5,7 @@
  * Tests the new Eclipse GLSP-based LD editor, replacing the old React+SVG editor.
  * Uses GLSP selectors: .sprotty-graph, [data-element-type], [data-element-id].
  *
- * Scenarios: E2E-1 through E2E-8
+ * Scenarios: E2E-1 through E2E-11
  * Config: video=retain-on-failure, trace=on-first-retry
  */
 import { test, expect } from '@playwright/test';
@@ -318,5 +318,91 @@ test.describe('E2E-8: Undo', () => {
     expect(afterUndo).toBeLessThan(afterAdd);
 
     expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E2E-9: Open .ld file → GLSP editor loads (not text editor)
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('E2E-9: GLSP Editor Loads .ld File', () => {
+  test('open .ld file → diagram editor renders, not Monaco text', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+
+    await openLdDiagram(page);
+
+    // GLSP diagram editor must be visible
+    await expect(page.locator(GRAPH)).toBeVisible();
+
+    // Monaco text editor must NOT be visible for this file
+    // Monaco uses .monaco-editor as its root element
+    const monacoVisible = await page.locator('.monaco-editor').first()
+      .isVisible()
+      .catch(() => false);
+    // If Monaco is visible it means .ld opened as text, not diagram
+    expect(monacoVisible).toBe(false);
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E2E-10: Tool palette creates contact on canvas
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('E2E-10: Palette Creates Contact', () => {
+  test('click NO Contact → click canvas → SVG contact element appears', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+
+    await openLdDiagram(page);
+
+    // Snapshot contact count before
+    const before = await page.locator(CONTACT).count();
+
+    // Activate NO Contact tool from palette
+    await clickPaletteTool(page, 'NO Contact');
+
+    // Click on canvas to place contact
+    const graph = page.locator(GRAPH);
+    const box = await graph.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(box!.x + box!.width / 3, box!.y + 60);
+    await page.waitForTimeout(500);
+
+    // Verify SVG contact element appeared
+    const after = await page.locator(CONTACT).count();
+    expect(after).toBeGreaterThan(before);
+
+    // Verify the element is a real SVG node (has data-element-id)
+    const contact = page.locator(CONTACT).first();
+    const elementId = await contact.getAttribute('data-element-id');
+    expect(elementId).toBeTruthy();
+
+    expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E2E-11: Console has 0 GLSP errors after file open
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('E2E-11: Zero GLSP Console Errors', () => {
+  test('open .ld file → wait for render → console error count = 0', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+
+    await openLdDiagram(page);
+
+    // Wait a bit longer for any async GLSP operations to settle
+    await page.waitForTimeout(2000);
+
+    // Filter out favicon 404 (not a real error)
+    const glspErrors = errors.filter(e => !e.includes('favicon'));
+
+    // Log any errors for debugging
+    if (glspErrors.length > 0) {
+      console.error('[E2E-11] Unexpected console errors:', glspErrors);
+    }
+
+    expect(glspErrors).toHaveLength(0);
   });
 });

@@ -227,6 +227,42 @@ describe('LdCoilView', () => {
         expect(countChildren(vnode, 'line')).toBe(1);
         expect(countChildren(vnode, 'text')).toBe(1);
     });
+
+    it('renders Negated coil diagonal line from bottom-left to top-right', () => {
+        const model = mockNode({
+            id: 'coil-neg-coords',
+            position: { x: 300, y: 40 },
+            args: { coilType: 'Negated', variableName: 'Y2' },
+        });
+
+        const vnode = view.render(model);
+        const line = findChild(vnode, 'line');
+        expect(line).toBeDefined();
+
+        // Diagonal goes from (cx - 12, cy + 12) to (cx + 12, cy - 12)
+        // where cx = 300+18=318, cy = 40+18=58
+        const attrs = line!.data?.attrs as any;
+        expect(attrs.x1).toBe(318 - 12); // 306
+        expect(attrs.y1).toBe(58 + 12);  // 70
+        expect(attrs.x2).toBe(318 + 12); // 330
+        expect(attrs.y2).toBe(58 - 12);  // 46
+    });
+
+    it('uses CSS variable with fallback for coil color', () => {
+        const model = mockNode({
+            id: 'coil-css',
+            position: { x: 300, y: 40 },
+            args: { coilType: 'Normal', variableName: 'Y1' },
+        });
+
+        const vnode = view.render(model);
+        const rectAttrs = childAttrs(vnode, 'rect');
+
+        // Stroke should be CSS variable with fallback: var(--ld-coil-normal-fill, #4caf50)
+        const stroke = rectAttrs.stroke as string;
+        expect(stroke).toMatch(/^var\(--ld-.*#[0-9a-f]{6}\)$/);
+        expect(stroke).toContain('--ld-coil-normal-fill');
+    });
 });
 
 // ============================================================================

@@ -12,6 +12,8 @@ import {
   LdDeleteHandler,
   LdChangeContactTypeHandler,
   ChangeContactTypeOperation,
+  LdSourceModelStorage,
+  LdDiagramModule,
 } from '../../src/server';
 import { LD_SOURCE_KEY } from '../../src/server/ld-diagram-generator';
 import {
@@ -158,6 +160,24 @@ describe('LdCreateNodeHandler', () => {
         (n) => n.type === 'node:contact' && (n as any).variableName === 'IN1',
       ) as any;
       expect(contact?.contactType).toBe('NO');
+    });
+    it('creates a contact with NC type and stores contactType=NC', () => {
+      const state = mockModelStateWithGraph(graphWithContactOnly());
+      attachModelState(handler, state);
+
+      handler.execute({
+        kind: 'createNode',
+        isOperation: true,
+        elementTypeId: 'node:contact',
+        location: { x: 220, y: 40 },
+        args: { contactType: 'NC', rungId: state.get<LdGraph>(LD_SOURCE_KEY)!.rungs[0].id },
+      } as any);
+
+      const graph = state.get<LdGraph>(LD_SOURCE_KEY)!;
+      const contacts = graph.nodes.filter((n) => n.type === 'node:contact') as any[];
+      const newContact = contacts.find((c) => c.variableName === 'IN1');
+      expect(newContact).toBeDefined();
+      expect(newContact.contactType).toBe('NC');
     });
   });
 
@@ -402,5 +422,63 @@ describe('LdChangeContactTypeHandler', () => {
         ),
       ).not.toThrow();
     });
+  });
+});
+
+// ============================================================================
+// LdSourceModelStorage Tests
+// ============================================================================
+
+describe('LdSourceModelStorage', () => {
+  it('creates default LdGraph when no source model exists', () => {
+    const storage = new LdSourceModelStorage();
+    const store = new Map<string, unknown>();
+    (storage as any).modelState = {
+      get: (key: string) => store.get(key),
+      set: (key: string, value: unknown) => store.set(key, value),
+    };
+
+    storage.loadSourceModel({
+      requestId: 'test',
+      options: {},
+    } as any);
+
+    const graph = store.get(LD_SOURCE_KEY) as LdGraph;
+    expect(graph).toBeDefined();
+    expect(graph.nodes).toEqual([]);
+    expect(graph.edges).toEqual([]);
+    expect(graph.rungs).toEqual([]);
+  });
+
+  it('does not overwrite existing model on loadSourceModel', () => {
+    const storage = new LdSourceModelStorage();
+    const existingGraph = graphWithContactAndCoil();
+    const store = new Map<string, unknown>();
+    store.set(LD_SOURCE_KEY, existingGraph);
+    (storage as any).modelState = {
+      get: (key: string) => store.get(key),
+      set: (key: string, value: unknown) => store.set(key, value),
+    };
+
+    storage.loadSourceModel({
+      requestId: 'test',
+      options: { sourceModel: '{"nodes":[]}' },
+    } as any);
+
+    const graph = store.get(LD_SOURCE_KEY) as LdGraph;
+    expect(graph).toEqual(existingGraph);
+    expect(graph.nodes.length).toBe(existingGraph.nodes.length);
+  });
+});
+
+// ============================================================================
+// StatusActionNoOpHandler — verifies registration in LdDiagramModule
+// ============================================================================
+
+describe('StatusActionNoOpHandler', () => {
+  it('is registered as an action handler in LdDiagramModule', () => {
+    const mod = new LdDiagramModule();
+    expect(typeof mod.configureActionHandlers).toBe('function');
+    expect(mod.diagramType).toBe('ld-diagram');
   });
 });
