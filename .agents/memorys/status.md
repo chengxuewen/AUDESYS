@@ -241,6 +241,8 @@ find theia-extensions -path "*/node_modules/@theia*" 2>/dev/null
 - **方案**: 混合导入 — views 从 @eclipse-glsp/sprotty，features 从 sprotty（D99）
 
 ### 参考文档库扩展
+- 新增: `docs/reference/glsp.md` (770行) — Eclipse GLSP 产品画像 + node-json-theia 模板深度分析
+- 新增: `docs/reference/theia-architecture.md` (441行) — Eclipse Theia 架构深入分析（DI、扩展、Widget、生命周期）
 - 新增: `docs/reference/theia.md` (310行) — Eclipse Theia 产品画像
 - 新增: `docs/reference/neuron-smart-engineer.md` (216行) — Neuron Smart Engineer 分析
 - 新增: `docs/reference/theia-projects.md` (104行) — Theia 工业生态对比

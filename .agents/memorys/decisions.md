@@ -591,3 +591,15 @@
 - **决定**: 修正 D71 中"Neuron Automation 已验证 Theia+GLSP"的参考。实际 Neuron Smart Engineer（2026-06-30 发布）使用 VS Code 扩展架构（非 Eclipse Theia），专有 FBD/LD 编辑器（非 GLSP）
 - **理由**: Neuron Automation 官网和产品数据表确认 Smart Engineer 基于 VS Code 扩展架构。D71 可能参考了 Neuron 的早期原型
 - **参考**: docs/reference/neuron-smart-engineer.md, docs/reference/theia-projects.md
+
+## D101: GLSP 客户端导入规范
+- 日期: 2026-07-30
+- 决定: LD/FBD 编辑器客户端代码只能从 @eclipse-glsp/client 导入，禁止直接从 sprotty 导入
+- 理由: @eclipse-glsp/sprotty (GLSP fork) 与 sprotty (上游) 使用不同 DI Symbol 体系。官方 node-json-theia 模板验证了此模式
+- 参考: glsp.md section 14.3, D99
+
+## D102: GLSP + Theia 参考文档体系
+- 日期: 2026-07-30
+- 决定: 建立系统化参考文档体系 — glsp.md (770行) + theia-architecture.md (441行)
+- 理由: LD/FBD/SFC 图形编辑器依赖 GLSP+Theia 生态，需要系统化参考文档指导开发
+- 参考: docs/reference/glsp.md, docs/reference/theia-architecture.md
