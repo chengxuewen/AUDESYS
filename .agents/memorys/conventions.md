@@ -168,3 +168,18 @@ find theia-extensions -path "*/node_modules/@theia/core" 2>/dev/null  # 必须�
 # 无 'No matching bindings found' 错误
 ```
 
+### GLSP 构建两步法
+```bash
+# 1. 构建前必须移除扩展 node_modules symlink（防止 Symbol 重复）
+rm theia-extensions/audesys-ld-glsp/node_modules
+# 2. 构建
+cd apps/studio && npm run build
+# 3. 验证 Symbol 唯一性
+for s in OpenHandler FrontendApplicationContribution OpenerService; do
+  echo "$s: $(grep -c "Symbol(\"$s\")" lib/frontend/bundle.js)"
+done
+# 全部必须 = 1
+# 4. 恢复 symlink（GLSP 独立服务器需要）
+ln -sf ../../apps/studio/node_modules theia-extensions/audesys-ld-glsp/node_modules
+```
+

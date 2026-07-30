@@ -256,3 +256,27 @@ find theia-extensions -path "*/node_modules/@theia*" 2>/dev/null
 ### 清理
 - .sisyphus/ 过时文件已清理（审计、旧计划、旧 spec、旧 teams）
 - 保留活跃文件: ld-glsp-verify-editor.md, ld-glsp-cleanup.md, dual-mode-test-report.md
+
+## LD GLSP 编辑器修复 (2026-07-30)
+
+### 根因与修复
+- **Symbol 重复**: 扩展 node_modules symlink 导致所有 @theia/core Symbol 在 bundle 中重复 (=2)，全部 DI 注入静默失败
+- **修复**: 构建时移除 symlink，构建后恢复（服务器需要）。Symbol 去重后 `[LD Opener]` bootstrapping/constructed/registered 全部出现
+- **OpenHandler 注册**: 使用 `FrontendApplicationContribution.onStart()` + `OpenerService.addHandler()` 手动注册，绕过 inversify 6.2.2 + Theia 1.73 环境下 `toService()` 不被 `ContributionProvider` 收集的问题
+- **编辑功能**: 还原 `execute()` 模式（`createCommand()` 返回 undefined），GLSP 框架自动触发 GModel 重新生成
+
+### 提交
+- `5934369` revert to execute() pattern
+- `7984c3c` bypass Symbol duplication via manual OpenHandler + bootstrap
+- `bc45078` bind OpenHandler in plain ContainerModule
+- `446c6db` use commandOf() pattern (已回退)
+- `2e8c04a` configureDefaultModelElements + import unify + ComputedBoundsActionHandler
+
+### 新增决策
+- D103: 构建时移除扩展 node_modules symlink
+- D104: LD GLSP OpenHandler 注册策略 — OpenerService.addHandler()
+
+### 记忆更新
+- pitfalls.md: 新增 5 条（Symbol 重复、toService 不兼容、缓存问题、服务器 node_modules、commandOf 失败）
+- edit-safety.md: 新增 Rule 19 — 构建后 Symbol 唯一性检查
+- conventions.md: 新增 GLSP 构建两步法

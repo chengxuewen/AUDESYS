@@ -602,4 +602,15 @@
 - 日期: 2026-07-30
 - 决定: 建立系统化参考文档体系 — glsp.md (770行) + theia-architecture.md (441行)
 - 理由: LD/FBD/SFC 图形编辑器依赖 GLSP+Theia 生态，需要系统化参考文档指导开发
+
+## D103: 构建时移除扩展 node_modules symlink
+- 日期: 2026-07-30
+- 决定: 构建前端 bundle 前必须先移除扩展 node_modules symlink，构建后恢复。构建两步法: `rm theia-extensions/*/node_modules && npm run build && ln -sf ../../apps/studio/node_modules theia-extensions/*/node_modules`
+- 理由: esbuild 将 symlink 路径和直接路径视为不同模块 → Symbol 重复 → DI 静默失效。D97 回归确认此问题
+- 验证: `for s in OpenHandler FrontendApplicationContribution OpenerService; do echo "$s: $(grep -c "Symbol(\"$s\")" bundle.js)"; done` 全部 = 1
+
+## D104: LD GLSP OpenHandler 注册策略 — OpenerService.addHandler()
+- 日期: 2026-07-30
+- 决定: LD .ld 文件的 OpenHandler 不依赖 GLSP 框架的 toService() 绑定，改用 FrontendApplicationContribution.onStart() + OpenerService.addHandler() 手动注册
+- 理由: inversify 6.2.2 + Theia 1.73 环境下 toService() 绑定不被 ContainerBasedContributionProvider 收集。addHandler() 是 Theia 官方 API，不受缓存影响
 - 参考: docs/reference/glsp.md, docs/reference/theia-architecture.md

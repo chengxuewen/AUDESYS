@@ -146,3 +146,25 @@ GLSP framework does NOT auto-handle actions. Every dispatched action (StatusActi
 produces different minified variable names. Patterns must be updated after every build.
 
 **Seen**: 2026-07-30 — Socket.IO 403 errors returned after rebuild because patches no longer matched
+
+### 19. Build must verify Symbol uniqueness (DI health check)
+After ANY Theia build, verify ALL key @theia/core Symbols are unique in the bundle.
+If any Symbol > 1, DI bindings silently fail — extensions don't load, handlers aren't registered.
+
+```bash
+for s in OpenHandler FrontendApplicationContribution OpenerService WidgetFactory; do
+  count=$(grep -c "Symbol(\"$s\")" apps/studio/lib/frontend/bundle.js)
+  if [ "$count" != "1" ]; then
+    echo "FAIL: $s = $count (must be 1)"
+    exit 1
+  fi
+done
+echo "OK: All Symbols = 1"
+```
+
+Root cause: extension node_modules symlink causes esbuild to resolve @theia/core
+from two different paths → two module instances → two Symbol instances.
+Fix: build WITHOUT symlink, restore after build.
+
+**Seen**: 2026-07-30 — 7h wasted debugging .ld file opening; root cause was Symbol("OpenHandler")=2
+**Seen**: 2026-07-30 — Socket.IO 403 errors returned after rebuild because patches no longer matched

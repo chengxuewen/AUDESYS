@@ -602,6 +602,33 @@
 - **方案**: 从子路径直接导入: `import { SGraphView } from 'sprotty/lib/graph/views'`
 - **注意**: 此问题可能仍未完全解决——需进一步验证
 
+### 扩展 node_modules symlink 导致 Symbol 全部重复（D97 回归）
+- **问题**: 为修复 vitest 模块解析添加了扩展 node_modules symlink，导致 esbuild 将 @theia/core 打包两份。`Symbol("OpenHandler")` = 2, `Symbol("FrontendApplicationContribution")` = 2 等全部重复。所有 DI @inject() 静默失败——handler 从不实例化，`.ld` 文件以文本打开
+- **原因**: esbuild 通过 symlink 路径和直接路径将同一模块解析为不同实例。即使 `preserveSymlinks=true` 仍可能因路径别名问题产生重复
+- **方案**: 构建前移除 symlink → Symbols 全部 = 1 → DI 恢复。构建后恢复 symlink（GLSP 独立服务器进程需要 node_modules 解析依赖）
+- **验证**: `for s in OpenHandler FrontendApplicationContribution OpenerService; do echo "$s: $(grep -c "Symbol(\"$s\")" apps/studio/lib/frontend/bundle.js)"; done` — 全部必须 = 1
+- **构建两步法**: `rm theia-extensions/*/node_modules && npm run build && ln -sf ../../apps/studio/node_modules theia-extensions/*/node_modules`
+- **禁止**: 不要在生产构建中保留扩展 node_modules（即使 symlink）
+
+### GLSP 框架 toService() + inversify 6.2.2 不兼容
+- **问题**: GLSPTheiaFrontendModule.registerDiagramManager() 调用 `bind(OpenHandler).toService(diagramManagerServiceId)` 创建 OpenHandler 绑定，但 Theia ContributionProvider<OpenHandler> 无法收集该绑定。GLSP diagram manager 的 canHandle() 从未被调用
+- **原因**: inversify 6.2.2 的 toService() 创建 DynamicValue 绑定，在 Theia 1.73 的 ContainerBasedContributionProvider.getAll() 中不生效（疑似多注入版本行为变更）
+- **方案**: 放弃 toService() 绑定。使用手动 OpenHandler + OpenerService.addHandler() 绕行
+- **参考**: D99, D101
+
+### Theia ContainerBasedContributionProvider 缓存问题
+- **问题**: getContributions() 首次调用后永久缓存结果。后续绑定的 handler 不可见
+- **方案**: 使用 OpenerService.addHandler() 动态注册（官方 API，不受缓存影响）
+
+### GLSP 服务器启动需要 node_modules
+- **问题**: GLSP 服务器作为独立 Node.js 进程运行（`node lib/server/index.js`），需要 node_modules 解析 @eclipse-glsp/* 依赖。移除扩展 symlink 后服务器启动失败
+- **方案**: 构建后恢复 symlink。构建产物（bundle.js）不受影响——仅运行时服务器进程需要
+
+### LdCreateNodeHandler: createCommand() 返回 commandOf() 导致节点创建失败
+- **问题**: 将 execute() 改为 createCommand() + this.commandOf() 后，点击画布无法创建节点
+- **原因**: commandOf() 回调中使用 this.modelState 时 this 上下文可能不正确，或 GLSP 2.x 框架对自定义 OperationHandler 的 commandOf() 支持不完整
+- **方案**: 回归 execute() 模式——createCommand() 返回 undefined，execute() 直接操作 modelState。GLSP 框架在 execute() 后调用 submitModel() 触发 GModel 重新生成
+- **验证**: 双击后能正常编辑
 ### 并行 edit() 导致重复代码
 - **问题**: 多次 edit() 调用导致重复的 const existing、重复的 .type(edge.type)、重复的 console.error 行
 - **原因**: 每次 edit 替换时未确认目标范围已被前次 edit 修改，产生残留代码
