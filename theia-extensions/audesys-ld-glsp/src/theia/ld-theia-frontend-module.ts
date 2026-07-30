@@ -28,10 +28,8 @@ class LdOpenerBootstrap implements FrontendApplicationContribution {
     @inject(OpenerService) openerService!: OpenerService;
 
     onStart(_app: FrontendApplication): void {
-        console.log('[LD Opener] bootstrapping handler');
         const handler = new LdEditorOpenHandler(this.shell, this.diagramServiceProvider);
         this.openerService.addHandler?.(handler);
-        console.log('[LD Opener] handler registered');
     }
 }
 

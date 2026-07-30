@@ -22,7 +22,6 @@ export class LdEditorOpenHandler implements OpenHandler {
         private readonly shell: ApplicationShell,
         private readonly diagramServiceProvider: DiagramServiceProvider,
     ) {
-        console.log('[LD Opener] constructed');
     }
 
     canHandle(uri: URI): number {
