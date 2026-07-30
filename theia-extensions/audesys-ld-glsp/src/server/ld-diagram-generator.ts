@@ -89,7 +89,7 @@ export class LdDiagramGenerator implements GModelFactory {
         // Build edges (wires)
         for (const edge of ld.edges) {
             const gedge = GEdge.builder()
-                .type(edge.type)
+                .type(edge.type ?? 'edge:wire')
                 .id(edge.id)
                 .sourceId(edge.sourceId)
                 .targetId(edge.targetId);

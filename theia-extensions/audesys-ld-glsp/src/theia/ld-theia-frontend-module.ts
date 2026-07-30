@@ -8,6 +8,8 @@
 import { ContainerContext, DiagramConfiguration, GLSPTheiaFrontendModule } from '@eclipse-glsp/theia-integration';
 import { LdDiagramLanguage } from './ld-language';
 import { LdTheiaDiagramConfiguration } from './ld-theia-diagram-configuration';
+import { injectLdCssVariables } from '../client/ld-css-inject';
+import '../client/ld-palette-icons.css';
 
 export class LdTheiaFrontendModule extends GLSPTheiaFrontendModule {
     readonly diagramLanguage = LdDiagramLanguage;
@@ -17,4 +19,6 @@ export class LdTheiaFrontendModule extends GLSPTheiaFrontendModule {
     }
 }
 
+// Inject LD CSS variables on module load (guard prevents double injection)
+injectLdCssVariables();
 export default new LdTheiaFrontendModule();

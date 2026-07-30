@@ -14,15 +14,20 @@
  * GLSP 2.x migration: imports from '@eclipse-glsp/server' (was server-node v1.x).
  */
 import { inject, injectable } from 'inversify';
+import * as fs from 'fs';
 import {
+    Action,
     CreateNodeOperation,
     DeleteElementOperation,
     Operation,
     RequestModelAction,
     SaveModelAction,
     ShapeTypeHint,
+    StatusAction,
 } from '@eclipse-glsp/protocol';
 import {
+    ActionHandler,
+    ActionHandlerConstructor,
     DiagramConfiguration,
     ServerLayoutKind,
     ModelState,
@@ -45,6 +50,7 @@ import { LdDiagramGenerator, LD_SOURCE_KEY } from './ld-diagram-generator';
 import { LdOperationHandler } from './ld-operation-handler';
 import { compileLdAsync, CompileResult } from './compile-bridge';
 import { LdToolPaletteItemProvider } from './ld-tool-palette-provider';
+import { LdGModelState } from './ld-gmodel-state';
 // ============================================================================
 // Re-exports
 // ============================================================================
@@ -131,6 +137,16 @@ export class LdDiagramConfiguration implements DiagramConfiguration {
 
 // ============================================================================
 // Source Model Storage
+
+// No-op handler for StatusAction — prevents GLSPServerError when
+// reportModelLoading() dispatches StatusAction and no handler exists.
+@injectable()
+class StatusActionNoOpHandler implements ActionHandler {
+    readonly actionKinds = [StatusAction.KIND];
+    execute(_action: Action): Action[] {
+        return [];
+    }
+}
 // ============================================================================
 
 @injectable()
@@ -138,10 +154,28 @@ export class LdSourceModelStorage implements SourceModelStorage {
     @inject(ModelState)
     protected modelState!: ModelState;
 
-    loadSourceModel(_action: RequestModelAction): void {
+    loadSourceModel(action: RequestModelAction): void {
+        console.error('[LD] loadSourceModel called, sourceUri:', action.options?.sourceUri);
         const existing = this.modelState.get<LdGraph>(LD_SOURCE_KEY);
         if (!existing) {
-            this.modelState.set(LD_SOURCE_KEY, createLdGraph());
+            // Try sourceUri first (file path from Theia GLSP integration)
+            const sourceUri = action.options?.sourceUri;
+            if (typeof sourceUri === 'string' && sourceUri) {
+                try {
+                    const filePath = sourceUri.replace('file://', '');
+                    const content = fs.readFileSync(filePath, 'utf-8');
+                    this.modelState.set(LD_SOURCE_KEY, JSON.parse(content) as LdGraph);
+                    return;
+                } catch (e) {
+                }
+            }
+            // Try sourceModel (direct content injection)
+            const sourceModel = action.options?.sourceModel;
+            if (typeof sourceModel === 'string' && sourceModel) {
+                this.modelState.set(LD_SOURCE_KEY, JSON.parse(sourceModel) as LdGraph);
+            } else {
+                this.modelState.set(LD_SOURCE_KEY, createLdGraph());
+            }
         }
     }
 
@@ -323,6 +357,12 @@ export class LdDiagramModule extends GModelDiagramModule {
         return LdSourceModelStorage;
     }
 
+    protected override configureActionHandlers(
+        binding: InstanceMultiBinding<ActionHandlerConstructor>,
+    ): void {
+        super.configureActionHandlers(binding);
+        binding.add(StatusActionNoOpHandler as unknown as ActionHandlerConstructor);
+    }
     protected override configureOperationHandlers(
         binding: InstanceMultiBinding<OperationHandlerConstructor>,
     ): void {

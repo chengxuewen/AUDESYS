@@ -1,0 +1,133 @@
+/**
+ * LD Palette Icons — CSS class definitions for GLSP tool palette items.
+ *
+ * Each class corresponds to a palette item icon in ld-tool-palette-provider.ts.
+ * Simple CSS shapes (borders, pseudo-elements) — no external icon libraries.
+ * Colors reference CSS variables defined in ld-css-inject.ts.
+ */
+
+/* Base icon size */
+.ld-contact-no,
+.ld-contact-nc,
+.ld-coil-normal,
+.ld-coil-set,
+.ld-coil-reset,
+.ld-coil-negated,
+.ld-powerrail,
+.ld-fb {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* ── Contacts ─────────────────────────────────────────── */
+
+/* NO Contact — empty rectangle with vertical bar */
+.ld-contact-no {
+  border: 2px solid var(--ld-contact-no-fill, #4caf50);
+  border-radius: 2px;
+}
+.ld-contact-no::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  background: var(--ld-contact-no-fill, #4caf50);
+  transform: translateX(-50%);
+}
+
+/* NC Contact — rectangle with diagonal slash */
+.ld-contact-nc {
+  border: 2px solid var(--ld-contact-nc-fill, #f44336);
+  border-radius: 2px;
+}
+.ld-contact-nc::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  border-right: 2px solid var(--ld-contact-nc-fill, #f44336);
+  transform: skewX(-20deg);
+}
+
+/* ── Coils ────────────────────────────────────────────── */
+
+/* Normal Coil — rounded rectangle (parentheses) */
+.ld-coil-normal {
+  border: 2px solid var(--ld-coil-normal-fill, #4caf50);
+  border-radius: 10px;
+}
+
+/* Negated Coil — rounded rect with diagonal slash */
+.ld-coil-negated {
+  border: 2px solid var(--ld-coil-normal-fill, #4caf50);
+  border-radius: 10px;
+}
+.ld-coil-negated::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  right: 3px;
+  bottom: 3px;
+  border-right: 2px solid var(--ld-coil-normal-fill, #4caf50);
+  transform: skewX(-20deg);
+}
+
+/* Set Coil — rounded rect with S */
+.ld-coil-set {
+  border: 2px solid var(--ld-coil-set-fill, #ff9800);
+  border-radius: 10px;
+}
+.ld-coil-set::after {
+  content: 'S';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--ld-coil-set-fill, #ff9800);
+  line-height: 1;
+}
+
+/* Reset Coil — rounded rect with R */
+.ld-coil-reset {
+  border: 2px solid var(--ld-coil-reset-fill, #f44336);
+  border-radius: 10px;
+}
+.ld-coil-reset::after {
+  content: 'R';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--ld-coil-reset-fill, #f44336);
+  line-height: 1;
+}
+
+/* ── Power Rail ───────────────────────────────────────── */
+
+.ld-powerrail {
+  border: none;
+  border-left: 3px solid var(--ld-power-rail-color, #2196f3);
+  border-radius: 1px;
+}
+
+/* ── Function Block ───────────────────────────────────── */
+
+.ld-fb {
+  border: 2px solid var(--ld-fb-stroke, #4caf50);
+  background: var(--ld-fb-fill, #37474f);
+  border-radius: 3px;
+}

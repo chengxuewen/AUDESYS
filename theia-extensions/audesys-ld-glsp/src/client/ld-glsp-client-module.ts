@@ -12,6 +12,8 @@ import {
     SGraphImpl,
     PolylineEdgeView,
     SGraphView,
+} from '@eclipse-glsp/sprotty';
+import {
     selectFeature,
     moveFeature,
     deletableFeature,

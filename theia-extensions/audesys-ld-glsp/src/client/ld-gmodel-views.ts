@@ -5,7 +5,7 @@
  * Adapted from the original ld-views.tsx for GLSP 2.x GModel types.
  */
 import { VNode, h } from 'snabbdom';
-import { SNodeImpl, IView, RenderingContext } from 'sprotty';
+import { SNodeImpl, IView, RenderingContext } from '@eclipse-glsp/sprotty';
 import { injectable } from '@theia/core/shared/inversify';
 
 

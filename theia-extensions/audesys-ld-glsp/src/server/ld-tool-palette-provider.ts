@@ -24,7 +24,7 @@ function ldPaletteItem(
         label,
         icon,
         sortString,
-        actions: [TriggerNodeCreationAction.create(elementTypeId, { args })],
+        actions: [TriggerNodeCreationAction.create(elementTypeId, args)],
     };
 }
 
