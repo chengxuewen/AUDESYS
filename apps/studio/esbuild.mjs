@@ -7,11 +7,6 @@ import { nodeOptions } from './gen-esbuild.node.mjs';
 import { electronOptions } from './gen-esbuild.electron.mjs';
 import esbuild from 'esbuild';
 
-// Disable symlink following: @theia packages must resolve from apps/studio/node_modules
-browserOptions.preserveSymlinks = true;
-nodeOptions.preserveSymlinks = true;
-electronOptions.preserveSymlinks = true;
-
 const browserContext = await esbuild.context(browserOptions);
 const nodeContext = await esbuild.context(nodeOptions);
 const electronContext = await esbuild.context(electronOptions);

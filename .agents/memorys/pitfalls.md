@@ -483,7 +483,7 @@
 - **原因**: Theia 拦截了键盘事件，路由到 IPC 调用 `webContents.openDevTools()`，但 IPC 通道在应用初始化完成前不可用。`--auto-open-devtools-for-tabs` 通过 `theia start --electron-args` 传递时也会失效
 - **方案**: 在 `lib/backend/electron-main.js` 中直接注册 `globalShortcut.register('F12', ...)` 和 `Cmd+Option+I`，绕过 Theia 的 IPC 机制。已集成到 `fix-tokens.py` 自动修补
 
-## Theia Bundle 模块重复陷阱 (2026-07-28)
+## Theia Bundle 模块重复陷阱 (2026-07-28) — ✅ 已通过 yarn workspaces 迁移解决
 
 ### Symbol 型 DI 标识符对模块重复极度敏感
 - **问题**: LD palette contribution 绑定成功（console.log 确认），但 `initializeLayout` 从未被调用，widget 不显示
@@ -505,6 +505,14 @@
 - **原因**: 扩展直接从 `"react"` 导入，bundle 中产生多个 React 实例。React hooks 依赖单例 dispatcher，多实例导致 dispatcher 为 null
 - **方案**: 所有 Theia 扩展中 React 导入统一为 `import React from '@theia/core/shared/react'`，react-dom 用 `@theia/core/shared/react-dom/client`
 - **检查**: `grep -rn 'from "react"\|from '\''react'\''' theia-extensions/*/src packages/*/src --include="*.ts" --include="*.tsx" | grep -v "@theia/core/shared/react"` 必须为空
+
+### Theia 官方做法被忽略 — 7h 调试代价 — ✅ 已通过 yarn workspaces 迁移解决
+- **问题**: Symbol 重复问题耗费 7h 调试，根因是未遵循 Theia 官方推荐的依赖管理方式
+- **原因**: (a) 读自己写的 conventions.md 而非 Theia 官方文档；(b) 把 workaround（两步构建+symlink）当作正确方案；(c) 验证“是否生效”而非“是否正确”
+- **正确做法**: Theia 官方用 Yarn Workspaces monorepo + `dependencies`（非 peerDependencies）。yarn hoist 自动将 @theia/* 统一到根 node_modules，esbuild 通过单一路径解析，无 Symbol 重复
+- **教训**: 遇到框架级问题时，第一步永远是查官方文档/社区经验，而不是凭直觉尝试配置。花 10 分钟调研可以省 3 小时试错
+- **参考**: Theia Authoring Extensions + Composing Applications 文档
+- **迁移计划**: 从 npm + file: link 迁移到 yarn workspaces，删除 build-glsp.sh，直接用 `yarn && theia build`
 
 ### 源码与 lib/ 编译文件不同步
 - **问题**: FBD 图标重复——源码已删除 `onStart()` 方法，但 `lib/` 中仍有旧编译产物
@@ -602,7 +610,7 @@
 - **方案**: 从子路径直接导入: `import { SGraphView } from 'sprotty/lib/graph/views'`
 - **注意**: 此问题可能仍未完全解决——需进一步验证
 
-### 扩展 node_modules symlink 导致 Symbol 全部重复（D97 回归）
+### 扩展 node_modules symlink 导致 Symbol 全部重复（D97 回归） — ✅ 已通过 yarn workspaces 迁移解决
 - **问题**: 为修复 vitest 模块解析添加了扩展 node_modules symlink，导致 esbuild 将 @theia/core 打包两份。`Symbol("OpenHandler")` = 2, `Symbol("FrontendApplicationContribution")` = 2 等全部重复。所有 DI @inject() 静默失败——handler 从不实例化，`.ld` 文件以文本打开
 - **原因**: esbuild 通过 symlink 路径和直接路径将同一模块解析为不同实例。即使 `preserveSymlinks=true` 仍可能因路径别名问题产生重复
 - **方案**: 构建前移除 symlink → Symbols 全部 = 1 → DI 恢复。构建后恢复 symlink（GLSP 独立服务器进程需要 node_modules 解析依赖）
@@ -632,5 +640,19 @@
 ### 并行 edit() 导致重复代码
 - **问题**: 多次 edit() 调用导致重复的 const existing、重复的 .type(edge.type)、重复的 console.error 行
 - **原因**: 每次 edit 替换时未确认目标范围已被前次 edit 修改，产生残留代码
+
+### 裸 npm run build 跳过 symlink 恢复 → GLSP 服务器静默失败
+- **问题**: 修复 package.json 后用 `npm run build`（非 `npm run build:glsp`），build-glsp.sh 的 '恢复 symlink' 步骤被跳过。GLSP 服务器无法解析 `@eclipse-glsp/server` 模块，`GLSPSocketServerContribution` 捕获错误但仅写日志，不通知用户
+- **原因**: `build-glsp.sh` 自动化了四步（去重→构建→验证→恢复），但裸 `npm run build` 仅构建。人工执行容易遗忘恢复步骤
+- **方案**: 始终使用 `npm run build:glsp`（内部调用 build-glsp.sh）。或将 symlink 恢复加入 `postbuild` 钩子
+- **验证**: `ls -la theia-extensions/audesys-ld-glsp/node_modules` 必须是 symlink → `../../apps/studio/node_modules`
+- **禁止**: 不要用裸 `npm run build` 进行 GLSP 生产构建
+
+### Yarn workspaces 迁移后 vitest 依赖解析失败
+- **问题**: `@testing-library/dom` 缺失导致 hmi-designer vitest 测试全部失败（4 files fail）
+- **原因**: yarn workspaces hoist 改变了依赖解析路径，`@testing-library/jest-dom` 的 peer dependency `@testing-library/dom` 未被正确解析
+- **方案**: 暂时禁用 HMI designer（从 apps/studio/package.json 移除），待 vitest 依赖问题解决后重新启用
+- **验证**: `cd theia-extensions/audesys-hmi-designer && npx vitest run` 应全部通过
+- **状态**: 待修复（D106）
 - **方案**: 每次 edit 后 Read 验证文件内容；同一文件 3 次以上 edit 使用 Write 整体重写
 - **验证**: `grep -c '重复关键字' file.ts` 检查无意外重复计数 > 1

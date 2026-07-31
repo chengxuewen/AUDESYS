@@ -614,3 +614,18 @@
 - 决定: LD .ld 文件的 OpenHandler 不依赖 GLSP 框架的 toService() 绑定，改用 FrontendApplicationContribution.onStart() + OpenerService.addHandler() 手动注册
 - 理由: inversify 6.2.2 + Theia 1.73 环境下 toService() 绑定不被 ContainerBasedContributionProvider 收集。addHandler() 是 Theia 官方 API，不受缓存影响
 - 参考: docs/reference/glsp.md, docs/reference/theia-architecture.md
+
+## D105: Yarn Workspaces 迁移 — 官方 Theia 构建方式
+- 日期: 2026-07-31
+- 决定: 从 npm + file: link + 两步构建迁移到 Yarn Workspaces monorepo
+- 理由: (a) Theia 官方推荐 dependencies（非 peerDependencies）+ yarn workspaces；(b) 两步构建脆弱（symlink 丢失导致 GLSP 服务器静默失败）；(c) Symbol 重复问题耗费 7h+ 调试
+- 关键变更: 根 package.json 添加 workspaces + resolutions（**/@theia/* 1.73.0），扩展 peerDependencies → dependencies，删除 build-glsp.sh，移除 preserveSymlinks
+- 验证: Symbol 唯一性（all=1）、GLSP 服务器模块解析、napi-rs native 模块加载、HTTP 200
+- 参考: .sisyphus/plans/theia-yarn-workspaces-migration/
+
+## D106: HMI Designer 暂时禁用
+- 日期: 2026-07-31
+- 决定: 从 apps/studio/package.json 移除 audesys-hmi-designer 及相关依赖（echarts, echarts-for-react, react-rnd）
+- 理由: yarn workspaces 迁移后 vitest 依赖解析失败（@testing-library/dom 缺失），先禁用 HMI 功能以确保核心构建稳定
+- 后续: 待 vitest 依赖问题解决后重新启用
+- 参考: theia-extensions/audesys-hmi-designer/

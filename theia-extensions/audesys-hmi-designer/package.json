@@ -23,9 +23,7 @@
     "echarts-for-react": "^3.0.5",
     "react": "^18.3.1 || ^19.0.0",
     "react-dom": "^18.3.1 || ^19.0.0",
-    "react-rnd": "^10.5.3"
-  },
-  "peerDependencies": {
+    "react-rnd": "^10.5.3",
     "@theia/core": "1.73.0"
   },
   "devDependencies": {

@@ -26,12 +26,10 @@
     "@eclipse-glsp/server": "2.7.0",
     "@eclipse-glsp/theia-integration": "2.7.0",
     "@lumino/messaging": "^2.0.0",
-    "sprotty": "^1.4.0"
-  },
-  "peerDependencies": {
     "@theia/core": "1.73.0",
     "@theia/filesystem": "1.73.0",
-    "@theia/workspace": "1.73.0"
+    "@theia/workspace": "1.73.0",
+    "sprotty": "^1.4.0"
   },
   "devDependencies": {
     "@eclipse-glsp/cli": "^2.7.0",

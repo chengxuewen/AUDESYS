@@ -50,14 +50,10 @@
     "audesys-debug": "file:../../theia-extensions/audesys-debug",
     "audesys-fbd-glsp": "file:../../theia-extensions/audesys-fbd-glsp",
     "audesys-gcode-editor": "file:../../theia-extensions/audesys-gcode-editor",
-    "audesys-hmi-designer": "file:../../theia-extensions/audesys-hmi-designer",
     "audesys-il-editor": "file:../../theia-extensions/audesys-il-editor",
     "audesys-ld-glsp": "file:../../theia-extensions/audesys-ld-glsp",
     "audesys-sfc-editor": "file:../../theia-extensions/audesys-sfc-editor",
     "audesys-st-editor": "file:../../theia-extensions/audesys-st-editor",
-    "echarts": "^5.6.0",
-    "echarts-for-react": "^3.0.5",
-    "react-rnd": "^10.5.3",
     "sprotty": "^1.4.0",
     "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge"
   },
@@ -72,11 +68,6 @@
     "build": "theia build --mode production",
     "clean": "theia clean",
     "postinstall": "echo skip",
-    "build:glsp": "bash scripts/build-glsp.sh",
     "check:symbols": "for s in OpenHandler FrontendApplicationContribution OpenerService WidgetFactory; do count=$(grep -c \"Symbol(\\\"$s\\\")\" lib/frontend/bundle.js); [ \"$count\" = \"1\" ] || (echo FAIL: $s=$count && exit 1); done && echo OK"
-  },
-  "overrides": {
-    "@theia/file-search": "1.73.0",
-    "@theia/variable-resolver": "1.73.0"
   }
 }

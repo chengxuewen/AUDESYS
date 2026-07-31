@@ -1,6 +1,9 @@
 # AUDESYS 项目状态
 
 ## 当前阶段
+- **Yarn Workspaces 迁移完成** — 2026-07-31，Studio 从 npm + file: link + 两步构建迁移到 Theia 官方 Yarn Workspaces monorepo。消除 `build-glsp.sh` 两步构建 workaround，Symbol 重复问题永久解决。构建流程：`yarn install && npx theia build`。
+- **HMI Designer 暂时禁用** — 2026-07-31，因 vitest 依赖解析问题（@testing-library/dom 缺失），从 apps/studio/package.json 移除 audesys-hmi-designer。待依赖问题解决后重新启用。
+- **Theia 迁移完成** — 2026-07-21，Studio IDE 从 Tauri+React 迁移到 Eclipse Theia+Monaco Editor+GLSP+napi-rs。6 语言编辑器就绪：ST Monaco ✅、IL Monaco ✅、G-code Monaco ✅、LD GLSP 编辑器 🟡、FBD GLSP 编辑器 🟡、SFC 编辑器 ✅。Signal Browser ✅、Scope View ✅、Debug Panel ✅、Mode System ✅。Runtime Panel 不受影响（D65 保持有效）。
 - **Theia 迁移完成** — 2026-07-21，Studio IDE 从 Tauri+React 迁移到 Eclipse Theia+Monaco Editor+GLSP+napi-rs。6 语言编辑器就绪：ST Monaco ✅、IL Monaco ✅、G-code Monaco ✅、LD GLSP 编辑器 🟡、FBD GLSP 编辑器 🟡、SFC 编辑器 ✅。Signal Browser ✅、Scope View ✅、Debug Panel ✅、HMI Designer (Theia) ✅、Mode System ✅。Runtime Panel 不受影响（D65 保持有效）。
 - **Studio ↔ Runtime 集成完成** — RuntimeClient 库（UDS IPC 客户端，6 方法+认证）、Studio napi-rs bridge 命令（deploy_program/load_hal_config/read_controller_signal）
 - **协议适配器就绪** — Modbus RTU/TCP（8 测试）、HART（6 测试）

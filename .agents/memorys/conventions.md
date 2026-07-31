@@ -105,7 +105,15 @@
 - **Panel**: Tauri (桌面) + PWA (移动) + Docker (Kiosk)
 - **样式**: Tailwind CSS
 
-## Theia 扩展开发约束 (D97, 2026-07-28)
+## Theia 扩展开发约束 (2026-07-31 修正)
+
+### 核心架构：Yarn Workspaces monorepo
+
+- **根目录 `package.json`**：`"workspaces": ["theia-extensions/*", "apps/studio"]`
+- **扩展 `package.json`**：`"dependencies": {"@theia/core": "1.73.0"}` — 不是 peerDependencies
+- **原理**：yarn hoist 所有 @theia/* 到根 node_modules，扩展通过 symlink 解析到根目录
+- **esbuild**：所有依赖通过单一根路径解析 → 无 Symbol 重复 → 无两步构建
+- **参考**：Theia 官方 Composing Applications + Authoring Extensions 文档
 
 ### 强制规则（违反 = 构建失败或运行时 DI 静默失败）
 
@@ -115,40 +123,14 @@
    - `import React from 'react'` ❌ — 导致 bundle 中多 React 实例，hooks 崩溃
    - react-dom 用 `@theia/core/shared/react-dom/client`
 
-2. **扩展 node_modules 必须用 symlink（禁止物理副本）**
-   - 扩展需要 node_modules 用于 **构建**（tsc 解析类型）
-   - 但必须是 **symlink** 指向 app 的 node_modules，禁止物理副本
-   - 物理副本 → esbuild 打包为独立模块 → Symbol 重复 → DI 静默失败
-   - 结构: `theia-extensions/*/node_modules/@theia/core -> ../../../apps/studio/node_modules/@theia/core`
-   - esbuild 通过 `preserveSymlinks=true` 使用 app 模块（运行时无重复）
-   - 扩展的 `node_modules/` 含 @theia、@eclipse-glsp、inversify 等物理副本
-   - esbuild 将不同路径的同一包视为不同模块 → Symbol 重复 → DI 静默失效
-   - 所有依赖通过 `apps/studio/node_modules/` 解析（file: link + preserveSymlinks walk-up）
-   - 扩展 package.json 中声明 `peerDependencies`，实际安装在 app 层
-   - 若扩展需要本地 dev 工具（vitest 等），用 `devDependencies` 但不影响 bundle
+2. **构建后验证 Symbol 唯一性**
+   - `for s in OpenHandler FrontendApplicationContribution OpenerService WidgetFactory; do echo "$s: $(grep -c "Symbol(\"$s\")" lib/frontend/bundle.js)"; done`
+   - 全部必须 = 1。若 > 1，说明 symlink 未移除或恢复
 
-3. **`preserveSymlinks = true` 不可删除**
-   - `esbuild.mjs` 中 `preserveSymlinks = true` 是 file: link 模式的基础
-   - 它让 esbuild 用 `apps/studio/node_modules/audesys-*` 路径解析依赖
-   - 删除后扩展无法解析 @theia/core → 构建失败
-
-4. **@theia/* 声明为 `peerDependencies`（精确版本）**
+3. **@theia/* 精确版本锁定**
    - `"@theia/core": "1.73.0"` ✅（精确）
    - `"@theia/core": "^1.73.0"` ❌（可能安装 1.73.1 → @injectable 重复）
 
-5. **构建后验证 Symbol 唯一性**
-   - `grep -c 'Symbol("FrontendApplicationContribution")' lib/frontend/bundle.js` 必须 = 1
-   - 若 > 1，检查哪个扩展有本地 `node_modules/@theia` symlink
-
-### 项目结构约定
-
-| 项目 | 约定 | 原因 |
-|------|------|------|
-| 扩展位置 | `theia-extensions/audesys-*/` | 与 app 分离，独立版本控制 |
-| 引用方式 | `"file:../../theia-extensions/audesys-*"` | npm file: link |
-| @theia 解析 | 通过 app 的 node_modules walk-up | 不需要扩展本地 symlink |
-| 构建工具 | `theia build`（esbuild） | Theia 1.73+ 默认 |
-| 启动命令 | `node lib/backend/main.js --port=3100` | 浏览器模式 |
 
 ### 诊断清单（扩展不显示时）
 
@@ -168,18 +150,16 @@ find theia-extensions -path "*/node_modules/@theia/core" 2>/dev/null  # 必须�
 # 无 'No matching bindings found' 错误
 ```
 
-### GLSP 构建两步法
+### 构建流程（yarn workspaces）
 ```bash
-# 1. 构建前必须移除扩展 node_modules symlink（防止 Symbol 重复）
-rm theia-extensions/audesys-ld-glsp/node_modules
+# 1. 安装依赖（yarn workspaces hoist 所有 @theia/* 到根 node_modules）
+yarn install
 # 2. 构建
-cd apps/studio && npm run build
+yarn theia build
 # 3. 验证 Symbol 唯一性
 for s in OpenHandler FrontendApplicationContribution OpenerService; do
-  echo "$s: $(grep -c "Symbol(\"$s\")" lib/frontend/bundle.js)"
+  echo "$s: $(grep -c "Symbol(\"$s\")" apps/studio/lib/frontend/bundle.js)"
 done
 # 全部必须 = 1
-# 4. 恢复 symlink（GLSP 独立服务器需要）
-ln -sf ../../apps/studio/node_modules theia-extensions/audesys-ld-glsp/node_modules
 ```
 

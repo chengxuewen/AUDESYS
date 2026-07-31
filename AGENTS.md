@@ -127,9 +127,12 @@ to RuntimeEngine (load + execute cycle) to signal values to SignalBridge
 
 ## COMMANDS
 ```bash
-# 尚无构建脚本——package.json 不包含 scripts 字段
-# 仅有 devDependency: @colbymchenry/codegraph
-npm install    # 安装依赖（如需要）
+# Studio 构建（yarn workspaces）
+yarn install    # 安装依赖（yarn hoist 自动管理 @theia/* 依赖）
+yarn theia build  # 构建 Theia 前端 bundle
+#
+yarn start      # 启动 Studio（Electron 模式）
+node lib/backend/main.js --port=3100  # 浏览器模式
 ```
 
 ## NOTES
