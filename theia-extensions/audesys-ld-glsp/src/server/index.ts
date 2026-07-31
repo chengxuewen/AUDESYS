@@ -46,7 +46,7 @@ import { ComputedBoundsActionHandler } from '@eclipse-glsp/server/node';
 import { GModelElement, GModelElementConstructor } from '@eclipse-glsp/graph';
 
 import { LdGraph, createLdGraph } from '../gmodel/model';
-import { ContactType, CoilType, PowerRailSide } from '../gmodel/nodes';
+import { ContactType, CoilType, PowerRailSide, Point } from '../gmodel/nodes';
 import { LdDiagramGenerator, LD_SOURCE_KEY } from './ld-diagram-generator';
 import { LdOperationHandler } from './ld-operation-handler';
 import { compileLdAsync, CompileResult } from './compile-bridge';
@@ -335,6 +335,122 @@ export class LdCompileHandler extends OperationHandler {
         this.modelState.set('ld-compile-result', result);
     }
 }
+// ==============================================================================
+// Rung Operation Handler — add/delete/move rungs
+// ==============================================================================
+
+export interface LdRungOperation extends Operation {
+    kind: 'ldRung';
+    action: 'add' | 'delete' | 'move';
+    rungId?: string;
+    newIndex?: number;
+}
+
+@injectable()
+export class LdRungHandler extends OperationHandler {
+    override readonly operationType = 'ldRung';
+    override createCommand(_operation: Operation): Command | undefined { return undefined; }
+    override handles(_operation: Operation): boolean { return true; }
+
+    private handler = new LdOperationHandler();
+
+    override execute(operation: Operation): any {
+        const op = operation as LdRungOperation;
+        let graph = this.modelState.get<LdGraph>(LD_SOURCE_KEY);
+        if (!graph) return;
+
+        switch (op.action) {
+            case 'add':
+                graph = this.handler.addRung(graph);
+                break;
+            case 'delete':
+                if (op.rungId) {
+                    graph = this.handler.deleteRung(graph, { rungId: op.rungId });
+                }
+                break;
+            case 'move':
+                if (op.rungId && op.newIndex !== undefined) {
+                    graph = this.handler.moveRung(graph, { rungId: op.rungId, newIndex: op.newIndex });
+                }
+                break;
+        }
+
+        this.modelState.set(LD_SOURCE_KEY, graph);
+    }
+}
+
+// ==============================================================================
+// Move Element Operation Handler
+// ==============================================================================
+
+export interface LdMoveOperation extends Operation {
+    kind: 'ldMove';
+    elementId: string;
+    newPosition: Point;
+}
+
+@injectable()
+export class LdMoveHandler extends OperationHandler {
+    override readonly operationType = 'ldMove';
+    override createCommand(_operation: Operation): Command | undefined { return undefined; }
+    override handles(_operation: Operation): boolean { return true; }
+
+    private handler = new LdOperationHandler();
+
+    override execute(operation: Operation): any {
+        const op = operation as LdMoveOperation;
+        let graph = this.modelState.get<LdGraph>(LD_SOURCE_KEY);
+        if (!graph) return;
+
+        try {
+            graph = this.handler.moveElement(graph, {
+                elementId: op.elementId,
+                newPosition: op.newPosition,
+            });
+            this.modelState.set(LD_SOURCE_KEY, graph);
+        } catch (e) {
+            console.error('[LD] Move failed:', e);
+        }
+    }
+}
+
+// ==============================================================================
+// Connect Wire Operation Handler
+// ==============================================================================
+
+export interface LdConnectOperation extends Operation {
+    kind: 'ldConnect';
+    sourceId: string;
+    targetId: string;
+    routingPoints?: Point[];
+}
+
+@injectable()
+export class LdConnectHandler extends OperationHandler {
+    override readonly operationType = 'ldConnect';
+    override createCommand(_operation: Operation): Command | undefined { return undefined; }
+    override handles(_operation: Operation): boolean { return true; }
+
+    private handler = new LdOperationHandler();
+
+    override execute(operation: Operation): any {
+        const op = operation as LdConnectOperation;
+        let graph = this.modelState.get<LdGraph>(LD_SOURCE_KEY);
+        if (!graph) return;
+
+        try {
+            graph = this.handler.connectWire(graph, {
+                sourceId: op.sourceId,
+                targetId: op.targetId,
+                routingPoints: op.routingPoints,
+            });
+            this.modelState.set(LD_SOURCE_KEY, graph);
+        } catch (e) {
+            console.error('[LD] Connect failed:', e);
+        }
+    }
+}
+
 
 // ============================================================================
 // Diagram Module — wiring all services together
@@ -371,6 +487,9 @@ export class LdDiagramModule extends GModelDiagramModule {
         binding.add(LdDeleteHandler as unknown as OperationHandlerConstructor);
         binding.add(LdChangeContactTypeHandler as unknown as OperationHandlerConstructor);
         binding.add(LdCompileHandler as unknown as OperationHandlerConstructor);
+        binding.add(LdRungHandler as unknown as OperationHandlerConstructor);
+        binding.add(LdMoveHandler as unknown as OperationHandlerConstructor);
+        binding.add(LdConnectHandler as unknown as OperationHandlerConstructor);
     }
 
     protected override bindToolPaletteItemProvider(): BindingTarget<ToolPaletteItemProvider> {
