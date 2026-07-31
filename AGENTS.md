@@ -64,7 +64,7 @@ AUDESYS/
 | Runtime Engine | ✅ 完成 | `crates/audesys-runtime-engine/` |
 | IPC Server | ✅ 完成 | `crates/audesys-ipc-server/` |
 | Runtime Client | ✅ 完成 | `crates/audesys-runtime-client/` |
-| Runtime Panel | ✅ 骨架实现 | `apps/runtime-panel/` (Tauri) |
+| AUDEDeck | ✅ 集成 (3rdparty) | `3rdparty/AUDEDeck/` (Tauri + PWA) |
 | LD GLSP Editor | ✅ 完成 | `theia-extensions/audesys-ld-glsp/` |
 | FBD GLSP Editor | ✅ 完成 | `theia-extensions/audesys-fbd-glsp/` |
 | LD Compiler | ✅ 完成 | `crates/audesys-ld-compiler/` |
@@ -76,9 +76,9 @@ AUDESYS/
 | HAL Core | 🟡 设计完成 | `crates/audesys-hal-core/` |
 | Simulator (AVD) | 🔮 Phase 3/4 | 7 种虚拟设备 |
 
-## VERTICAL SLICE: LD → Runtime → Panel
+## VERTICAL SLICE: LD → Runtime → AUDEDeck
 
-LD (Ladder Diagram) 编辑器到 Runtime Panel 的完整垂直切片：
+LD (Ladder Diagram) 编辑器到 AUDEDeck 的完整垂直切片：
 
 | 层 | 组件 | 路径 | 状态 |
 |----|------|------|:----:|
@@ -87,12 +87,12 @@ LD (Ladder Diagram) 编辑器到 Runtime Panel 的完整垂直切片：
 | Runtime | Runtime Engine (5-step cycle + Hot-swap) | `crates/audesys-runtime-engine/` | ✅ |
 | IPC | IPC Server (UDS + HMAC, 0x01-0x17) | `crates/audesys-ipc-server/` | ✅ |
 | Client | RuntimeClient (7 methods + auth) | `crates/audesys-runtime-client/` | ✅ |
-| HMI | Runtime Panel (Tauri, 9 commands, push/poll) | `apps/runtime-panel/` | ✅ |
+| HMI | AUDEDeck (Tauri + PWA, 9 commands, push/poll) | `3rdparty/AUDEDeck/` | ✅ |
 
 Data flow: `.ld` file to LdSprottyDiagramWidget (GLSP) to LdOperationHandler.compile()
 to LdCompiler (LD grammar to IL tokens to HalProgram) to deploy_program (IPC 0x10)
 to RuntimeEngine (load + execute cycle) to signal values to SignalBridge
-(IPC 0x16 push + 100ms poll fallback) to Runtime Panel widgets (Gauge/Trend/Tank/...).
+(IPC 0x16 push + 100ms poll fallback) to AUDEDeck widgets (Gauge/Trend/Tank/...).
 ## CONVENTIONS
 ### AUDESYS 独有
 - **命名**: `AUDESYS` 全大写，npm scope `@audesys/`

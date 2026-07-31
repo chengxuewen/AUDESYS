@@ -1,4 +1,4 @@
-//! Controller connection management for the Runtime Panel.
+//! Controller connection management for the AUDEDeck.
 //!
 //! P1 SignalBridge: supports push-mode signal subscriptions with
 //! a dedicated connection for receiving SIGNAL_PUSH (0x16) frames

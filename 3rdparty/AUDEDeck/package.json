@@ -1,5 +1,5 @@
 {
-  "name": "audesys-runtime-panel",
+  "name": "@audesys/audeck",
   "private": true,
   "version": "0.1.0",
   "type": "module",

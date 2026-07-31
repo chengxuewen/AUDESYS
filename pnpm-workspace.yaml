@@ -1,4 +1,4 @@
 packages:
   - "packages/studio-core"
   # - "apps/studio"  # temporarily disabled — playwright version issue
-  - "apps/runtime-panel"
+  - "3rdparty/AUDEDeck"

@@ -26,7 +26,7 @@ members = [
   "crates/audesys-amw-zenoh",
   "crates/audesys-theia-bridge",
 ]
-exclude = ["apps/studio/src-tauri", "apps/runtime-panel/src-tauri"]
+exclude = ["apps/studio/src-tauri", "3rdparty/AUDEDeck/src-tauri"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"

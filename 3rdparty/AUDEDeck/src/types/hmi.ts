@@ -1,5 +1,5 @@
 /**
- * HMI (Human-Machine Interface) type definitions for AUDESYS Runtime Panel.
+ * HMI (Human-Machine Interface) type definitions for AUDESYS AUDEDeck.
  * Defines the layout model for HMI screens.
  */
 

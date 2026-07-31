@@ -139,7 +139,7 @@
 - **原因**: 运动规划器属于 Phase 2 构件，Phase 1 G-code 编译器仅做指令解析 + 逐周期步进
 - **方案**: Phase 1 编译器输出仅在 SimulationHarness 下验证。运动规划器延后至 Phase 2（Runtime 协处理器），Phase 3 实现完整 S 曲线 + 前瞻
 
-## Runtime Panel 性能陷阱（SCADA 竞品参考）
+## AUDEDeck 性能陷阱（SCADA 竞品参考）
 
 2026-07-19 基于 Ignition Perspective、FUXA、InTouch OMI、iFIX、KingView、Beckhoff ADS 等 8 家竞品的性能分析。
 
@@ -201,7 +201,7 @@
 - **方案**: 安装 `js-yaml` npm 包并导入，替换回退实现。当前回退格式仅作为 MVP 演示用途可接受（简单 widget 配置无特殊字符）
 
 ### HMI 布局无运行时验证
-- **问题**: HMI 布局在 Studio 端保存时无验证（无重叠检测、无信号绑定有效性校验、无 widget 数量上限）。错误布局仅在部署到 Runtime Panel 时发现
+- **问题**: HMI 布局在 Studio 端保存时无验证（无重叠检测、无信号绑定有效性校验、无 widget 数量上限）。错误布局仅在部署到 AUDEDeck 时发现
 - **来源**: `apps/studio/src/types/hmi.ts` — HmiLayout 类型无验证层
 - **方案**: P1 添加 HmiLayoutVendor 校验函数：widget 少於 50 个、信号名匹配注册表、widget 位置不越界。P2 升级为 Zod schema 验证（遵循 TypeScript 编码约定）
 

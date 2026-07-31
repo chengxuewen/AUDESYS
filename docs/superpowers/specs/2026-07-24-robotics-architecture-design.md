@@ -143,7 +143,7 @@ audesys-supervisor (master)
 ├── ros2-bridge      容器    ROS2 ↔ HAL 桥接
 ├── nav2-stack       容器    ROS2 导航栈
 ├── slam-toolbox     容器    SLAM 建图
-├── panel-hmi        进程    Runtime Panel (D65)
+├── panel-hmi        进程    AUDEDeck (D65)
 └── [AGV-02].*       代理    通过 remote-supervisor (Zenoh)
 ```
 

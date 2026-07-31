@@ -1,7 +1,7 @@
 {
-  "productName": "AUDESYS Runtime Panel",
+  "productName": "AUDESYS AUDEDeck",
   "version": "0.1.0",
-  "identifier": "com.audesys.runtime-panel",
+  "identifier": "com.audesys.audeck",
   "build": {
     "devUrl": "http://localhost:1421",
     "frontendDist": "../dist"
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "AUDESYS Runtime Panel",
+        "title": "AUDESYS AUDEDeck",
         "fullscreen": true,
         "decorations": false,
         "alwaysOnTop": false,

@@ -130,7 +130,7 @@
 
 AUDESYS 借鉴了 Android Studio 的"**IDE + Runtime + Emulator + Debug Bridge**"分层模型，将其应用于工业自动化领域。通过统一的 **HAL 硬件抽象系统**（受 LinuxCNC HAL 和 dora-rs 数据流范式启发）、**Runtime 多进程套件**、**Simulator 设备仿真器**和**工业调试桥**，提供一条龙开发体验——编写软 PLC 梯形图逻辑、搭建机器人控制图、开发测控上位机、调试数控设备 G-code，均在同一平台内完成。
 
-AUDESYS 的产品线包括：AUDESYS Studio（统一编辑器/IDE）、AUDESYS Runtime（PC 应用套件）、AUDESYS HAL（硬件抽象层协议）、AUDESYS Simulator（设备模拟器）和 AUDESYS Debug（调试桥）。Runtime 套件包含 Controller、Panel、Gateway、Remote、Edge、Supervisor 六个核心组件。
+AUDESYS 的产品线包括：AUDESYS Studio（统一编辑器/IDE）、AUDESYS Runtime（PC 应用套件）、AUDESYS HAL（硬件抽象层协议）、AUDESYS Simulator（设备模拟器）、AUDESYS Debug（调试桥）和 AUDEDeck（可视化 HMI 组件库）。Runtime 套件包含 Controller、Gateway、Remote、Edge、Supervisor 五个核心组件，HMI 可视化由 AUDEDeck 提供（3rdparty/AUDEDeck/）。
 
 技术栈方面，实时控制路径采用 Rust/C/C++（子毫秒确定性），进程管理使用 Node.js，协议网关使用 Python。
 
@@ -138,10 +138,10 @@ AUDESYS 的产品线包括：AUDESYS Studio（统一编辑器/IDE）、AUDESYS R
 
 | 场景 | 核心需求 | AUDESYS 对应模块 |
 |------|----------|-------------------|
-| **工业控制** | 实时 I/O、确定性时序、多轴联动 | Controller + HAL + Studio + Panel |
-| **软 PLC** | IEC 61131-3 运行时、梯形图/ST 编辑器 | Controller + HAL + Studio + Panel |
-| **测控与数据采集** | 高速采样、信号处理、虚拟仪器面板 | Controller + HAL + Studio + Panel |
-| **上位机（HMI/SCADA）** | 触摸屏交互、报警管理、趋势图 | Panel + Studio |
+| **工业控制** | 实时 I/O、确定性时序、多轴联动 | Controller + HAL + Studio + AUDEDeck |
+| **软 PLC** | IEC 61131-3 运行时、梯形图/ST 编辑器 | Controller + HAL + Studio + AUDEDeck |
+| **测控与数据采集** | 高速采样、信号处理、虚拟仪器面板 | Controller + HAL + Studio + AUDEDeck |
+| **上位机（HMI/SCADA）** | 触摸屏交互、报警管理、趋势图 | AUDEDeck + Studio |
 | **机器人控制** | 多节点协作、运动规划、传感器融合 | Controller + Link（参考 dora-rs） |
 | **数控加工** | G-code 解析、轨迹插补、刀具补偿 | Controller + HAL（参考 LinuxCNC） |
 
@@ -154,6 +154,7 @@ AUDESYS 的产品线包括：AUDESYS Studio（统一编辑器/IDE）、AUDESYS R
 | AUDESYS HAL | 硬件抽象层协议 | Rust + FlatBuffers | 🟡 详细设计完成 |
 | AUDESYS Simulator | 设备模拟器 | Rust + SimulationHarness | 🟡 Inproc MVP |
 | AUDESYS Debug | 调试桥 | Rust + DAP | ✅ DAP 已实现 |
+| AUDEDeck | 可视化 HMI 组件库与运行时面板 | TypeScript + React + @audesys/deck-core | 🟡 开发中 |
 
 ### 术语速查
 
@@ -163,7 +164,7 @@ AUDESYS 的产品线包括：AUDESYS Studio（统一编辑器/IDE）、AUDESYS R
 | **Runtime** | PC 应用套件，多进程实时控制系统 |
 | **Runtime Supervisor** | 进程/参数/配置/更新管理器（Node.js） |
 | **Runtime Controller** | 实时控制模块（Rust + HAL Core + amw_inproc），旧名 Act |
-| **Runtime Panel** | 触摸屏 HMI 人机交互（Tauri + React），旧名 HMI |
+| **AUDEDeck** | HMI 可视化组件库与运行时面板（3rdparty/AUDEDeck/），由 @audesys/deck-core 提供 7 种工业 widget
 | **Runtime Gateway** | 外部通信应用（MES/ERP/云对接） |
 | **Runtime Remote** | 远程访问（WebRTC 浏览器 B/S 架构） |
 | **Runtime Edge** | 边缘采集（7×24 独立运行） |
@@ -369,7 +370,7 @@ HAL 分 8 个 Phase 实施。详见 `docs/modules/hal/implementation-roadmap.md`
 3. [进程职责矩阵](#3-进程职责矩阵)
 4. [Supervisor 模块](#4-supervisor-模块)
 5. [Controller 模块](#5-controller-模块)
-6. [Panel 模块](#6-panel-模块)
+6. [AUDEDeck 集成](#6-audeck-集成)
 7. [Gateway 模块](#7-gateway-模块)
 8. [Remote 模块](#8-remote-模块)
 9. [Edge 模块](#9-edge-模块)
@@ -388,27 +389,26 @@ HAL 分 8 个 Phase 实施。详见 `docs/modules/hal/implementation-roadmap.md`
 | **R2** | Runtime I/O 线程 | StreamChannel 消费端，amw_inproc 对接 |
 | **R3** | Supervisor 进程管理 | 生命周期管理、崩溃恢复、配置分发 |
 | **R4** | Gateway 协议适配 | 外部通信适配层 |
-| **R5** | Panel 独立应用 | Tauri 桌面 HMI 骨架（独立进程，非 WebView 嵌入） |
+**R5** | AUDEDeck 集成 | @audesys/deck-core 集成，ISignalProvider 接口 + IPC 通信 |
 | **R6** | Remote WebRTC | 远程访问 WebRTC 通道 |
 
 > **详细设计文档**：
-> - Panel 架构：`docs/modules/runtime/panel-architecture-design.md`
+> - Panel 架构（AUDEDeck 集成）：`docs/modules/runtime/panel-architecture-design.md`
 > - 审计日志：`docs/modules/runtime/audit-logging-design.md`
 > - IPC 安全：`docs/modules/runtime/ipc-security-design.md`
 > - 可观测性：`docs/modules/runtime/observability-design.md`
 > - 硬件需求：`docs/modules/runtime/hardware-requirements.md`
 > - 升级策略：`docs/modules/runtime/upgrade-strategy.md`
-> - Panel 架构：`docs/modules/runtime/panel-architecture-design.md`
-
+> - Panel 架构（AUDEDeck 集成）：`docs/modules/runtime/panel-architecture-design.md`
 ### 1. Runtime 套件概览
 
-AUDESYS Runtime 套件是面向工业控制场景的完整运行时产品形态。Runtime 套件是一个**多进程实时控制系统**，由六个核心模块组成：
+AUDESYS Runtime 套件是面向工业控制场景的完整运行时产品形态。Runtime 套件是一个**多进程实时控制系统**，由五个核心模块组成；HMI 可视化由 AUDEDeck（3rdparty/AUDEDeck/）通过 @audesys/deck-core 提供：
 
 | 模块 | 产品名 | 职责 | 技术栈 |
 |------|--------|------|--------|
 | **Supervisor** | AUDESYS Supervisor | 进程/参数/配置/更新管理器 | Node.js (`child_process.fork`) + UDS JSON-RPC |
 | **Controller** | AUDESYS Controller | 实时控制（PLC/CNC/运动控制） | Rust + HAL Core + amw_inproc（子毫秒确定性控制） |
-| **Panel** | AUDESYS Panel | 触摸屏 HMI（人机交互） | Tauri + React 19 + shadcn/ui |
+| **AUDEDeck** | AUDEDeck（3rdparty/AUDEDeck/） | HMI 可视化组件库与运行时面板（@audesys/deck-core，7 种工业 widget） | TypeScript + React |
 | **Gateway** | AUDESYS Gateway | 外部通信（MES/ERP/云对接） | Node.js + Link SDK |
 | **Remote** | AUDESYS Remote | 远程访问（WebRTC 浏览器 B/S） | 屏幕采集 + GPU 编码 + WebRTC |
 | **Edge** | AUDESYS Edge | 边缘采集（7×24 独立运行） | 独立进程 + 轻量 Web 配置 |
@@ -417,7 +417,7 @@ AUDESYS Runtime 套件是面向工业控制场景的完整运行时产品形态�
 ┌──────────────────────────────────────────────────────────────┐
 │                     Runtime 套件全景                          │
 │                                                              │
-│    用户层    │  Panel(本地HMI)  Remote(远程Web)  Edge(采集)   │
+│    用户层    │  AUDEDeck(本地HMI)  Remote(远程Web)  Edge(采集)   │
 │    ─────────┼──────────────────────────────────────────────  │
 │    控制层    │  Controller (实时控制, RT)                     │
 │    ─────────┼──────────────────────────────────────────────  │
@@ -431,7 +431,7 @@ AUDESYS Runtime 套件是面向工业控制场景的完整运行时产品形态�
 └──────────────────────────────────────────────────────────────┘
 ```
 
-> **命名变更说明**: 旧名 Act -> 新名 **Controller**；旧名 HMI -> 新名 **Panel**。新增 Gateway/Remote/Edge/Supervisor 四个模块。
+> **命名变更说明**: 旧名 Act -> 新名 **Controller**；HMI 可视化由 AUDEDeck（3rdparty/AUDEDeck/）提供，不再作为 Runtime 套件内置模块。新增 Gateway/Remote/Edge/Supervisor 四个模块。
 
 ---
 
@@ -616,23 +616,45 @@ Controller 的硬件抽象由 [HAL 系统](#一hal-系统) 统一管理，详见
 
 ---
 
-### 6. Panel 模块
+### 6. AUDEDeck 集成
+
+
 
 | 属性 | 值 |
+
 |------|-----|
-| **产品名** | AUDESYS Panel |
-| **职责** | 触摸屏 HMI（人机交互） |
-| **技术** | Tauri + React 19 + shadcn/ui + Tailwind v4 |
+
+| **产品名** | AUDEDeck（3rdparty/AUDEDeck/） |
+
+| **职责** | HMI 可视化组件库与运行时面板 |
+
+| **技术** | TypeScript + React + @audesys/deck-core |
+
 | **渲染目标** | 本地显示器（DRM/KMS）或虚拟 framebuffer（无头模式） |
 
-**独立进程的原因**:
+| **提供内容** | 7 种工业 widget（Gauge/Trend/Tank/Indicator/Button/Display/Text）、HMI Designer、AUDEDeck（3rdparty）集成 |
 
-1. **故障隔离**: Panel 崩溃不影响 Controller
-2. **资源隔离**: UI 内存泄漏不影响实时控制
-3. **独立生命周期**: 可重启而不中断控制
 
-> Runtime Panel 架构设计已完成（D60-D66）：独立 Tauri 应用、5 层架构、4 个内置插件、PC/Web 双形态、SignalBridge Hybrid 模式（Push 优先 + Poll 降级）。Panel 将使用 Tauri 桌面框架实现原生触摸屏体验，React 技术栈将被完全继承。
 
+**AUDESYS 与 AUDEDeck 的关系**:
+
+
+
+1. **AUDESYS 不维护 Panel 实现** — Panel 和 HMI Designer 由 AUDEDeck（3rdparty/AUDEDeck/）提供
+
+2. **依赖关系**: AUDESYS 通过 @audesys/deck-core 获取 widget 组件库
+
+3. **通信方式**: 通过 ISignalProvider 接口 + IPC 协议（0x16 SIGNAL_PUSH / 0x17 DEPLOY_HMI_LAYOUT / 0x18 SUBSCRIBE_SIGNALS）与 AUDEDeck 通信
+
+4. **故障隔离**: AUDEDeck 崩溃不影响 Controller
+
+5. **资源隔离**: UI 内存泄漏不影响实时控制
+
+6. **独立生命周期**: 可重启 AUDEDeck 而不中断控制
+
+
+
+> AUDEDeck 架构决策（D60-D66）：独立运行时面板、5 层架构、4 个内置插件、PC/Web 双形态、SignalBridge Hybrid 模式（Push 优先 + Poll 降级）。详细设计见 `docs/modules/runtime/panel-architecture-design.md`（描述 Panel 的架构设计，由 AUDEDeck 实现）。
 ---
 
 ### 7. Gateway 模块
@@ -1058,7 +1080,7 @@ RBAC 代码:   ██████████████░░░░░░░�
 
 > 🔄 **Theia 迁移**: HMI 设计器将包装为 Theia ReactWidget 自定义编辑器。react-rnd 画布 + 7 种 widget 保留，通过 ReactWidget 桥接 Theia Editor Area。
 
-HMI 管道覆盖从 Studio 可视化编辑到 Runtime Panel 上屏运行的全生命周期。
+HMI 管道覆盖从 Studio 可视化编辑到 AUDEDeck 上屏运行的全生命周期。
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -1126,7 +1148,7 @@ HMI 管道覆盖从 Studio 可视化编辑到 Runtime Panel 上屏运行的全�
 | 缺口 | 现状 | 优先级 |
 |------|------|:----:|
 | **deploy_hmi_layout IPC** | 不存在。Controller 无接收 HMI 布局的 IPC 方法。现有 `deploy_program` (0x10) 仅支持 IEC 程序部署 | 🔴 |
-| **Runtime Panel 集成** | `docs/modules/runtime/panel-architecture-design.md` 设计了 SignalBridge，但仅设计未实现 | 🔴 |
+| **AUDEDeck 集成** | `docs/modules/runtime/panel-architecture-design.md` 设计了 SignalBridge，但仅设计未实现 | 🔴 |
 | **热切换** | HMI 布局不支持运行时热切换。Config Barrier (D17) 机制存在但未接入 HMI | 🟠 |
 | **远程部署** | ControllerClient 仅支持本地 UDS (~10μs)，无 WebSocket 传输层 | 🟡 |
 | **YAML→FlatBuffers** | HMI 布局目前仅 YAML 文本，未编译为 FlatBuffers 二进制（与 D24 配置策略不一致） | 🟡 |
@@ -1134,10 +1156,11 @@ HMI 管道覆盖从 Studio 可视化编辑到 Runtime Panel 上屏运行的全�
 #### 15.5 目标部署路由
 
 ```
-Studio IDE                         Controller            Runtime Panel
+Studio IDE                         Controller            AUDEDeck
+Studio IDE                         Controller            AUDEDeck
 ┌──────────┐     deploy_hmi_layout  ┌──────────┐     push (0x16)   ┌──────────┐
-│ HMI      │ ────────────────────→ │ HMI      │ ───────────────→ │ Panel    │
-│ Designer │     IPC method 0x17    │ Registry │     SIGNAL_PUSH  │ App      │
+│ HMI      │ ────────────────────→ │ HMI      │ ───────────────→ │ AUDEDeck │
+│ Designer │     IPC method 0x17    │ Registry │     SIGNAL_PUSH  │ (HMI)    │
 │          │                        │          │                  │          │
 │ YAML     │                        │ YAML→    │                  │ Widget   │
 │ Export   │                        │ FlatBuff │                  │ Renderer │
@@ -2058,28 +2081,27 @@ AUDESYS 以 G-code（RS274/NGC）编译器作为第 6 种源码语言，与现�
 - D55 in `.agents/memorys/decisions.md`
 - D10/D11/D17/D19 in `.agents/memorys/decisions.md`
 
-## 八、Runtime Panel
+## 八、AUDEDeck 集成
 
-AUDESYS Runtime Panel 是独立于 Studio IDE 的操作员界面应用，全屏运行 HMI 布局并实时
-展示现场设备信号。Panel 复用 Studio 的 7 种 HMI Widget 组件（`packages/studio-core/widgets/`），
-通过 SignalBridge 实现 <50ms 的信号推送延迟，支持 PC (Tauri + UDS) 和 Web (PWA + WebSocket)
-双形态部署。新增 3 个 IPC 方法（0x14/0x15/0x16）支持信号订阅推送。
-
-### 五层架构
+AUDESYS AUDEDeck 是独立于 Studio IDE 的操作员界面应用，全屏运行 HMI 布局并实时
+展示现场设备信号。Widget 由 @audesys/deck-core 提供，
+通过 SignalBridge (ISignalProvider) 实现 <50ms 的信号推送延迟，支持 PC (Tauri + UDS) 和 Web (PWA + WebSocket)
+双形态部署。新增 3 个 IPC 方法（0x16/0x17/0x18）支持信号订阅推送。
 
 详见 `docs/modules/runtime/panel-architecture-design.md`
 
 ```
 ┌──────────────────────────────────────┐
-│ Panel Shell (全屏 kiosk)             │
+│ AUDEDeck Shell (全屏 kiosk)           │
 ├──────────────────────────────────────┤
 │ Plugin System (4 内置插件)           │
 │ OperatorLogin│Alarm│Trend│Nav        │
 ├──────────────────────────────────────┤
 │ Widget Renderer                      │
-│ 复用 packages/studio-core/widgets/   │
+│ Widget 由 @audesys/deck-core 提供    │
 ├──────────────────────────────────────┤
-│ Signal Bridge (订阅/推送/缓存)       │
+│ Signal Bridge (ISignalProvider)       │
+│ IPC 0x16/0x17/0x18                   │
 ├──────────────────────────────────────┤
 │ Transport (UDS│WS│Sim)              │
 └──────────────────────────────────────┘
@@ -2095,17 +2117,14 @@ AUDESYS Runtime Panel 是独立于 Studio IDE 的操作员界面应用，全屏�
 
 ### 核心设计决策
 
-- **D60**: Panel 复用 Studio widget 组件，`WidgetProps = { signalValue, ...rest }`，组件不感知信号来源
-- **D61**: Panel Plugin 参考 Studio 接口但不继承 — 上下文不同（SignalBridge vs Tauri invoke）
 - **D62**: SignalBridge 默认 Hybrid 模式 — 优先 IPC push (<50μs)，降级 100ms poll
 - **D63**: 订阅推送在周期边界批量发送，避免 RT 线程抖动
 - **D64**: 新增 Role::HMI，writeSignal 权限限定按钮绑定信号
-- **D65**: Panel 作为独立 Tauri 应用，不嵌入 Studio IDE 窗口
 - **D66**: Transport 层统一 `IPanelTransport` 接口，UDS/WS/Sim 自动选择
 
 ### 与 Studio 的关系
 
-| 维度 | Studio (设计器) | Runtime Panel (操作员) |
+| 维度 | Studio (设计器) | AUDEDeck (操作员) |
 |------|----------------|----------------------|
 | 用户角色 | 工程师 | 操作员 (Role::HMI) |
 | HMI 布局 | 编辑/保存/删除 | 只读加载 |
@@ -2115,7 +2134,7 @@ AUDESYS Runtime Panel 是独立于 Studio IDE 的操作员界面应用，全屏�
 
 ### 参考
 
-- `docs/modules/runtime/panel-architecture-design.md` — Runtime Panel 完整架构设计
+- `docs/modules/runtime/panel-architecture-design.md` — AUDEDeck 集成架构设计
 - `.sisyphus/plans/signal-bridge/design.md` — SignalBridge 详细设计
 - `docs/modules/runtime/ipc-security-design.md` — IPC 安全设计
 - D60-D66 in `.agents/memorys/decisions.md`

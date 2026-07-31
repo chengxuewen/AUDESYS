@@ -1,8 +1,8 @@
 [package]
-name = "audesys-runtime-panel"
+name = "audesys-audeck"
 version = "0.1.0"
 edition = "2021"
-description = "AUDESYS Runtime Panel — Industrial HMI display"
+description = "AUDESYS AUDEDeck — Industrial HMI display"
 license = "Apache-2.0"
 
 [lib]

@@ -353,7 +353,7 @@
 
 ## D60: Panel Widget 复用 = packages/studio-core 共享组件
 - **日期**: 2026-07-19
-- **决定**: Runtime Panel 复用 Studio 的 7 种 HMI Widget 组件（Gauge/Trend/Tank/Indicator/Button/Display/Text），而非重写。Widget 提取到 `packages/studio-core/src/widgets/`，统一 WidgetProps 接口 `{ signalValue, ...rest }`。
+- **决定**: AUDEDeck 复用 Studio 的 7 种 HMI Widget 组件（Gauge/Trend/Tank/Indicator/Button/Display/Text），而非重写。Widget 提取到 `packages/studio-core/src/widgets/`，统一 WidgetProps 接口 `{ signalValue, ...rest }`。
 - **理由**: 7 种 widget 已实现且测试通过，重写带来双倍维护成本。Widget 已改为纯函数组件，signalValue 通过 prop 注入（而不内部调用 useHmiSignal），两端可注入不同的信号源。
 - **参考**: packages/studio-core/, apps/studio/src/components/widgets/
 
@@ -365,7 +365,7 @@
 
 ## D62: SignalBridge 默认 Hybrid 模式 = Push 优先 + Poll 降级
 - **日期**: 2026-07-19
-- **决定**: Runtime Panel 信号更新采用 Hybrid 策略：优先使用 IPC push 推送（Controller 端 SIGNAL_PUSH frame），降级使用 100ms poll 轮询（SIGNAL_SNAPSHOT）。Push 延迟 <50μs (UDS)，poll 作为 Controller 不支持推送时的兜底。
+- **决定**: AUDEDeck 信号更新采用 Hybrid 策略：优先使用 IPC push 推送（Controller 端 SIGNAL_PUSH frame），降级使用 100ms poll 轮询（SIGNAL_SNAPSHOT）。Push 延迟 <50μs (UDS)，poll 作为 Controller 不支持推送时的兜底。
 - **理由**: Push 是低延迟的最佳方案，但不能假设所有 Controller 部署都支持 0x16 push frame（特别是远程 WebSocket 场景）。Hybrid 确保 Panel 在所有部署模式下都能工作。
 - **参考**: .sisyphus/plans/signal-bridge/design.md, docs/modules/runtime/panel-architecture-design.md §4
 
@@ -383,7 +383,7 @@
 
 ## D65: Panel 作为独立 Tauri 应用而非 Studio 面板
 - **日期**: 2026-07-19
-- **决定**: Runtime Panel 作为独立的 Tauri 应用（`apps/runtime-panel/`）部署，不嵌入 Studio IDE 窗口。支持全屏 kiosk 模式，独立进程可单独部署、升级、崩溃隔离。
+- **决定**: AUDEDeck 作为独立的 Tauri 应用（`3rdparty/AUDEDeck/`）部署，不嵌入 Studio IDE 窗口。支持全屏 kiosk 模式，独立进程可单独部署、升级、崩溃隔离。
 - **理由**: 操作员站全屏运行，不应嵌入 IDE chrome（工具栏、文件树、终端）。独立进程提供进程级隔离——Panel 崩溃不影响 Studio 开发，反之亦然。与 D65（应为 D58）Studio 插件架构是互补关系而非替代关系。
 - **参考**: docs/modules/runtime/panel-architecture-design.md, docs/reference/ignition.md
 
@@ -421,7 +421,7 @@
 - **决定**: Studio IDE 从 Tauri+React 自建架构迁移到 Eclipse Theia 框架
 - **理由**: (a) Neuron Automation 已验证 Theia+GLSP 可用于 IEC 61131-3 工业编程；(b) VS Code 扩展生态（Open VSX）；(c) TI/ST/Arm/Samsung 等主流厂商采用 Theia；(d) Theia 提供 Dock/Tab/Command Palette/Keybinding/Theme 等 13 项开箱即用的通用 IDE 功能；(e) Fork VS Code 不可行（周发版维护成本过高）；(f) CodeBlitz 不可行（无调试/无 Rust LSP）
 - **技术栈**: Eclipse Theia (Electron) + Monaco Editor + Eclipse GLSP + ReactWidget + napi-rs (Rust bridge)
-- **影响范围**: Studio 前端全部替换。Runtime Panel 不受影响（D65 保持有效）。Rust 运行时通过 napi-rs 桥接（~50% 需适配：34 个 Tauri 命令重写为 ~25 个 napi-rs 函数，Cargo.toml 配置变更，Controller 生命周期适配）。纯逻辑代码（编译器、VM、Engine）零修改。
+- **影响范围**: Studio 前端全部替换。AUDEDeck 不受影响（D65 保持有效）。Rust 运行时通过 napi-rs 桥接（~50% 需适配：34 个 Tauri 命令重写为 ~25 个 napi-rs 函数，Cargo.toml 配置变更，Controller 生命周期适配）。纯逻辑代码（编译器、VM、Engine）零修改。
 - **取代决策**: D21 (Tauri+React 技术栈)，D58 部分 (插件架构由 Theia Extension System 替代)，D59 部分 (PlatformAdapter 由 Theia Backend Service 替代)
 - **参考**: docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md
 

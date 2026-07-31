@@ -1,5 +1,5 @@
 /**
- * LD→Runtime Panel Signal Validation Tests
+ * LD→AUDEDeck Signal Validation Tests
  *
  * Validates that HMI widget signal bindings conform to the
  * AUDESYS HAL signal naming convention (component.interface.name)

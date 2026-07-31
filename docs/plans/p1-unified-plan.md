@@ -53,7 +53,7 @@
 | **Studio IDE** | 🟡 | Tauri+CodeMirror 6，8 面板，35+ Tauri 命令，6 编辑模式 + HMI 设计器 | Theia 迁移计划中（22-31周） |
 | **HMI 设计器** | ✅ | react-rnd 拖拽布局，7 种工业 widget，信号绑定，YAML 持久化（D67-D69） |
 | **HMI 部署管道** | 🟡 | IPC 0x17→Controller Config Barrier→Panel，Panel P1 轮询 |
-| **Runtime Panel** | 🟡 | 独立 Tauri app，IpcSignalProvider (100ms)，IpcLayoutLoader，5 命令 |
+| **AUDEDeck** | 🟡 | 独立 Tauri app，IpcSignalProvider (100ms)，IpcLayoutLoader，5 命令 |
 | **CNC 系统** | 🟡 | G-code 编译器+轴组 crate (32 测试)，运动规划器+插补设计中（D55） |
 | **IEC 功能块** | ✅ | SR/RS/R_TRIG/F_TRIG，266 测试全通过 |
 | **Modbus 适配器** | ✅ | RTU/TCP，libmodbus FFI，8 测试 |
@@ -333,7 +333,7 @@ Phase 3 ──→ Phase 4 (所有面板就绪后开始测试+打包)
 - [ ] **HmiLayout 验证**：添加 Zod schema 验证（遵循 TypeScript 约定），widget ≤50、信号名匹配注册表
 - [ ] **Deadband 过滤**：F64 信号变化 < 阈值不推送（pitfalls.md §全量数据推送）
 
-### 3.2 Runtime Panel 完善
+### 3.2 AUDEDeck 完善
 - [ ] **WebSocket Transport**：实现 `WsTransport`（D66），支持远程 Web 访问
 - [ ] **TrendRecorder 存储**：抽象 `ITimeSeriesStorage` trait，P1 默认 Memory/SQLite（pitfalls.md §SQLite 作为时序存储）
 - [ ] **WebWorker SignalBridge**：HalValue 解码+缓存更新在 Worker 中（pitfalls.md §渲染管线）
@@ -375,7 +375,7 @@ Phase 3 ──→ Phase 4 (所有面板就绪后开始测试+打包)
 | **T5.3** | 归档 Tauri E2E 测试 | 移动 `apps/studio/e2e/` → `archive/tauri-e2e/` | 0.5 天 | T5.1 |
 | **T5.4** | 移除 Tauri CI 任务 | 从 `.github/workflows/qa.yml` 移除 Tauri-only jobs | 0.5 天 | T5.1 |
 
-**出入口条件**：`grep -r "tauri" apps/ --include="*.ts" --include="*.tsx" --include="*.json" | wc -l` = 0（runtime-panel 除外）。Cargo workspace 仅含 Theia 相关 crate。
+**出入口条件**：`grep -r "tauri" apps/ --include="*.ts" --include="*.tsx" --include="*.json" | wc -l` = 0（AUDEDeck 除外）。Cargo workspace 仅含 Theia 相关 crate。
 
 ---
 

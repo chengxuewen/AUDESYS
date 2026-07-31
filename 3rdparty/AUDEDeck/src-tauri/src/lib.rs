@@ -1,4 +1,4 @@
-//! AUDESYS Runtime Panel — Tauri backend with Controller IPC.
+//! AUDESYS AUDEDeck — Tauri backend with Controller IPC.
 //!
 //! Provides commands for the HMI panel to connect to the Controller
 //! via UDS, read signal values, subscribe to push updates, and
@@ -269,5 +269,5 @@ pub fn run() {
             push_status,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Runtime Panel");
+        .expect("error while running AUDEDeck");
 }

@@ -163,7 +163,7 @@ NocoBase 任务默认从 nocobase-ui-builder 开始，除非用户明确要其�
 ## 示例
 
 ### 示例 1: 新功能
-用户: "我想给 Runtime Panel 添加趋势图组件"
+用户: "我想给 AUDEDeck 添加趋势图组件"
 
 输出:
 ```

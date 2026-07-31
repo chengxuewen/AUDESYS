@@ -1,21 +1,14 @@
-# AUDESYS Runtime Panel 架构设计
+# AUDESYS AUDEDeck 架构设计
 
 **生成日期**: 2026-07-19
 **修订日期**: 2026-07-21
 
-*> ℹ️ Studio 迁移通知：AUDESYS Studio 已从 Tauri+React 迁移到 Eclipse Theia（详见 docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md）。Runtime Panel 不受影响——仍基于 Tauri 独立运行，通过 packages/studio-core/ 共享 Widget 组件。*
+> ℹ️ Studio 迁移通知：AUDESYS Studio 已从 Tauri+React 迁移到 Eclipse Theia（详见 docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md）。AUDEDeck 不受影响——仍基于 Tauri + PWA 独立运行，由 3rdparty/AUDEDeck/ 提供。Widget 复用 @audesys/deck-core。
 
-**依赖决策**: D58 (Studio PluginRegistry, 已弃用), D59 (PlatformAdapter PC/Web 双模式), D17 (Config Barrier)
-**参考**: `docs/modules/studio/plugin-architecture-design.md`（已弃用）、`docs/modules/runtime/ipc-security-design.md`
-**设计目标**: Runtime Panel 作为独立操作员进程运行 HMI 布局，区别于 Studio 设计器
-
----
-
-## 0. 定位概述
-
-```
-┌─────────────────────────────────────┐      ┌─────────────────────────────┐
-│           Studio IDE                 │      │       Runtime Panel          │
+**依赖决策**: D64 (Role::HMI), D65 (AUDEDeck 独立进程), D66 (Transport 层), D68 (HMI 布局部署), D62 (SignalBridge Hybrid), D63 (周期边界批量), D17 (Config Barrier)
+**参考**: `docs/modules/runtime/ipc-security-design.md`, `docs/superpowers/specs/2026-07-21-studio-theia-migration-design.md`
+**设计目标**: AUDEDeck 作为独立操作员进程运行 HMI 布局，区别于 Studio 设计器
+|           Studio IDE                 │      │       AUDEDeck          │
 │   (开发者工具 — 离线设计)              │      │   (操作员工具 — 在线监控)       │
 │                                     │      │                             │
 │  · HMI Designer → 产出 HmiLayout    │──────│→ 加载 HmiLayout (readonly)   │
@@ -41,7 +34,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                          AUDESYS Runtime Panel Shell                          │
+│                          AUDESYS AUDEDeck Shell                          │
 │                                                                               │
 │  ┌───────────────────────────┐    ┌───────────────────────────────────────┐  │
 │  │     Plugin System          │    │        Navigation Manager             │  │
@@ -129,7 +122,7 @@
 
 ### 2.2 差异矩阵
 
-| 维度 | Studio (设计器) | Runtime Panel (操作员) |
+| 维度 | Studio (设计器) | AUDEDeck (操作员) |
 |------|----------------|----------------------|
 | **用户角色** | 工程师 / 开发人员 | 操作员 (Operator) |
 | **HMI 布局** | 编辑、保存、删除 | 只读加载 |
@@ -163,7 +156,7 @@ packages/studio-core/                ← 统一共享库 (已就绪)
           ├── TextWidget.tsx
           └── DisplayWidget.tsx
 
-apps/runtime-panel/                  ← 新建 Tauri 应用
+3rdparty/AUDEDeck/                  ← 新建 Tauri 应用
   └── src/
       ├── shell/
       │   ├── PanelShell.tsx         # 全屏 shell (无 IDE chrome)
@@ -466,7 +459,7 @@ Transport 层不再暴露为独立接口 — 各 SignalProvider 实现内部封�
 │                  Operator Workstation                          │
 │                                                               │
 │  ┌──────────────────────────────────┐  ┌──────────────────┐  │
-│  │        Runtime Panel (Tauri)     │  │  Runtime       │  │
+│  │        AUDEDeck (Tauri)     │  │  Runtime       │  │
 │  │                                  │  │  (独立进程)        │  │
 │  │  Panel Shell  Widget Renderer    │  │                   │  │
 │  │       │            │             │  │  Runtime Engine    │  │
@@ -500,7 +493,7 @@ Transport 层不再暴露为独立接口 — 各 SignalProvider 实现内部封�
 ┌──────────────────────────┐         ┌──────────────────────────────┐
 │   Remote Browser          │         │    Edge Runtime            │
 │                           │         │                              │
-│  Runtime Panel (PWA)      │   WSS   │  ┌────────────────────────┐  │
+│  AUDEDeck (PWA)      │   WSS   │  ┌────────────────────────┐  │
 │                           │◄────────┼──┤  IPC Server              │  │
 │  Panel Shell              │         │  │                          │  │
 │  Widget Renderer          │         │  │  UDS Listener            │  │
@@ -530,7 +523,7 @@ Transport 层不再暴露为独立接口 — 各 SignalProvider 实现内部封�
 │            Developer Workstation              │
 │                                               │
 │  ┌──────────────────────────────────────┐    │
-│  │        Runtime Panel (Tauri)         │    │
+│  │        AUDEDeck (Tauri)         │    │
 │  │                                      │    │
 │  │  Panel Shell                         │    │
 │  │  Widget Renderer                     │    │
@@ -802,7 +795,7 @@ interface ScreenDescriptor {
 | 任务 | 估时 | 依赖 |
 |------|:---:|------|
 | `packages/studio-core/` widget 组件 + HmiLayout 类型已就绪 | 0d | 无 (已完成) |
-| `apps/runtime-panel/` Tauri 应用骨架 + PanelShell | 1d | studio-core |
+| `3rdparty/AUDEDeck/` Tauri 应用骨架 + PanelShell | 1d | studio-core |
 | PanelRenderer (load YAML → SignalProvider.onUpdate → inject signalValue) | 1d | studio-core + SignalProvider 接口 |
 | LocalSignalProvider 实现 (RuntimeClient + 10ms poll + SIGNAL_PUSH 帧处理) | 2d | IPC 新增方法 |
 | IPC Server 新增 0x14 subscribe / 0x15 unsubscribe / 0x16 SIGNAL_PUSH | 2d | 无 |

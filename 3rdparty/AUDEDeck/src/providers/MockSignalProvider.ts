@@ -1,6 +1,6 @@
 /**
  * MockSignalProvider — provides simulated, dynamically-changing signal values
- * for the Runtime Panel when no real Controller is connected.
+ * for the AUDEDeck when no real Controller is connected.
  * Replaced by SignalBridge (IPC push/poll) when Controller is available.
  */
 
