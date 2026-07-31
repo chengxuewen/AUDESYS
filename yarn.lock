@@ -3440,14 +3440,14 @@ atomically@^1.7.0:
 "audesys-backend@file:theia-extensions/audesys-backend":
   version "0.1.0"
   dependencies:
-    "@audesys/theia-bridge" "file:../../../../../Library/Caches/Yarn/v6/npm-audesys-backend-0.1.0-cce5136a-24c6-4a8d-b3cf-adfa1d40c7db-1785468251160/crates/audesys-theia-bridge"
+    "@audesys/theia-bridge" "file:../../../../../Library/Caches/Yarn/v6/npm-audesys-backend-0.1.0-cb6a602a-1d1a-4a68-b314-7e5c83341f8b-1785477604698/crates/audesys-theia-bridge"
     "@theia/core" "1.73.0"
     winston "^3.11.0"
 
 "audesys-core@file:theia-extensions/audesys-core":
   version "0.1.0"
   dependencies:
-    "@audesys/theia-bridge" "file:../../../../../Library/Caches/Yarn/v6/npm-audesys-core-0.1.0-a512bbe2-9be2-42e8-8fa5-df5f6123d38c-1785468251161/crates/audesys-theia-bridge"
+    "@audesys/theia-bridge" "file:../../../../../Library/Caches/Yarn/v6/npm-audesys-core-0.1.0-acffe020-6f13-4a5c-a7bb-c9e08a37accb-1785477604698/crates/audesys-theia-bridge"
     "@theia/core" "1.73.0"
 
 "audesys-debug@file:theia-extensions/audesys-debug":
@@ -3460,7 +3460,11 @@ atomically@^1.7.0:
 "audesys-fbd-glsp@file:theia-extensions/audesys-fbd-glsp":
   version "0.1.0"
   dependencies:
-    "@audesys/theia-bridge" "file:../../../../../Library/Caches/Yarn/v6/npm-audesys-fbd-glsp-0.1.0-50b0623e-f66c-4ab4-a705-ca921f1395b4-1785468251163/crates/audesys-theia-bridge"
+    "@audesys/theia-bridge" "file:../../../../../Library/Caches/Yarn/v6/npm-audesys-fbd-glsp-0.1.0-b401afc1-77d6-4b0a-b11e-04d2c53fc808-1785477604696/crates/audesys-theia-bridge"
+    "@eclipse-glsp/client" "2.7.0"
+    "@eclipse-glsp/protocol" "2.7.0"
+    "@eclipse-glsp/server" "2.7.0"
+    "@eclipse-glsp/theia-integration" "2.7.0"
     "@lumino/messaging" "^2.0.0"
     "@theia/core" "1.73.0"
     "@theia/filesystem" "1.73.0"
@@ -3481,7 +3485,7 @@ atomically@^1.7.0:
 "audesys-ld-glsp@file:theia-extensions/audesys-ld-glsp":
   version "0.1.0"
   dependencies:
-    "@audesys/theia-bridge" "file:../../../../../Library/Caches/Yarn/v6/npm-audesys-ld-glsp-0.1.0-6fcbde3f-1a5a-4288-b185-342a1e6f3181-1785468251165/crates/audesys-theia-bridge"
+    "@audesys/theia-bridge" "file:../../../../../Library/Caches/Yarn/v6/npm-audesys-ld-glsp-0.1.0-69d96754-de1c-427c-9853-02800926ca70-1785477604700/crates/audesys-theia-bridge"
     "@eclipse-glsp/client" "2.7.0"
     "@eclipse-glsp/protocol" "2.7.0"
     "@eclipse-glsp/server" "2.7.0"

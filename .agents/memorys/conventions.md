@@ -163,3 +163,28 @@ done
 # 全部必须 = 1
 ```
 
+```
+
+## GLSP 扩展开发约定 (2026-07-31)
+
+### snabbdom 变量命名
+- **禁止**: 在使用 snabbdom `h()` 函数的文件中用 `h` 作为变量名
+- **替代**: 使用 `nodeH`/`nodeW` 作为节点尺寸变量名
+- **验证**: `grep -rn 'const h =' src/client/*.ts` 应返回 0 结果
+- **先例**: FBD GLSP 迁移中 `const h = model.size?.height` 覆盖了 snabbdom 的 `h()`，导致 14 个编译错误
+
+### GLSP 依赖导入路径
+- `ActionHandler`/`ActionHandlerConstructor` → 从 `@eclipse-glsp/server` 导入（非 protocol）
+- `GPort`/`GNode`/`GEdge` → 从 `@eclipse-glsp/server` 或 `@eclipse-glsp/graph` 导入
+- `DefaultTypes` → 从 `@eclipse-glsp/protocol` 导入
+- `configureModelElement` 等 → 从 `@eclipse-glsp/client` 导入
+
+### GLSP 传递依赖
+- `snabbdom` 通过 `@eclipse-glsp/client` 传递引入，不应作为直接依赖
+- `inversify` 通过 `@theia/core` 传递引入，不应作为直接依赖
+- **验证**: `ls theia-extensions/*/node_modules/snabbdom` 应报 No such file
+
+### 新扩展构建流程
+- `theia build` 只打包已编译的 `.js`，不编译 `.ts`
+- 新建扩展后必须先 `npx tsc -b`（在扩展目录），再 `theia build`（在 apps/studio）
+- **验证**: `ls theia-extensions/新扩展/lib/theia/*.js` 应存在

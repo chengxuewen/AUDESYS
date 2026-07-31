@@ -629,3 +629,16 @@
 - 理由: yarn workspaces 迁移后 vitest 依赖解析失败（@testing-library/dom 缺失），先禁用 HMI 功能以确保核心构建稳定
 - 后续: 待 vitest 依赖问题解决后重新启用
 - 参考: theia-extensions/audesys-hmi-designer/
+
+## D107: FBD GLSP 迁移 = 完整 GLSP 架构（参照 LD）
+- 日期: 2026-07-31
+- 决定: FBD 编辑器从 React+SVG 迁移到完整 Eclipse GLSP 架构，采用 GPort 端口系统实现 pin-level 连接
+- 理由: (a) D92 Route C 已确认 LD 先行→FBD 跟进；(b) GModel 层已完整；(c) LD GLSP 基础设施可复用
+- 关键技术点:
+  - GPort 端口系统: FBD 独有，LD 没有，为每个 Pin 创建 GPort 子元素
+  - Port ID 格式: `nodeId::pinName`（用 `::` 分隔避免 `-` 歧义）
+  - Port-to-port edge: SignalEdge 的 sourceId/targetId 引用 GPort ID
+  - renderChildren(): FbdFbView 必须调用 context.renderChildren(model) 渲染 GPort 子元素
+  - portFeature: GLSP 自动处理 port-to-port 连接，无需手动启用
+- 验证: npx tsc --noEmit EXIT 0, 36 vitest tests pass
+- 参考: .sisyphus/plans/fbd-glsp-migration/

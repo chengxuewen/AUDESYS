@@ -656,3 +656,43 @@
 - **状态**: 待修复（D106）
 - **方案**: 每次 edit 后 Read 验证文件内容；同一文件 3 次以上 edit 使用 Write 整体重写
 - **验证**: `grep -c '重复关键字' file.ts` 检查无意外重复计数 > 1
+
+## FBD GLSP 迁移 (2026-07-31)
+
+### snabbdom `h()` 变量名冲突 — 与 LD 同坑
+- **问题**: `const h = model.size?.height ?? 60` 覆盖了 snabbdom 的 `h()` 函数，导致14个 `TS2349: This expression is not callable` 错误
+- **原因**: snabbdom 的 `h()` 函数与高度变量 `h` 同名。TypeScript 解析时优先使用局部变量
+- **方案**: 使用 `nodeH`/`nodeW` 而非 `h`/`w` 作为节点尺寸变量名
+- **验证**: `grep -rn 'const h =' src/client/*.ts` 应返回 0 结果
+- **禁止**: 禁止在使用 snabbdom `h()` 的文件中用 `h` 作为变量名
+
+### GLSP `portFeature` 不存在
+- **问题**: 导入 `portFeature` from `@eclipse-glsp/client` 报 `TS2724: has no exported member named 'portFeature'`
+- **原因**: GLSP 2.7.0 没有 `portFeature`。Port 连接由框架自动处理，无需显式启用
+- **方案**: PORT 类型只用 `selectFeature`，GLSP 自动处理 port-to-port 连接
+- **验证**: `grep -rn 'portFeature' src/` 应返回 0 结果
+
+### ActionHandler 导入路径 — 在 server 非 protocol
+- **问题**: `import { ActionHandler } from '@eclipse-glsp/protocol'` 报 `TS2305: has no exported member`
+- **原因**: `ActionHandler` 和 `ActionHandlerConstructor` 定义在 `@eclipse-glsp/server`，不在 `@eclipse-glsp/protocol`
+- **方案**: `import { ActionHandler, ActionHandlerConstructor } from '@eclipse-glsp/server'`
+- **验证**: `grep -rn 'ActionHandler.*protocol' src/` 应返回 0 结果
+
+### snabbdom 不应作为直接依赖
+- **问题**: 添加 `"snabbdom": "^3.5.1"` 到 package.json 后，yarn 创建本地副本，导致类型冲突
+- **原因**: snabbdom 通过 `@eclipse-glsp/client` 传递引入。直接依赖创建了独立的物理副本，VNode 类型不兼容
+- **方案**: 从 dependencies 中移除 snabbdom，使用传递依赖
+- **验证**: `ls theia-extensions/audesys-fbd-glsp/node_modules/snabbdom` 应报 No such file
+- **禁止**: 禁止将传递依赖添加为直接依赖
+
+### `as const` 导致 readonly 类型冲突
+- **问题**: `fileExtensions: ['.fbd'] as const` 产生 `readonly [".fbd"]`，无法赋值给 `string[]`
+- **原因**: GLSPDiagramLanguage 的 fileExtensions 期望 mutable `string[]`，`as const` 产生 readonly tuple
+- **方案**: 移除 `as const`，使用普通对象字面量
+- **验证**: `npx tsc --noEmit` EXIT 0
+
+### theia build 不编译扩展 TypeScript
+- **问题**: `npx theia build` 成功但运行时报 `Cannot find module 'audesys-fbd-glsp/lib/theia/fbd-theia-backend-module'`
+- **原因**: `theia build` 只打包已编译的 `.js` 文件，不编译 `.ts` 源码。扩展需要先 `npx tsc -b` 编译
+- **方案**: 新建扩展后先 `npx tsc -b`（在扩展目录），再 `npx theia build`（在 apps/studio）
+- **验证**: `ls theia-extensions/audesys-fbd-glsp/lib/theia/fbd-theia-backend-module.js` 应存在

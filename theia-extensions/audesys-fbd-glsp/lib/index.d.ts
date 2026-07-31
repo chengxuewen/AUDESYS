@@ -27,4 +27,8 @@ export { generateId, resetIdCounter, createInputPin, createOutputPin, createGate
 export { ValidationSeverity, } from './gmodel/serialization';
 export type { ValidationFinding, ValidationResult } from './gmodel/serialization';
 export { toJSON, fromJSON, validateGraph, isValid, roundTrip, } from './gmodel/serialization';
+export { FbdDiagramModule, FbdDiagramConfiguration } from './server/fbd-diagram-module';
+export { FbdDiagramGenerator, FBD_SOURCE_KEY } from './server/fbd-diagram-generator';
+export { FbdSourceModelStorage } from './server/fbd-diagram-module';
+export { FbdCreateNodeHandler, FbdDeleteHandler, FbdConnectHandler, FbdCompileHandler } from './server/fbd-diagram-module';
 //# sourceMappingURL=index.d.ts.map

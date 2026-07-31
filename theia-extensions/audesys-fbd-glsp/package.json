@@ -7,10 +7,10 @@
   "main": "lib/index.js",
   "theiaExtensions": [
     {
-      "frontend": "lib/tool-palette/fbd-palette-frontend-module"
+      "frontend": "lib/theia/fbd-theia-frontend-module"
     },
     {
-      "frontend": "lib/editor/fbd-editor-frontend-module"
+      "backend": "lib/theia/fbd-theia-backend-module"
     }
   ],
   "scripts": {
@@ -24,6 +24,10 @@
   },
   "dependencies": {
     "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge",
+    "@eclipse-glsp/client": "2.7.0",
+    "@eclipse-glsp/protocol": "2.7.0",
+    "@eclipse-glsp/server": "2.7.0",
+    "@eclipse-glsp/theia-integration": "2.7.0",
     "@lumino/messaging": "^2.0.0",
     "@theia/core": "1.73.0",
     "@theia/filesystem": "1.73.0",

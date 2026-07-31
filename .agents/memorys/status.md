@@ -1,10 +1,11 @@
 # AUDESYS 项目状态
 
 ## 当前阶段
+- **FBD GLSP 迁移完成** — 2026-07-31，FBD 编辑器从 React+SVG 迁移到完整 Eclipse GLSP 架构。14 新文件、GPort 端口系统、5 种逻辑门 IView、36 测试全通过。详见 D107。
+- **Yarn Workspaces 迁移完成** — 2026-07-31，Studio 从 npm + file: link + 两步构建迁移到 Theia 官方 Yarn Workspaces monorepo。消除 `build-glsp.sh` 两步构建 workaround，Symbol 重复问题永久解决。构建流程：`yarn install && npx theia build`。
 - **Yarn Workspaces 迁移完成** — 2026-07-31，Studio 从 npm + file: link + 两步构建迁移到 Theia 官方 Yarn Workspaces monorepo。消除 `build-glsp.sh` 两步构建 workaround，Symbol 重复问题永久解决。构建流程：`yarn install && npx theia build`。
 - **HMI Designer 暂时禁用** — 2026-07-31，因 vitest 依赖解析问题（@testing-library/dom 缺失），从 apps/studio/package.json 移除 audesys-hmi-designer。待依赖问题解决后重新启用。
-- **Theia 迁移完成** — 2026-07-21，Studio IDE 从 Tauri+React 迁移到 Eclipse Theia+Monaco Editor+GLSP+napi-rs。6 语言编辑器就绪：ST Monaco ✅、IL Monaco ✅、G-code Monaco ✅、LD GLSP 编辑器 🟡、FBD GLSP 编辑器 🟡、SFC 编辑器 ✅。Signal Browser ✅、Scope View ✅、Debug Panel ✅、Mode System ✅。AUDEDeck 不受影响（D65 保持有效）。
-- **Theia 迁移完成** — 2026-07-21，Studio IDE 从 Tauri+React 迁移到 Eclipse Theia+Monaco Editor+GLSP+napi-rs。6 语言编辑器就绪：ST Monaco ✅、IL Monaco ✅、G-code Monaco ✅、LD GLSP 编辑器 🟡、FBD GLSP 编辑器 🟡、SFC 编辑器 ✅。Signal Browser ✅、Scope View ✅、Debug Panel ✅、HMI Designer (Theia) ✅、Mode System ✅。AUDEDeck 不受影响（D65 保持有效）。
+- **Theia 迁移完成** — 2026-07-21，Studio IDE 从 Tauri+React 迁移到 Eclipse Theia+Monaco Editor+GLSP+napi-rs。6 语言编辑器就绪：ST Monaco ✅、IL Monaco ✅、G-code Monaco ✅、LD GLSP 编辑器 ✅、FBD GLSP 编辑器 ✅、SFC 编辑器 ✅。Signal Browser ✅、Scope View ✅、Debug Panel ✅、HMI Designer (Theia) ✅、Mode System ✅。AUDEDeck 不受影响（D65 保持有效）。
 - **Studio ↔ Runtime 集成完成** — RuntimeClient 库（UDS IPC 客户端，6 方法+认证）、Studio napi-rs bridge 命令（deploy_program/load_hal_config/read_controller_signal）
 - **协议适配器就绪** — Modbus RTU/TCP（8 测试）、HART（6 测试）
 - **仿真器就绪** — SimulationHarness + 故障注入引擎 + 场景录制/回放 + VirtualModbusTcpDevice + VirtualHARTDevice
@@ -15,10 +16,10 @@
 - **HMI 设计器就绪** — 2026-07-19，可视化拖拽编辑器（react-rnd 自由布局画布）、7 种工业 widget（Gauge/Trend/Tank/Indicator/Button/Display/Text）、信号绑定对话框（controller_signal_snapshot 集成）、属性面板（位置/尺寸/标签/信号/类型专属配置）、Edit/Preview 模式切换、YAML 持久化（save_hmi_layout/load_hmi_layout）
 
 ## 仓库状态
-- **最新提交**: `f923088` — `perf(runtime): add criterion benchmarks for signal throughput, RPC, and registry ops`（当前会话未提交，含以下变更）
+- **最新提交**: `563b94f` — `refactor: rename Runtime Panel to AUDEDeck, move to 3rdparty/`（当前会话含 FBD GLSP 迁移，未提交）
 - **提交历史**: 197 commits on main (2026-07-08 至 2026-07-20)
 - **源代码**: 24 crates（crates/）+ 1 Tauri 应用（3rdparty/AUDEDeck/）。apps/studio/ 已弃用（D71 Theia 迁移）
-- **测试**: 799 `#[test]` 标注 + 19 个 vitest 测试文件 (134 tests) + 19 个 Playwright E2E UI 测试 (ld-editor.spec.ts 26 tests) |
+- **测试**: 799 `#[test]` 标注 + 20 个 vitest 测试文件 (170 tests) + 19 个 Playwright E2E UI 测试 (ld-editor.spec.ts 26 tests) |
 - **SDD 规范**: 239 项（openspec/specs/7 份）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(41) + HMI(22) + Studio Theia(55)
 - **CI**: qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ GitHub Actions macOS+Linux 矩阵
 - **依赖**: `@colbymchenry/codegraph` (devDependency) + Rust toolchain stable
@@ -37,8 +38,8 @@
 | IPC Server | ✅ 完成 | UDS 10 方法（0x01-0x17），HMAC 认证，5 角色 RBAC |
 | Studio IDE | ✅ Theia 迁移完成 | D71: Tauri+React → Eclipse Theia+Monaco+GLSP+napi-rs，迁移完成（2026-07-21） |
 | Studio Theia 迁移 | ✅ 10/11 扩展集成 (apps/studio/) | 2026-07-23: core, debug, hmi-designer, backend, st-editor, il-editor, gcode-editor, sfc-editor, ld-glsp, fbd-glsp 全部可用。Electron+browser 双端正常（3层token+38API polyfill）。theia-bridge 21/30 函数真实实现（6编译器+7控制器+3模拟+2项目管理）。0测试。待办: 9 debug stub + widget 复用
-|| LD GLSP Editor | 🟡 React+SVG 实现，GLSP 迁移计划中 | SVG 编辑器 + tool palette，触点/线圈放置，auto-rung，右键菜单。当前为 React+SVG 实现，GLSP 迁移计划中（2026-07-24 决定） |
-|| FBD GLSP Editor | 🟡 React+SVG 实现，GLSP 服务端缺失，迁移计划中 | Eclipse GLSP 图形编辑器，FBD 功能块图 → HalProgram。当前为 React+SVG 实现，GLSP 服务端缺失，GLSP 迁移计划中 |
+|| LD GLSP Editor | ✅ GLSP 2.7.0 集成完成 | Sprotty SVG 编辑器 + tool palette，触点/线圈放置，auto-rung，右键菜单。GLSP 服务端 + 客户端完成（D92/D99/D101） |
+|| FBD GLSP Editor | ✅ GLSP 2.7.0 集成完成 | GPort 端口系统、5 种逻辑门 IView、FB 动态 pin、port-to-port edge。14 新文件、36 测试全通过。2026-07-31 完成 |
 | ST Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，ST 结构化文本 |
 | IL Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，IL 指令表 |
 | G-code Monaco Editor | ✅ 完成 | Monaco Editor 文本编辑器，G-code RS274 |
@@ -79,7 +80,7 @@
 | P1 | 5 IEC 61131-3 编译器 (ST/IL/LD/FBD/SFC), Runtime Engine, IPC Server | 2026-07-20 | ✅ |
 | P1 | Theia 迁移 (D71), 6 语言编辑器, HMI Designer, GLSP 编辑器 | 2026-07-21 | ✅ |
 | P1 | Modbus RTU/TCP, HART 适配器, SimHarness | 2026-07-19 | ✅ |
-|| P2 | LD GLSP Editor (Sprotty SVG), FBD GLSP Editor — React+SVG 实现，GLSP 迁移计划中 | 2026-07-24 | 🟡 |
+|| P2 | LD GLSP Editor (Sprotty SVG), FBD GLSP Editor — GLSP 2.7.0 集成完成 | 2026-07-31 | ✅ |
 | P2 | AUDEDeck 打包 (tauri bundle), SignalBridge push/poll, 9 Tauri 命令 | 2026-07-25 | ✅ |
 | P2 | G-code 编译器 (75 测试), CNC 轴组 (32 测试), 插补设计 | 2026-07-19 | ✅ |
 | P2 | Prometheus metrics, DAP 调试 (12 命令), JSON 日志 | 2026-07-20 | ✅ |

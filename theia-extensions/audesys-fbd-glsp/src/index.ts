@@ -76,3 +76,9 @@ export {
   isValid,
   roundTrip,
 } from './gmodel/serialization';
+
+// GLSP Server
+export { FbdDiagramModule, FbdDiagramConfiguration } from './server/fbd-diagram-module';
+export { FbdDiagramGenerator, FBD_SOURCE_KEY } from './server/fbd-diagram-generator';
+export { FbdSourceModelStorage } from './server/fbd-diagram-module';
+export { FbdCreateNodeHandler, FbdDeleteHandler, FbdConnectHandler, FbdCompileHandler } from './server/fbd-diagram-module';

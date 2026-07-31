@@ -168,3 +168,17 @@ Fix: build WITHOUT symlink, restore after build.
 
 **Seen**: 2026-07-30 — 7h wasted debugging .ld file opening; root cause was Symbol("OpenHandler")=2
 **Seen**: 2026-07-30 — Socket.IO 403 errors returned after rebuild because patches no longer matched
+
+### 20. snabbdom `h()` variable name conflict — NEVER use `h` as variable name
+In files using snabbdom's `h()` function (GLSP IView implementations), the variable name `h`
+shadows the function, causing `TS2349: This expression is not callable` errors.
+
+```bash
+# Check BEFORE editing any GLSP view file
+grep -rn 'const h =' theia-extensions/*/src/client/*.ts  # must be 0 results
+```
+
+**Correct**: Use `nodeH`/`nodeW` for node dimensions, `fbHeight`/`fbWidth` for FB sizes.
+**Wrong**: `const h = model.size?.height` — shadows snabbdom `h()`
+
+**Seen**: 2026-07-28 (LD), 2026-07-31 (FBD) — both times caused 14+ compilation errors
