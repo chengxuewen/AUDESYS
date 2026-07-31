@@ -35,6 +35,15 @@ pub enum ILStatement {
     Set { var: String },
     Reset { var: String },
     Not,
+    Ton { var: String },
+    Tof { var: String },
+    Tp { var: String },
+    Ctu { var: String },
+    Ctd { var: String },
+    RTrig { var: String },
+    FTrig { var: String },
+    Sr { var: String },
+    Rs { var: String },
     Label { name: String },
 }
 
@@ -176,6 +185,51 @@ pub fn parse(tokens: &[Token]) -> Vec<ILStatement> {
             Token::Not => {
                 i += 1;
                 stmts.push(ILStatement::Not);
+            }
+            Token::Ton => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Ton { var });
+            }
+            Token::Tof => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Tof { var });
+            }
+            Token::Tp => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Tp { var });
+            }
+            Token::Ctu => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Ctu { var });
+            }
+            Token::Ctd => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Ctd { var });
+            }
+            Token::RTrig => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::RTrig { var });
+            }
+            Token::FTrig => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::FTrig { var });
+            }
+            Token::Sr => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Sr { var });
+            }
+            Token::Rs => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Rs { var });
             }
             Token::Ret => {
                 i += 1;

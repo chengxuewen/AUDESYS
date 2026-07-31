@@ -277,9 +277,44 @@ impl Codegen {
                     // NOT: CR := !CR
                     self.emit_not(CR_REG, CR_REG);
                 }
+                ILStatement::Ton { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::TimerRun, vec![Operand::Register(r)]));
+                }
+                ILStatement::Tof { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::TimerRun, vec![Operand::Register(r)]));
+                }
+                ILStatement::Tp { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::TimerRun, vec![Operand::Register(r)]));
+                }
+                ILStatement::Ctu { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::CounterRun, vec![Operand::Register(r)]));
+                }
+                ILStatement::Ctd { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::CounterRun, vec![Operand::Register(r)]));
+                }
+                ILStatement::RTrig { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::EdgeRun, vec![Operand::Register(r)]));
+                }
+                ILStatement::FTrig { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::EdgeRun, vec![Operand::Register(r)]));
+                }
+                ILStatement::Sr { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::SrRun, vec![Operand::Register(r)]));
+                }
+                ILStatement::Rs { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit(Instruction::new(Opcode::SrRun, vec![Operand::Register(r)]));
+                }
             }
         }
-
         // Halt at end
         self.emit(Instruction::halt());
 

@@ -30,6 +30,15 @@ pub enum Token {
     S,      // Set
     R,      // Reset
     Not,    // Not
+    Ton,    // Timer On-Delay
+    Tof,    // Timer Off-Delay
+    Tp,     // Timer Pulse
+    Ctu,    // Counter Up
+    Ctd,    // Counter Down
+    RTrig,  // Rising Edge
+    FTrig,  // Falling Edge
+    Sr,     // Set-dominant Flip-Flop
+    Rs,     // Reset-dominant Flip-Flop
     Ident(String),
     Label(String),
 }
@@ -64,6 +73,15 @@ impl fmt::Display for Token {
             Token::S => write!(f, "S"),
             Token::R => write!(f, "R"),
             Token::Not => write!(f, "NOT"),
+            Token::Ton => write!(f, "TON"),
+            Token::Tof => write!(f, "TOF"),
+            Token::Tp => write!(f, "TP"),
+            Token::Ctu => write!(f, "CTU"),
+            Token::Ctd => write!(f, "CTD"),
+            Token::RTrig => write!(f, "R_TRIG"),
+            Token::FTrig => write!(f, "F_TRIG"),
+            Token::Sr => write!(f, "SR"),
+            Token::Rs => write!(f, "RS"),
             Token::Ident(name) => write!(f, "{name}"),
             Token::Label(name) => write!(f, "{name}:"),
         }
@@ -123,6 +141,15 @@ fn parse_mnemonic(s: &str) -> Option<Token> {
         "S" => Token::S,
         "R" => Token::R,
         "NOT" => Token::Not,
+        "TON" => Token::Ton,
+        "TOF" => Token::Tof,
+        "TP" => Token::Tp,
+        "CTU" => Token::Ctu,
+        "CTD" => Token::Ctd,
+        "R_TRIG" => Token::RTrig,
+        "F_TRIG" => Token::FTrig,
+        "SR" => Token::Sr,
+        "RS" => Token::Rs,
         _ => return None,
     })
 }
