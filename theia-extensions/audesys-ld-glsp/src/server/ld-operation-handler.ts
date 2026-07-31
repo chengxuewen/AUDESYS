@@ -323,11 +323,6 @@ export class LdOperationHandler {
     const rung = findRung(graph, params.rungId);
     const snapped = snapToGrid(params.position);
 
-    // At most one coil per rung
-    if (findCoilOnRung(graph, rung)) {
-      throw new ValidationError('Rung already has a coil');
-    }
-
     // Must have at least one contact before adding a coil
     const contactIds = rung.elementIds.filter((id) => {
       const n = findNode(graph, id);
@@ -336,7 +331,6 @@ export class LdOperationHandler {
     if (contactIds.length === 0) {
       throw new ValidationError('Add at least one contact before adding a coil');
     }
-
     // Valid position: right of the rightmost contact
     const rightmostX = contactIds.reduce((maxX, id) => {
       const n = findNode(graph, id);

@@ -11,6 +11,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum LdElement {
     Contact { normally_open: bool, var: String },
+    ParallelContact { normally_open: bool, var: String },  // Parallel branch (OR/ORN)
     Coil { kind: CoilKind, var: String },
 }
 
@@ -50,6 +51,15 @@ pub fn parse_networks(tokens: &[super::lexer::Token]) -> Vec<Vec<LdElement>> {
             super::lexer::Token::Reset(var) => {
                 current.push(LdElement::Coil { kind: CoilKind::Reset, var: var.clone() });
             }
+            super::lexer::Token::Parallel(spec) => {
+                // Parallel branch: spec is "NO var" or "NC var"
+                let parts: Vec<&str> = spec.split_whitespace().collect();
+                match parts.as_slice() {
+                    ["NO", var] => current.push(LdElement::ParallelContact { normally_open: true, var: var.to_string() }),
+                    ["NC", var] => current.push(LdElement::ParallelContact { normally_open: false, var: var.to_string() }),
+                    _ => {}
+                }
+            }
         }
     }
     if !current.is_empty() {
@@ -86,6 +96,14 @@ pub fn generate_il(networks: &[Vec<LdElement>]) -> String {
                         } else {
                             lines.push(format!("ANDN {}", var));
                         }
+                    }
+                }
+                LdElement::ParallelContact { normally_open, var } => {
+                    // Parallel branch: always OR/ORN (not AND)
+                    if *normally_open {
+                        lines.push(format!("OR {}", var));
+                    } else {
+                        lines.push(format!("ORN {}", var));
                     }
                 }
                 LdElement::Coil { kind, var } => match kind {

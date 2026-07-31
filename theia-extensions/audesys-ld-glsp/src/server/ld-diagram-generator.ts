@@ -139,6 +139,8 @@ export class LdDiagramGenerator implements GModelFactory {
             .id(contact.id)
             .position(contact.position.x, contact.position.y)
             .size(contact.size.width, contact.size.height)
+            .addArg('contactType', contact.contactType)
+            .addArg('variableName', contact.variableName)
             .addCssClass(contact.contactType === 'NC' ? 'contact-nc' : 'contact-no')
             .add(label)
             .build();
@@ -159,6 +161,8 @@ export class LdDiagramGenerator implements GModelFactory {
             .id(coil.id)
             .position(coil.position.x, coil.position.y)
             .size(coil.size.width, coil.size.height)
+            .addArg('coilType', coil.coilType)
+            .addArg('variableName', coil.variableName)
             .addCssClass(`coil-${coil.coilType.toLowerCase()}`)
             .add(label)
             .build();
@@ -182,6 +186,7 @@ export class LdDiagramGenerator implements GModelFactory {
             .id(node.id)
             .position(node.position.x, node.position.y)
             .size(node.size.width, node.size.height)
+            .addArg('fbType', (node as any).fbType ?? 'FB')
             .addCssClass('fb-placeholder')
             .build();
     }

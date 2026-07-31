@@ -17,6 +17,7 @@ pub enum Token {
     Out(String),
     Set(String),
     Reset(String),
+    Parallel(String),  // | NO var or | NC var — parallel branch
 }
 
 /// Tokenize LD source text into a vector of tokens.
@@ -45,6 +46,17 @@ fn parse_line(line: &str) -> Token {
         ["OUT", var] => Token::Out(var.to_string()),
         ["SET", var] => Token::Set(var.to_string()),
         ["RESET", var] => Token::Reset(var.to_string()),
+        _ if line.starts_with('|') => {
+            // Parallel branch: | NO var or | NC var
+            let inner = line[1..].trim();
+            let inner_upper = inner.to_uppercase();
+            let inner_parts: Vec<&str> = inner_upper.split_whitespace().collect();
+            match inner_parts.as_slice() {
+                ["NO", var] => Token::Parallel(format!("NO {}", var)),
+                ["NC", var] => Token::Parallel(format!("NC {}", var)),
+                _ => Token::Network,
+            }
+        }
         _ => Token::Network, // ponytail: treat unknown lines as network boundary
     }
 }
