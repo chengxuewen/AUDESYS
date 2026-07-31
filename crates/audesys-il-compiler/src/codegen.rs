@@ -223,6 +223,10 @@ impl Codegen {
                     let r = self.get_var_reg(var);
                     self.emit_arith(Opcode::Div, CR_REG, r, CR_REG);
                 }
+                ILStatement::Mod { var } => {
+                    let r = self.get_var_reg(var);
+                    self.emit_arith(Opcode::Mod, CR_REG, r, CR_REG);
+                }
                 ILStatement::Cmp { op, var } => {
                     let r = self.get_var_reg(var);
                     let opcode = match op {

@@ -25,6 +25,7 @@ pub enum ILStatement {
     Sub { var: String },
     Mul { var: String },
     Div { var: String },
+    Mod { var: String },
     Cmp { op: CompareOp, var: String },
     Jump { label: String },
     JumpIf { label: String },
@@ -36,6 +37,7 @@ pub enum ILStatement {
     Not,
     Label { name: String },
 }
+
 
 pub fn parse(tokens: &[Token]) -> Vec<ILStatement> {
     let mut stmts = Vec::new();
@@ -101,6 +103,11 @@ pub fn parse(tokens: &[Token]) -> Vec<ILStatement> {
                 i += 1;
                 let var = expect_ident(tokens, &mut i);
                 stmts.push(ILStatement::Div { var });
+            }
+            Token::Mod => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Mod { var });
             }
             Token::Gt => {
                 i += 1;

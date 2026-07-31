@@ -15,6 +15,7 @@ pub enum Token {
     Sub,
     Mul,
     Div,
+    Mod,
     Gt,
     Ge,
     Eq,
@@ -48,6 +49,7 @@ impl fmt::Display for Token {
             Token::Sub => write!(f, "SUB"),
             Token::Mul => write!(f, "MUL"),
             Token::Div => write!(f, "DIV"),
+            Token::Mod => write!(f, "MOD"),
             Token::Gt => write!(f, "GT"),
             Token::Ge => write!(f, "GE"),
             Token::Eq => write!(f, "EQ"),
@@ -62,8 +64,8 @@ impl fmt::Display for Token {
             Token::S => write!(f, "S"),
             Token::R => write!(f, "R"),
             Token::Not => write!(f, "NOT"),
-            Token::Label(name) => write!(f, "{name}:"),
             Token::Ident(name) => write!(f, "{name}"),
+            Token::Label(name) => write!(f, "{name}:"),
         }
     }
 }
@@ -91,6 +93,7 @@ fn remove_inline_comments(line: &str) -> String {
     }
     result
 }
+
 fn parse_mnemonic(s: &str) -> Option<Token> {
     Some(match s {
         "LD" => Token::Ld,
@@ -105,6 +108,7 @@ fn parse_mnemonic(s: &str) -> Option<Token> {
         "SUB" => Token::Sub,
         "MUL" => Token::Mul,
         "DIV" => Token::Div,
+        "MOD" => Token::Mod,
         "GT" => Token::Gt,
         "GE" => Token::Ge,
         "EQ" => Token::Eq,
@@ -120,12 +124,8 @@ fn parse_mnemonic(s: &str) -> Option<Token> {
         "R" => Token::R,
         "NOT" => Token::Not,
         _ => return None,
-        "RET" => Token::Ret,
-        _ => return None,
     })
 }
-
-/// Tokenize IL source into a flat token stream.
 
 /// Tokenize IL source into a flat token stream.
 pub fn tokenize(source: &str) -> Vec<Token> {
@@ -212,7 +212,6 @@ mod tests {
             let src = format!("LD X1\n{} X2", mnemonic);
             let tokens = tokenize(&src);
             assert_eq!(tokens.len(), 4, "failed for {mnemonic}");
-            // tokens: [Ld, Ident(X1), Cmp, Ident(X2)]
             assert!(matches!(tokens[3], Token::Ident(ref s) if s == "X2"), "failed for {mnemonic}");
         }
     }
