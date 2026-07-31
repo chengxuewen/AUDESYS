@@ -84,6 +84,10 @@ export enum ContactType {
   NO = 'NO',
   /** Normally Closed — passes power when the variable is FALSE */
   NC = 'NC',
+  /** Positive Transition (Rising Edge) — passes power for 1 scan on 0→1 edge */
+  P = 'P',
+  /** Negative Transition (Falling Edge) — passes power for 1 scan on 1→0 edge */
+  N = 'N',
 }
 
 /**

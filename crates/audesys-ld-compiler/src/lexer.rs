@@ -14,6 +14,8 @@ pub enum Token {
     Network,
     No(String),
     Nc(String),
+    P(String),   // Positive transition contact
+    N(String),   // Negative transition contact
     Out(String),
     Set(String),
     Reset(String),
@@ -43,6 +45,8 @@ fn parse_line(line: &str) -> Token {
         ["NETWORK"] => Token::Network,
         ["NO", var] => Token::No(var.to_string()),
         ["NC", var] => Token::Nc(var.to_string()),
+        ["P", var] => Token::P(var.to_string()),
+        ["N", var] => Token::N(var.to_string()),
         ["OUT", var] => Token::Out(var.to_string()),
         ["SET", var] => Token::Set(var.to_string()),
         ["RESET", var] => Token::Reset(var.to_string()),
@@ -54,6 +58,8 @@ fn parse_line(line: &str) -> Token {
             match inner_parts.as_slice() {
                 ["NO", var] => Token::Parallel(format!("NO {}", var)),
                 ["NC", var] => Token::Parallel(format!("NC {}", var)),
+                ["P", var] => Token::Parallel(format!("P {}", var)),
+                ["N", var] => Token::Parallel(format!("N {}", var)),
                 _ => Token::Network,
             }
         }
