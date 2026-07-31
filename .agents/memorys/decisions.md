@@ -642,3 +642,20 @@
   - portFeature: GLSP 自动处理 port-to-port 连接，无需手动启用
 - 验证: npx tsc --noEmit EXIT 0, 36 vitest tests pass
 - 参考: .sisyphus/plans/fbd-glsp-migration/
+
+## D108: 编译器管线架构 = ST/G-code 直接编译 + 图形语言经 IL
+- 日期: 2026-07-31
+- 决定: ST 和 G-code 直接编译到 HalProgram，LD/FBD/SFC 经 IL 中间层
+- 理由:
+  - ST 有丰富 AST（if/while/for/case/function），直接映射到 HalIR 的 Jump/Call/Ret
+  - G-code 是非 IEC 语言，无 IL 对应
+  - LD/FBD/SFC 是图形结构，必须先线性化为 IL 文本再编译
+  - IL 编译器（253 行 lexer + 227 行 parser + 347 行 codegen）简单且可复用
+- 管线:
+  - ST: source → AST → HalProgram（直接，1043 行 codegen）
+  - G-code: source → AST → HalProgram（直接）
+  - LD: source → AST → IL 文本 → HalProgram（经 IL）
+  - FBD: graph → IL 文本 → HalProgram（经 IL）
+  - SFC: source → IL 文本 → HalProgram（经 IL）
+- 改进方向: Phase 3+ 让 LD/FBD/SFC 支持直接编译到 HalIR，IL 保留为可选调试输出
+- 参考: crates/audesys-il-compiler/, crates/audesys-hal-binding-gen/, crates/audesys-gcode-compiler/

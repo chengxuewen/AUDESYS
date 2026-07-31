@@ -26,6 +26,9 @@ pub enum Token {
     Jmpcn,
     Cal,
     Ret,
+    S,      // Set
+    R,      // Reset
+    Not,    // Not
     Ident(String),
     Label(String),
 }
@@ -56,8 +59,11 @@ impl fmt::Display for Token {
             Token::Jmpcn => write!(f, "JMPCN"),
             Token::Cal => write!(f, "CAL"),
             Token::Ret => write!(f, "RET"),
-            Token::Ident(name) => write!(f, "{name}"),
+            Token::S => write!(f, "S"),
+            Token::R => write!(f, "R"),
+            Token::Not => write!(f, "NOT"),
             Token::Label(name) => write!(f, "{name}:"),
+            Token::Ident(name) => write!(f, "{name}"),
         }
     }
 }
@@ -109,6 +115,11 @@ fn parse_mnemonic(s: &str) -> Option<Token> {
         "JMPC" => Token::Jmpc,
         "JMPCN" => Token::Jmpcn,
         "CAL" => Token::Cal,
+        "RET" => Token::Ret,
+        "S" => Token::S,
+        "R" => Token::R,
+        "NOT" => Token::Not,
+        _ => return None,
         "RET" => Token::Ret,
         _ => return None,
     })

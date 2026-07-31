@@ -24,7 +24,7 @@ import {
 } from '@eclipse-glsp/client';
 
 // LD views
-import { LdContactView, LdCoilView, LdPowerRailView, LdFbView } from './ld-gmodel-views';
+import { LdContactView, LdCoilView, LdPowerRailView, LdFbView, LdRungGroupView } from './ld-gmodel-views';
 
 /** Node type constants — must match server-side diagram configuration */
 export const LD_NODE_TYPES = {
@@ -35,6 +35,7 @@ export const LD_NODE_TYPES = {
     FB: 'node:fb',
     WIRE: 'edge:wire',
     POWER: 'edge:power',
+    RUNG_GROUP: 'rung:group',
 } as const;
 
 let contactCounter = 1;
@@ -80,6 +81,11 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     });
     configureModelElement(context, LD_NODE_TYPES.POWER, SEdgeImpl, PolylineEdgeView, {
         enable: [selectFeature, deletableFeature],
+    });
+
+    // Rung Group — visual container for rung grouping
+    configureModelElement(context, LD_NODE_TYPES.RUNG_GROUP, GNode, LdRungGroupView, {
+        enable: [selectFeature],
     });
 });
 

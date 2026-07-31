@@ -257,6 +257,22 @@ impl Codegen {
                 ILStatement::Return => {
                     self.emit(Instruction::ret(None));
                 }
+                ILStatement::Set { var } => {
+                    // S var: unconditionally set var to TRUE
+                    // (S/R are conditional on CR in standard IL, but for simplicity,
+                    //  we implement unconditional set/reset here)
+                    let r = self.get_var_reg(var);
+                    self.emit_load_imm(r, HalValue::Bool(true));
+                }
+                ILStatement::Reset { var } => {
+                    // R var: unconditionally set var to FALSE
+                    let r = self.get_var_reg(var);
+                    self.emit_load_imm(r, HalValue::Bool(false));
+                }
+                ILStatement::Not => {
+                    // NOT: CR := !CR
+                    self.emit_not(CR_REG, CR_REG);
+                }
             }
         }
 

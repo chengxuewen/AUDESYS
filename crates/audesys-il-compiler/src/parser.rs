@@ -31,6 +31,9 @@ pub enum ILStatement {
     JumpIfNot { label: String },
     Call { fb: String },
     Return,
+    Set { var: String },
+    Reset { var: String },
+    Not,
     Label { name: String },
 }
 
@@ -148,6 +151,24 @@ pub fn parse(tokens: &[Token]) -> Vec<ILStatement> {
                 i += 1;
                 let fb = expect_ident(tokens, &mut i);
                 stmts.push(ILStatement::Call { fb });
+            }
+            Token::Ret => {
+                i += 1;
+                stmts.push(ILStatement::Return);
+            }
+            Token::S => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Set { var });
+            }
+            Token::R => {
+                i += 1;
+                let var = expect_ident(tokens, &mut i);
+                stmts.push(ILStatement::Reset { var });
+            }
+            Token::Not => {
+                i += 1;
+                stmts.push(ILStatement::Not);
             }
             Token::Ret => {
                 i += 1;

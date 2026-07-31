@@ -273,3 +273,36 @@ export class LdFbView implements IView {
         return h('g', { attrs: { id: model.id } }, children);
     }
 }
+
+// ============================================================================
+// Rung Group View — visual container for rung grouping
+// ============================================================================
+
+@injectable()
+export class LdRungGroupView implements IView {
+    render(model: Readonly<GNode>, _context: RenderingContext): VNode | undefined {
+        const { x, y } = model.position;
+        const width = model.size?.width ?? 800;
+        const height = model.size?.height ?? 76;
+        const rungNumber = getArg(model, 'rungNumber', 1);
+
+        return h('g', { attrs: { id: model.id } }, [
+            // Transparent dashed border — low opacity, doesn't interfere with editing
+            h('rect', {
+                attrs: {
+                    x, y, width, height,
+                    fill: 'transparent', stroke: '#666',
+                    'stroke-width': 1, 'stroke-dasharray': '6 3',
+                    opacity: 0.3,
+                },
+            }),
+            // Rung number label
+            h('text', {
+                attrs: {
+                    x: x + 4, y: y + 14,
+                    'font-size': 10, fill: '#888',
+                },
+            }, `R${rungNumber}`),
+        ]);
+    }
+}
