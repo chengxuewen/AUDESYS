@@ -26,6 +26,7 @@ import {
     ContactNode,
     CoilNode,
     PowerRailNode,
+    ComparisonNode,
 } from '../gmodel/nodes';
 import { WireConnection } from '../gmodel/edges';
 
@@ -119,6 +120,8 @@ export class LdDiagramGenerator implements GModelFactory {
                 return this.buildPowerRail(node as PowerRailNode);
             case 'node:fb':
                 return this.buildFbPlaceholder(node);
+            case 'node:comparison':
+                return this.buildComparison(node as ComparisonNode);
             default:
                 return undefined;
         }
@@ -207,6 +210,20 @@ export class LdDiagramGenerator implements GModelFactory {
             .size(800, 76) // ponytail: fixed width, T2a.4 layout engine replaces
             .addArg('rungNumber', rung.rungNumber)
             .addCssClass('rung-group')
+            .build();
+    }
+
+    /** Build a comparison box node. */
+    private buildComparison(cmp: ComparisonNode): GNode {
+        return GNode.builder()
+            .type('node:comparison')
+            .id(cmp.id)
+            .position(cmp.position.x, cmp.position.y)
+            .size(cmp.size.width, cmp.size.height)
+            .addArg('operator', cmp.operator)
+            .addArg('operandA', cmp.operandA)
+            .addArg('operandB', cmp.operandB)
+            .addCssClass('comparison-box')
             .build();
     }
 }

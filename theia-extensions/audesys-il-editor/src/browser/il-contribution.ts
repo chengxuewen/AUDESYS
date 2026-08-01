@@ -11,6 +11,7 @@ import { FrontendApplicationContribution } from '@theia/core/lib/browser';
 import * as monaco from '@theia/monaco-editor-core';
 import { createILMonarchLanguage } from './il-language';
 import { getILCompletionItems } from './il-completion';
+import { registerILDiagnostics } from './il-diagnostics';
 
 /** IL language ID used in Monaco */
 export const IL_LANGUAGE_ID = 'il';
@@ -21,6 +22,7 @@ export class ILMonacoContribution implements FrontendApplicationContribution {
 
     initialize(): void {
         this.registerILLanguage();
+        registerILDiagnostics();
     }
 
     private registerILLanguage(): void {

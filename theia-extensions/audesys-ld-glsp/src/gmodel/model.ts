@@ -17,6 +17,8 @@ import {
   PowerRailNode,
   PowerRailSide,
   FbPlaceholderNode,
+  ComparisonNode,
+  ComparisonOperator,
   Pin,
   Point,
   Dimension,
@@ -109,6 +111,32 @@ export function createContact(
     variableName,
     position: position ?? { x: 0, y: 0 },
     size: { width: 36, height: 36 },
+  };
+}
+
+/**
+ * Create a comparison box node with sensible defaults.
+ *
+ * @param operator - EQ/GT/LT/GE/LE
+ * @param operandA - Left operand variable name
+ * @param operandB - Right operand variable name or literal
+ * @param position - Canvas position (defaults to origin)
+ * @returns A fully-formed ComparisonNode
+ */
+export function createComparison(
+  operator: ComparisonOperator,
+  operandA: string,
+  operandB: string,
+  position?: Point,
+): ComparisonNode {
+  return {
+    id: generateId('cmp'),
+    type: 'node:comparison',
+    operator,
+    operandA,
+    operandB,
+    position: position ?? { x: 0, y: 0 },
+    size: { width: 80, height: 40 },
   };
 }
 

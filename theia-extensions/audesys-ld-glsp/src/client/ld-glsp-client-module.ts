@@ -24,7 +24,7 @@ import {
 } from '@eclipse-glsp/client';
 
 // LD views
-import { LdContactView, LdCoilView, LdPowerRailView, LdFbView, LdRungGroupView } from './ld-gmodel-views';
+import { LdContactView, LdCoilView, LdPowerRailView, LdFbView, LdRungGroupView, LdComparisonView } from './ld-gmodel-views';
 
 /** Node type constants — must match server-side diagram configuration */
 export const LD_NODE_TYPES = {
@@ -33,6 +33,7 @@ export const LD_NODE_TYPES = {
     COIL: 'node:coil',
     POWERRAIL: 'node:powerrail',
     FB: 'node:fb',
+    COMPARISON: 'node:comparison',
     WIRE: 'edge:wire',
     POWER: 'edge:power',
     RUNG_GROUP: 'rung:group',
@@ -72,6 +73,11 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
 
     // FB — select, move, delete, bounds
     configureModelElement(context, LD_NODE_TYPES.FB, GNode, LdFbView, {
+        enable: [selectFeature, moveFeature, deletableFeature, boundsFeature, hoverFeedbackFeature, popupFeature],
+    });
+
+    // Comparison box — select, move, delete
+    configureModelElement(context, LD_NODE_TYPES.COMPARISON, GNode, LdComparisonView, {
         enable: [selectFeature, moveFeature, deletableFeature, boundsFeature, hoverFeedbackFeature, popupFeature],
     });
 

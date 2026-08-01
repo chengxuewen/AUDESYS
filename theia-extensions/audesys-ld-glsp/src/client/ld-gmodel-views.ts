@@ -275,6 +275,64 @@ export class LdFbView implements IView {
 }
 
 // ============================================================================
+// Comparison Box View — EQ/GT/LT/GE/LE
+// ============================================================================
+
+@injectable()
+export class LdComparisonView implements IView {
+    render(model: Readonly<GNode>, _context: RenderingContext): VNode | undefined {
+        const { x, y } = model.position;
+        const operator = getArg(model, 'operator', 'EQ');
+        const operandA = getArg(model, 'operandA', '?');
+        const operandB = getArg(model, 'operandB', '?');
+        const w = model.size?.width ?? 80;
+        const nodeH = model.size?.height ?? 40;
+        const selected = isSelected(model);
+
+        const children: VNode[] = [];
+
+        if (selected) {
+            children.push(h('rect', {
+                attrs: {
+                    x: x - 4, y: y - 4,
+                    width: w + 8, height: nodeH + 8,
+                    fill: 'none', stroke: C.selection,
+                    'stroke-width': 2, 'stroke-dasharray': '4 2',
+                },
+            }));
+        }
+
+        children.push(h('rect', {
+            attrs: {
+                x, y, width: w, height: nodeH,
+                fill: C.fbFill, stroke: C.fbStroke,
+                'stroke-width': 2, rx: 4,
+            },
+        }));
+
+        // Operator label (e.g. "EQ" at top)
+        children.push(h('text', {
+            attrs: {
+                x: x + w / 2, y: y + 14,
+                'text-anchor': 'middle', 'font-size': 10,
+                fill: C.fbStroke, 'font-weight': 'bold',
+            },
+        }, operator));
+
+        // Operands (e.g. "A >= B" at bottom)
+        children.push(h('text', {
+            attrs: {
+                x: x + w / 2, y: y + nodeH - 8,
+                'text-anchor': 'middle', 'font-size': 9,
+                fill: C.label,
+            },
+        }, `${operandA} ${operator} ${operandB}`));
+
+        return h('g', { attrs: { id: model.id } }, children);
+    }
+}
+
+// ============================================================================
 // Rung Group View — visual container for rung grouping
 // ============================================================================
 

@@ -108,6 +108,45 @@ export interface ContactNode extends BaseNode {
 }
 
 // ============================================================================
+// Comparison Node
+// ============================================================================
+
+/**
+ * Comparison operator — IEC 61131-3 comparison contact (box form).
+ *
+ * | Operator | Behaviour              |
+ * |----------|------------------------|
+ * | EQ       | passes power when A = B |
+ * | GT       | passes power when A > B |
+ * | LT       | passes power when A < B |
+ * | GE       | passes power when A >= B|
+ * | LE       | passes power when A <= B|
+ */
+export enum ComparisonOperator {
+  EQ = 'EQ',
+  GT = 'GT',
+  LT = 'LT',
+  GE = 'GE',
+  LE = 'LE',
+}
+
+/**
+ * Comparison box node — a contact whose power flow depends on an
+ * arithmetic comparison between two operands.
+ *
+ * In GLSP, this is a `node:comparison` element.
+ */
+export interface ComparisonNode extends BaseNode {
+  type: 'node:comparison';
+  /** Comparison operator (EQ/GT/LT/GE/LE) */
+  operator: ComparisonOperator;
+  /** Left operand variable name */
+  operandA: string;
+  /** Right operand variable name or literal */
+  operandB: string;
+}
+
+// ============================================================================
 // Coil Node
 // ============================================================================
 

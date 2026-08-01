@@ -696,3 +696,10 @@
 - **原因**: `theia build` 只打包已编译的 `.js` 文件，不编译 `.ts` 源码。扩展需要先 `npx tsc -b` 编译
 - **方案**: 新建扩展后先 `npx tsc -b`（在扩展目录），再 `npx theia build`（在 apps/studio）
 - **验证**: `ls theia-extensions/audesys-fbd-glsp/lib/theia/fbd-theia-backend-module.js` 应存在
+
+### 反复 edit 破坏 Rust enum — 用 Write 重写
+- **问题**: 为 IL 编译器添加 MOD/定时器/计数器助记符时，多次增量 edit 导致 enum 变体重复定义 (Gt×2, Eq×2, Ret×2...) 和分支被意外删除，累计 10+ 次编译修复
+- **原因**: 增量 edit 在 enum/结构体上逐行添加时，替换范围边界容易错位，删除行时误删相邻分支，产生重复定义和缺失分支
+- **方案**: 对 enum 定义区域使用 Write 整体重写（读全文→构造完整 enum→一次写入），不做增量 edit。此规则已存在于 edit-safety Rule 9 (复杂文件用 write)
+- **验证**: `node -e "const c=require('fs').readFileSync(f,'utf8');console.log((c.match(/\{/g)||[]).length,(c.match(/\}/g)||[]).length)"` 括号平衡 + `cargo check`
+- **禁止**: 禁止对 Rust enum 变体列表做逐行增量 edit — 每次修改前先读完整 enum 区域，用 Write 重写
