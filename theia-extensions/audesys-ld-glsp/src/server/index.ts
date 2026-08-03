@@ -114,6 +114,17 @@ export class LdDiagramConfiguration implements DiagramConfiguration {
             resizable: false,
             reparentable: false,
         },
+        {
+            // Rung group — container for contacts/coils/FBs/comparisons.
+            // Without containableElementTypeIds, GLSP client cannot determine
+            // that rungs accept nodes → insert.valid=false → create fails.
+            elementTypeId: 'rung:group',
+            repositionable: false,
+            deletable: false,
+            resizable: false,
+            reparentable: false,
+            containableElementTypeIds: ['node:contact', 'node:coil', 'node:fb', 'node:comparison'],
+        },
     ] as unknown as ShapeTypeHint[];
 
     readonly edgeTypeHints = [
