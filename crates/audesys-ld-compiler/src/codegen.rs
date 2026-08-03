@@ -214,4 +214,46 @@ mod tests {
         let il = generate_il(&networks);
         assert_eq!(il, "LD X1\nST Y1\nLD X2\nST Y2");
     }
+
+    // ── Phase 1 new features ──
+
+    #[test]
+    fn test_parallel_branch_il() {
+        let tokens = tokenize("NETWORK\n  NO X1\n  | NO X2\n  OUT Y1");
+        let networks = parse_networks(&tokens);
+        let il = generate_il(&networks);
+        assert_eq!(il, "LD X1\nOR X2\nST Y1");
+    }
+
+    #[test]
+    fn test_parallel_branch_nc() {
+        let tokens = tokenize("NETWORK\n  NO X1\n  | NC X2\n  OUT Y1");
+        let networks = parse_networks(&tokens);
+        let il = generate_il(&networks);
+        assert_eq!(il, "LD X1\nORN X2\nST Y1");
+    }
+
+    #[test]
+    fn test_multiple_outputs_il() {
+        let tokens = tokenize("NETWORK\n  NO X1\n  OUT Y1\n  OUT Y2");
+        let networks = parse_networks(&tokens);
+        let il = generate_il(&networks);
+        assert_eq!(il, "LD X1\nST Y1\nST Y2");
+    }
+
+    #[test]
+    fn test_edge_contact_il() {
+        let tokens = tokenize("NETWORK\n  P X1\n  OUT Y1");
+        let networks = parse_networks(&tokens);
+        let il = generate_il(&networks);
+        assert_eq!(il, "LD X1\nR_TRIG X1\nST Y1");
+    }
+
+    #[test]
+    fn test_negative_edge_contact_il() {
+        let tokens = tokenize("NETWORK\n  N X1\n  OUT Y1");
+        let networks = parse_networks(&tokens);
+        let il = generate_il(&networks);
+        assert_eq!(il, "LD X1\nF_TRIG X1\nST Y1");
+    }
 }

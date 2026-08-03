@@ -208,4 +208,65 @@ mod tests {
             }
         }
     }
+
+    // ── Phase 1-2 new instruction tests ──
+
+    #[test]
+    fn test_set_reset_instructions() {
+        for mnemonic in &["S", "R"] {
+            let src = format!("LD X1\n{} Y1", mnemonic);
+            let program = il_compile(&src).unwrap();
+            assert!(program.is_well_formed(), "failed for {mnemonic}");
+        }
+    }
+
+    #[test]
+    fn test_not_instruction() {
+        let src = "LD X1\nNOT\nST Y1";
+        let program = il_compile(src).unwrap();
+        assert!(program.is_well_formed());
+    }
+
+    #[test]
+    fn test_mod_instruction() {
+        let src = "LD X1\nMOD X2\nST Y1";
+        let program = il_compile(src).unwrap();
+        assert!(program.is_well_formed());
+    }
+
+    #[test]
+    fn test_timer_instructions() {
+        for mnemonic in &["TON", "TOF", "TP"] {
+            let src = format!("LD X1\n{} T1\nST Y1", mnemonic);
+            let program = il_compile(&src).unwrap();
+            assert!(program.is_well_formed(), "failed for {mnemonic}");
+        }
+    }
+
+    #[test]
+    fn test_counter_instructions() {
+        for mnemonic in &["CTU", "CTD"] {
+            let src = format!("LD X1\n{} C1\nST Y1", mnemonic);
+            let program = il_compile(&src).unwrap();
+            assert!(program.is_well_formed(), "failed for {mnemonic}");
+        }
+    }
+
+    #[test]
+    fn test_edge_instructions() {
+        for mnemonic in &["R_TRIG", "F_TRIG"] {
+            let src = format!("LD X1\n{} E1\nST Y1", mnemonic);
+            let program = il_compile(&src).unwrap();
+            assert!(program.is_well_formed(), "failed for {mnemonic}");
+        }
+    }
+
+    #[test]
+    fn test_flipflop_instructions() {
+        for mnemonic in &["SR", "RS"] {
+            let src = format!("LD X1\n{} F1\nST Y1", mnemonic);
+            let program = il_compile(&src).unwrap();
+            assert!(program.is_well_formed(), "failed for {mnemonic}");
+        }
+    }
 }

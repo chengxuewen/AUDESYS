@@ -204,17 +204,18 @@ describe('LdOperationHandler', () => {
       expect(result.rungs[0].elementIds).toHaveLength(2);
     });
 
-    it('throws when rung already has a coil', () => {
+    it('allows multiple coils per rung (multi-output)', () => {
       const graph = graphWithContactAndCoil();
       const rung = graph.rungs[0];
 
-      expect(() =>
-        handler.addCoil(graph, {
-          position: { x: 480, y: 40 },
-          type: CoilType.Set,
-          rungId: rung.id,
-        }),
-      ).toThrow('Rung already has a coil');
+      // Second coil must be right of the first coil
+      const result = handler.addCoil(graph, {
+        position: { x: 680, y: 40 },
+        type: CoilType.Set,
+        rungId: rung.id,
+      });
+
+      expect(countNodesByType(result, 'node:coil')).toBe(2);
     });
 
     it('throws when rung has no contacts', () => {

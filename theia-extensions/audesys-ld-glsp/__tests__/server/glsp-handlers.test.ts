@@ -14,6 +14,9 @@ import {
   ChangeContactTypeOperation,
   LdSourceModelStorage,
   LdDiagramModule,
+  LdRungHandler,
+  LdConnectHandler,
+  LdMoveHandler,
 } from '../../src/server';
 import { LD_SOURCE_KEY } from '../../src/server/ld-diagram-generator';
 import {
@@ -480,5 +483,62 @@ describe('StatusActionNoOpHandler', () => {
     const mod = new LdDiagramModule();
     expect(typeof mod.configureActionHandlers).toBe('function');
     expect(mod.diagramType).toBe('ld-diagram');
+  });
+});
+
+// ============================================================================
+// T4.4: New operation handlers — LdRungHandler / LdMoveHandler / LdConnectHandler
+// ============================================================================
+
+describe('LdRungHandler', () => {
+  let handler: any;
+
+  beforeEach(() => {
+    handler = new LdRungHandler();
+  });
+
+  it('adds a new rung via ldRung operation', () => {
+    const graph = createLdGraph('test-rung-add');
+    const store = new Map<string, unknown>();
+    store.set(LD_SOURCE_KEY, graph);
+    handler.modelState = {
+      get: (key: string) => store.get(key),
+      set: (key: string, value: unknown) => store.set(key, value),
+    };
+
+    handler.execute({ kind: 'ldRung', action: 'add', isOperation: true } as any);
+
+    const result = store.get(LD_SOURCE_KEY) as LdGraph;
+    expect(result.rungs.length).toBe(1);
+  });
+});
+
+describe('LdConnectHandler', () => {
+  let handler: any;
+
+  beforeEach(() => {
+    handler = new LdConnectHandler();
+  });
+
+  it('creates a wire between two elements', () => {
+    const graph = createLdGraph('test-connect');
+    const contact = createContact(ContactType.NO, 'X1', { x: 100, y: 100 });
+    const coil = createCoil(CoilType.Normal, 'Y1', { x: 200, y: 100 });
+    graph.nodes.push(contact, coil);
+    const store = new Map<string, unknown>();
+    store.set(LD_SOURCE_KEY, graph);
+    handler.modelState = {
+      get: (key: string) => store.get(key),
+      set: (key: string, value: unknown) => store.set(key, value),
+    };
+
+    handler.execute({
+      kind: 'ldConnect', sourceId: contact.id, targetId: coil.id, isOperation: true,
+    } as any);
+
+    const result = store.get(LD_SOURCE_KEY) as LdGraph;
+    expect(result.edges.length).toBe(1);
+    expect(result.edges[0].sourceId).toBe(contact.id);
+    expect(result.edges[0].targetId).toBe(coil.id);
   });
 });

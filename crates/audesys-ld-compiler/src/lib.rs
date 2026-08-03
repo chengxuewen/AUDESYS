@@ -199,4 +199,42 @@ mod tests {
         let il = ld_compile(src).unwrap();
         assert_eq!(il, "ST Y1");
     }
+
+    // ── T4.7: IL→LD integration ──
+
+    #[test]
+    fn test_integration_set_coil_to_hal() {
+        let ld_src = "NETWORK\n  NO X1\n  SET Y1";
+        let il_text = ld_compile(ld_src).unwrap();
+        assert_eq!(il_text, "LD X1\nS Y1");
+        let hal_prog = audesys_il_compiler::il_compile(&il_text).unwrap();
+        assert!(hal_prog.is_well_formed());
+    }
+
+    #[test]
+    fn test_integration_reset_coil_to_hal() {
+        let ld_src = "NETWORK\n  NO X1\n  RESET Y1";
+        let il_text = ld_compile(ld_src).unwrap();
+        assert_eq!(il_text, "LD X1\nR Y1");
+        let hal_prog = audesys_il_compiler::il_compile(&il_text).unwrap();
+        assert!(hal_prog.is_well_formed());
+    }
+
+    #[test]
+    fn test_integration_parallel_branch_to_hal() {
+        let ld_src = "NETWORK\n  NO X1\n  | NO X2\n  OUT Y1";
+        let il_text = ld_compile(ld_src).unwrap();
+        assert_eq!(il_text, "LD X1\nOR X2\nST Y1");
+        let hal_prog = audesys_il_compiler::il_compile(&il_text).unwrap();
+        assert!(hal_prog.is_well_formed());
+    }
+
+    #[test]
+    fn test_integration_edge_contact_to_hal() {
+        let ld_src = "NETWORK\n  P X1\n  OUT Y1";
+        let il_text = ld_compile(ld_src).unwrap();
+        assert_eq!(il_text, "LD X1\nR_TRIG X1\nST Y1");
+        let hal_prog = audesys_il_compiler::il_compile(&il_text).unwrap();
+        assert!(hal_prog.is_well_formed());
+    }
 }

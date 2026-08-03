@@ -12,6 +12,7 @@ import {
     LdCoilView,
     LdPowerRailView,
     LdFbView,
+    LdRungGroupView,
 } from '../../src/client/ld-gmodel-views';
 
 // ============================================================================
@@ -408,5 +409,48 @@ describe('LdFbView', () => {
             'text-anchor': 'middle',
             'font-weight': 'bold',
         });
+    });
+});
+
+// ============================================================================
+// T4.6: LdRungGroupView — transparent border + R{n} label, no cross symbol
+// ============================================================================
+
+describe('LdRungGroupView', () => {
+    it('renders a rect border (not a cross symbol)', () => {
+        const model = mockNode({
+            id: 'rung-1',
+            position: { x: 0, y: 0 },
+            size: { width: 800, height: 76 },
+            args: { rungNumber: 1 },
+        });
+        const view = new LdRungGroupView();
+        const vnode = view.render(model);
+
+        const rects = vnode.children!.filter(
+            (c): c is VNode => typeof c === 'object' && 'sel' in c && c.sel === 'rect',
+        );
+        // Cross symbol has 2 diagonal path elements and no rect;
+        // rung group must have exactly 1 rect (the border)
+        expect(rects.length).toBe(1);
+        expect(rects[0].data?.attrs).toMatchObject({
+            fill: 'transparent',
+            'stroke-dasharray': '6 3',
+        });
+    });
+
+    it('renders the R{n} number label', () => {
+        const model = mockNode({
+            id: 'rung-2',
+            position: { x: 0, y: 80 },
+            size: { width: 800, height: 76 },
+            args: { rungNumber: 2 },
+        });
+        const view = new LdRungGroupView();
+        const vnode = view.render(model);
+
+        const textNode = findChild(vnode, 'text');
+        expect(textNode).toBeDefined();
+        expect(textNode!.text).toBe('R2');
     });
 });

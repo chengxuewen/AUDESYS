@@ -51,15 +51,17 @@ import { LD_NODE_TYPES, resetCounters } from '../../src/client/ld-glsp-client-mo
 // ============================================================================
 
 describe('LD_NODE_TYPES', () => {
-  it('has all 7 expected node type entries', () => {
+  it('has all 8 expected node type entries', () => {
     expect(Object.keys(LD_NODE_TYPES)).toEqual([
       'GRAPH',
       'CONTACT',
       'COIL',
       'POWERRAIL',
       'FB',
+      'COMPARISON',
       'WIRE',
       'POWER',
+      'RUNG_GROUP',
     ]);
   });
 
