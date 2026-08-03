@@ -10,14 +10,11 @@ import {
     configureModelElement,
     GNode,
     SEdgeImpl,
-    SGraphImpl,
     PolylineEdgeView,
-    SGraphView,
     selectFeature,
     moveFeature,
     deletableFeature,
     boundsFeature,
-    viewportFeature,
     fadeFeature,
     hoverFeedbackFeature,
     popupFeature,
@@ -47,17 +44,15 @@ export function resetCounters(): void { contactCounter = 1; coilCounter = 1; }
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     const context = { bind, unbind, isBound, rebind };
-
     // Default GLSP model elements (graph root, labels, etc.)
     // Register ALL standard Sprotty views (SGraphView, PolylineEdgeView, etc.)
     // with correct GLSP DI Symbols. This is the ROOT CAUSE fix.
+    // NOTE: configureDefaultModelElements already registers 'graph' with GGraphView
+    // (grid-enabled view). We must NOT re-register 'graph' — that would overwrite
+    // the GGraphView with our own and trigger 'already registered' warnings.
     configureDefaultModelElements(context);
 
-    // Graph root — viewport (zoom/pan/fit)
-    configureModelElement(context, LD_NODE_TYPES.GRAPH, SGraphImpl, SGraphView, {
-        enable: [viewportFeature],
-    });
-
+    // Contact — select, move, delete, bounds
     // Contact — select, move, delete, bounds
     configureModelElement(context, LD_NODE_TYPES.CONTACT, GNode, LdContactView, {
         enable: [selectFeature, moveFeature, deletableFeature, boundsFeature, hoverFeedbackFeature, popupFeature],

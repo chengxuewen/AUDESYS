@@ -127,13 +127,13 @@ describe('exported functions', () => {
 // ============================================================================
 
 describe('configureDefaultModelElements', () => {
-  it('is called during module initialization (SGraphView registered)', () => {
+  it('is called during module initialization (grid rebind present)', () => {
     const srcPath = path.resolve(__dirname, '../../src/client/ld-glsp-client-module.ts');
     const content = fs.readFileSync(srcPath, 'utf-8');
 
     expect(content).toContain('configureDefaultModelElements(context)');
-    expect(content).toContain('SGraphView');
+    expect(content).toContain('rebind(TYPES.Grid)');
+    expect(content).toContain('rebind(TYPES.ISnapper)');
     expect(content).toContain("import {");
-    expect(content).toContain('SGraphImpl, SGraphView');
   });
 });
