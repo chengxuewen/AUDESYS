@@ -659,3 +659,33 @@
   - SFC: source → IL 文本 → HalProgram（经 IL）
 - 改进方向: Phase 3+ 让 LD/FBD/SFC 支持直接编译到 HalIR，IL 保留为可选调试输出
 - 参考: crates/audesys-il-compiler/, crates/audesys-hal-binding-gen/, crates/audesys-gcode-compiler/
+
+## D109: LD 网格编辑 = 40×40 网格 + GGraphView + GridSnapper
+- 日期: 2026-08-03
+- 决定: LD 编辑器启用 40×40 网格背景 + 拖动吸附 + Toggle Grid 命令 (Ctrl+G)
+- 理由:
+  - 40 整除所有布局常量 (触点 36=1格留4px、rung 80=2格、线圈 x=600=15格、右轨 640=16格)
+  - GGraphView (configureDefaultModelElements 默认) 注入 IGridManager 写网格 CSS 变量
+  - GridSnapper 左上角吸附 (母线 x=0 对齐要求，CenterGridSnapper 会使触点左边缘悬空)
+  - 服务端 GRID_X/Y 120/80 → 40/40 全链路统一 (修复拖动跳变)
+- 关键实现:
+  - gridModule + helperLineModule 在 diagram-configuration 加载 (ContainerModule 无 load)
+  - rebind (非 bind) TYPES.Grid/ISnapper 防 AmbiguousMatchError
+  - GridSnapper 构造显式传 {x:40,y:40} (无 @inject(TYPES.Grid))
+  - 共享常量模块 src/gmodel/grid.ts
+  - Toggle Grid 命令 + KeybindingContribution (Ctrl+G)
+- 已知问题: 点击创建节点自动化失败 — rung containableElementTypeIds 需含 'node:insert-indicator' + getMinimumMovement 覆写 1px (已修复待验证)
+- 参考: .sisyphus/plans/ld-grid-editing/
+
+## D110: 完全移除 GLSP + React Flow 迁移
+- **日期**: 2026-08-03
+- **决定**: 完全移除 GLSP 技术栈（LD/FBD 编辑器），前端采用 React Flow（@xyflow/react），后端复用已有 Rust 编译器（napi-rs bridge）
+- **理由**: (a) GLSP LD 编辑器点击创建 3+ 轮调试失败（82 条 pitfalls、34 提交），机制链分析全部正常但创建不工作——GLSP 黑盒典型症状（minified bundle、5 层抽象、无断点、5min/轮调试）；(b) React Flow 25K+ stars、MIT、OpenPLC 生产验证（LD+FBD）；(c) React Flow = 标准 DOM，Playwright E2E 原生支持 + HMR 调试 <30s/轮；(d) 全语言覆盖（LD/FBD/SFC/IEC 61499 共享画布）
+- **架构**: Theia → React Flow Widget → LdOperationHandler（前端内存，纯 TS，零 GLSP 依赖）→ napi-rs → Rust 编译器。无 GLSP 服务器进程、无 JSON-RPC 协议层
+- **移除**: `theia-extensions/audesys-ld-glsp/`（4442 行）+ `audesys-fbd-glsp/`（2928 行）+ 10 个 @eclipse-glsp/sprotty 依赖
+- **新建**: `theia-extensions/audesys-ld-editor/`（3710 行，提取 LdOperationHandler/model/LdGModelState + React Flow 组件）
+- **测试**: vitest 44/44 + Playwright E2E 13 场景
+- **废弃决策**: D92, D93, D97, D99, D101, D103, D104, D107（纯 GLSP）
+- **保留决策**: D95, D96, D98, D105, D106, D108（非 GLSP 或通用）
+- **部分处理**: D94（worker_thread 技术仍有效但动机过时）、D100、D102、D109（40×40 网格决策延续到 React Flow）
+- **参考**: .sisyphus/plans/glsp-removal-react-flow-migration/

@@ -703,3 +703,74 @@
 - **方案**: 对 enum 定义区域使用 Write 整体重写（读全文→构造完整 enum→一次写入），不做增量 edit。此规则已存在于 edit-safety Rule 9 (复杂文件用 write)
 - **验证**: `node -e "const c=require('fs').readFileSync(f,'utf8');console.log((c.match(/\{/g)||[]).length,(c.match(/\}/g)||[]).length)"` 括号平衡 + `cargo check`
 - **禁止**: 禁止对 Rust enum 变体列表做逐行增量 edit — 每次修改前先读完整 enum 区域，用 Write 重写
+
+## LD 网格集成 + 创建问题 (2026-08-03)
+
+### yarn file: 依赖导致扩展代码不生效（物理副本）
+- **问题**: 修改 `theia-extensions/audesys-ld-glsp/src/` 后反复"改了不生效"（rung:group 视图、ghost、hint 都如此），实际是 apps/studio/node_modules 中扩展是**物理副本**（yarn file: 依赖复制）而非 symlink
+- **原因**: apps/studio/package.json 用 `"audesys-ld-glsp": "file:../../theia-extensions/..."` → yarn 视为独立包复制到 apps/studio/node_modules，源码改动不自动同步
+- **方案**: 改为 semver 版本 `"audesys-ld-glsp": "0.1.0"`（yarn workspaces 自动 symlink 到 theia-extensions/）；`@audesys/theia-bridge` 不在 workspaces 保留 file:
+- **验证**: `node -e "console.log(require.resolve('audesys-ld-glsp/package.json', {paths:['/Users/cxw/.../apps/studio']}))"` 应指向 theia-extensions/ 而非 apps/studio/node_modules
+- **禁止**: 禁止在 apps/studio/package.json 用 file: 引用 workspace 内扩展
+
+### GLSP 自定义 ghost 模板无 features → 不跟随鼠标
+- **问题**: 自定义 ghostElement 模板（`{ template: { type: 'node:contact', size, args } }`）导致 ghost 不跟随鼠标（固定在初始位置），而默认 InsertIndicator 跟随正常
+- **原因**: 模板 schema 不含 features 字段；NodeInsertTrackingListener 用 `isMoveable(ghost)` guard → 自定义模板实例化后无 moveFeature → 不跟踪
+- **方案**: 用默认 InsertIndicator（自带 moveFeature），不传自定义 ghostElement；或用 GLSP 推荐的模板格式
+- **验证**: ghost transform 应随鼠标移动变化（translate 值更新）
+- **禁止**: 禁止给 NodeCreationTool 传无 features 的自定义 ghostElement 模板
+
+### rung:group containableElementTypeIds 必须含 'node:insert-indicator'
+- **问题**: 点击 rung 内创建节点失败，ghost 被阻止进入 rung（停在 rung 边界）
+- **原因**: NodeCreationTool 的 ghost 是 InsertIndicator（type='node:insert-indicator'），NoOverlapMovementRestrictor 检查 `rung.isContainableElement(ghost.type)` → 若 rung 的 containableElementTypeIds 不含 'node:insert-indicator' → ghost 视为障碍被 restrict
+- **方案**: 服务器 shapeTypeHints 中 rung:group 的 containableElementTypeIds 必须包含 'node:insert-indicator'（连同业务类型）
+- **验证**: ghost 能平滑进入 rung 内部，点击创建成功
+- **禁止**: 禁止容器 hint 的 containableElementTypeIds 遗漏 ghost 类型
+
+### ChangeBoundsManager getMinimumMovement 对 InsertIndicator 返回 grid → ghost 卡顿
+- **问题**: ghost 按 40px 跳跃且卡在错误位置（translate(160,-34)）
+- **原因**: GLSP 默认 `getMinimumMovement` 对 InsertIndicator 返回 `gridManager.grid`（40×40）→ 任何 <40px 移动被重置 → ghost 无法微调
+- **方案**: 客户端覆写 ChangeBoundsManager.getMinimumMovement，对 InsertIndicator 返回 {x:1,y:1}（GridSnapper 仍 snap 最终位置到 40px）
+- **验证**: ghost 平滑跟随鼠标（1px 级），最终落点仍是 40px 倍数
+- **参考**: `node_modules/@eclipse-glsp/client/lib/features/tools/change-bounds/change-bounds-manager.js`
+
+### 网格背景 CSS 变量空 — 必须用 GGraphView
+- **问题**: 网格背景类 'grid-background' 应用了但 --grid-background-width/height 为空 → bgSize: auto 网格不渲染
+- **原因**: SGraphView 不注入 IGridManager，不写网格 CSS 变量；GGraphView 渲染时通过 getGridStyle 写入
+- **方案**: graph 视图必须用 GGraphView（configureDefaultModelElements 默认注册，**不要**再 configureModelElement 覆盖 graph）
+- **验证**: `getComputedStyle(graph).getPropertyValue('--grid-background-width')` 非空（= 40 × zoom）
+- **禁止**: 禁止 configureModelElement 覆盖 'graph' 类型（会覆盖 GGraphView 丢失网格）
+
+### GLSP 坐标偏差 — offsetX vs pageX 双重缩放
+- **问题**: ghost 位置与鼠标图坐标约 2x 偏差（如鼠标图 (466,117)，ghost 显示 (240,7.5)）
+- **原因**: MousePositionTracker.mouseMove 用 `event.offsetX/offsetY`（相对事件目标 DOM 元素），初始化用 pageX/pageY；当 graph root 有 transform（scale+translate）且 pointer-events 改变命中目标时，offsetX 在局部空间再经 parentToLocal 除 zoom → 双重缩放
+- **方案**: 让事件命中 SVG 画布根（避免嵌套 transform 元素拦截），或覆写 mouse tracking 用 getAbsolutePosition
+- **验证**: ghost 位置与鼠标图坐标一致（±40px snap）
+- **注意**: 已知 GLSP edge case，改动需谨慎
+
+### GLSP 服务器独立进程 — 修改后必须重启
+- **问题**: 修改服务器代码（shapeTypeHints 等）后行为不变
+- **原因**: GLSP 服务器是独立 node 进程（GLSPSocketServerContribution 启动），Theia 后端重启才会重新拉起
+- **方案**: 修改服务器代码后：杀 GLSP 进程 + 重启 Theia 后端；或验证 require.resolve 指向最新 lib
+- **验证**: `ps aux | grep 'glsp.*server/index' | wc -l` 重启后 = 1（新进程）
+- **禁止**: 禁止只改 lib 不重启 GLSP 进程就验证
+
+## GLSP 完全移除 — React Flow 迁移 (2026-08-03)
+
+### GLSP 点击创建 3+ 轮调试失败 — 黑盒典型症状
+- **问题**: LD 编辑器点击创建节点失败，机制链分析全部正常（事件到达、ghost 跟随、hint 注入、id 匹配）但 CreateNodeOperation 从未发出
+- **原因**: GLSP 黑盒（minified bundle、5 层抽象：DI→Sprotty→GLSP→protocol→server、无断点、每轮调试 5min）
+- **方案**: D110 完全移除 GLSP，迁移到 React Flow（标准 DOM，HMR 调试 <30s，Playwright 原生支持）
+- **教训**: 框架黑盒 + 调试闭环慢（>5min/轮）时，3 轮失败后应质疑技术栈选择而非继续调试
+- **禁止**: 不要在 GLSP 黑盒机制上继续"分析"— 机制链全通但功能不工作时是框架问题
+
+### theia clean 删除 src-gen 后 gen-esbuild.electron.mjs 缺失
+- **问题**: `theia clean` 后 `theia build` 失败 — esbuild.mjs 引用 `gen-esbuild.electron.mjs` 但 theia.target=browser 不生成它
+- **原因**: 自定义 esbuild.mjs 硬编码 import electron 配置（D98 target=browser 时期的遗留）
+- **方案**: 移除 esbuild.mjs 中 electron import/context（target=browser 不需要 electron bundle）
+- **验证**: `npm run build` 3 门禁全过 + HTTP 200
+
+### GLSP 决策废弃需逐项判定，非 blanket
+- **问题**: 计划初稿"废弃 D92-D109"是错误的一刀切
+- **原因**: D108（编译器管线）+ D105（Yarn Workspaces）是 Rust 编译器/构建系统设计，与 GLSP 无关
+- **方案**: 逐项判定：废弃纯 GLSP（D92/93/97/99/101/103/104/107），保留通用（D95/96/98/105/106/108），部分处理（D94/100/102/109）

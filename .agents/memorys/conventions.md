@@ -188,3 +188,44 @@ done
 - `theia build` 只打包已编译的 `.js`，不编译 `.ts`
 - 新建扩展后必须先 `npx tsc -b`（在扩展目录），再 `theia build`（在 apps/studio）
 - **验证**: `ls theia-extensions/新扩展/lib/theia/*.js` 应存在
+
+## GLSP 网格与节点创建约定 (2026-08-03)
+
+### 网格背景
+- 网格背景必须用 **GGraphView**（`configureDefaultModelElements` 默认注册），禁止 configureModelElement 覆盖 'graph'
+- 网格尺寸通过 `rebind(TYPES.Grid).toConstantValue({x:40,y:40})` 设置
+- 网格视觉用 CSS 变量覆盖（`--grid-color` 等），不写死 background-size
+- **验证**: `getComputedStyle(graph).getPropertyValue('--grid-background-width')` 非空
+
+### Ghost 元素（插入预览）
+- 使用默认 InsertIndicator（自带 moveFeature），**禁止**自定义无 features 的 ghostElement 模板
+- 容器（rung:group）的 shapeTypeHint containableElementTypeIds 必须包含 `'node:insert-indicator'`
+- ghost 平滑移动需覆写 ChangeBoundsManager.getMinimumMovement 返回 1px（GridSnapper 仍 snap 40px）
+
+### 工作区依赖
+- workspace 内扩展用 semver 版本（`"0.1.0"`），**禁止** file: 引用（会创建物理副本）
+- `@audesys/theia-bridge`（crates/ 下）不在 workspaces，保留 file:
+
+### 验证流程
+- 修改扩展源码 → `npx tsc -b`（扩展）→ `npx theia build`（apps/studio）
+- 修改 GLSP 服务器代码 → 杀 GLSP 进程 + 重启 Theia 后端
+- **验证**: `require.resolve('audesys-ld-glsp/package.json', {paths:[...apps/studio]})` 指向 theia-extensions/
+
+## Studio 构建门禁 (2026-08-03)
+
+- **check-gates.sh**: apps/studio/check-gates.sh 三条门禁，已接入 `npm run build`（theia build 后自动运行）：
+  1. **workspace 链接检查**: 每个 theia-extensions/* 必须通过 yarn workspaces symlink 解析（require.resolve 指向 theia-extensions/），禁止 file: 依赖/物理副本
+  2. **扩展 lib 存在性**: 每个扩展 lib/ 必须有编译产物（防"改了不生效"）
+  3. **Symbol 唯一性**: bundle.js 中 OpenHandler/FrontendApplicationContribution/OpenerService/WidgetFactory 全部 = 1
+- 单独运行: `cd apps/studio && npm run check:gates`
+- **验证**: 全部门禁通过（2026-08-03）
+
+## React Flow 编辑器开发约定 (2026-08-03)
+
+- **D110**: LD/FBD 编辑器使用 React Flow（@xyflow/react），完全移除 GLSP
+- **架构**: React Flow Widget → LdOperationHandler（前端内存，纯 TS）→ napi-rs → Rust 编译器。无 Theia command 用于 CRUD（LdOperationHandler 前端直跑）
+- **选择器**: `.react-flow__node-<type>`（非 data-type）；位置断言用 `el.style.transform`（非 boundingBox，viewport 影响）
+- **网格**: `snapToGrid={true} snapGrid={[40, 40]}`；边 `defaultEdgeOptions={{ zIndex: 1 }}`
+- **节点**: 自定义 JSX 组件（SVG），rung 容器用 `parentId` + `extent: 'parent'`
+- **测试**: vitest 单元（model/operation-handler/gmodel-state）+ Playwright E2E（`.react-flow__node` 选择器）
+- **E2E 异步**: React re-render 异步，用 `expect.poll`/`toBeVisible({timeout})`，禁止 sleep()
