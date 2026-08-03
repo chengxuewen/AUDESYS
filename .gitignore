@@ -156,4 +156,4 @@ theia-extensions/*/lib/
 theia-extensions/*/node_modules/
 ld/
 __probe.config.ts
-e2e/__probe.spec.ts
+apps/studio/e2e/__probe.spec.ts
