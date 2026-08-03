@@ -24,10 +24,6 @@
     }
   },
   "dependencies": {
-    "@eclipse-glsp/client": "^2.7.0",
-    "@eclipse-glsp/protocol": "^2.7.0",
-    "@eclipse-glsp/server": "^2.7.0",
-    "@eclipse-glsp/theia-integration": "^2.7.0",
     "@theia/console": "1.73.0",
     "@theia/core": "1.73.0",
     "@theia/debug": "1.73.0",
@@ -48,13 +44,11 @@
     "audesys-backend": "0.1.0",
     "audesys-core": "0.1.0",
     "audesys-debug": "0.1.0",
-    "audesys-fbd-glsp": "0.1.0",
     "audesys-gcode-editor": "0.1.0",
     "audesys-il-editor": "0.1.0",
-    "audesys-ld-glsp": "0.1.0",
-    "audesys-sfc-editor": "0.1.0",
+    "audesys-ld-editor": "0.1.0",
+    "audesys-fbd-editor": "0.1.0",
     "audesys-st-editor": "0.1.0",
-    "sprotty": "^1.4.0",
     "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge"
   },
   "devDependencies": {
@@ -65,9 +59,10 @@
   "scripts": {
     "start": "theia start --plugins=local-dir:empty",
     "start:dev": "npx electron lib/backend/electron-main.js --no-cluster",
-    "build": "theia build --mode production",
+    "build": "theia build --mode production && bash check-gates.sh",
     "clean": "theia clean",
     "postinstall": "echo skip",
-    "check:symbols": "for s in OpenHandler FrontendApplicationContribution OpenerService WidgetFactory; do count=$(grep -c \"Symbol(\\\"$s\\\")\" lib/frontend/bundle.js); [ \"$count\" = \"1\" ] || (echo FAIL: $s=$count && exit 1); done && echo OK"
+    "check:symbols": "for s in OpenHandler FrontendApplicationContribution OpenerService WidgetFactory; do count=$(grep -c \"Symbol(\\\"$s\\\")\" lib/frontend/bundle.js); [ \"$count\" = \"1\" ] || (echo FAIL: $s=$count && exit 1); done && echo OK",
+    "check:gates": "bash check-gates.sh"
   }
 }

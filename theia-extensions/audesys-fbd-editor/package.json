@@ -1,0 +1,32 @@
+{
+  "name": "audesys-fbd-editor",
+  "version": "0.1.0",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "private": true,
+  "theiaExtensions": [
+    {
+      "frontend": "lib/client/fbd-editor-frontend-module"
+    }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "watch": "tsc -b -w",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.5.0",
+    "@theia/core": "1.73.0",
+    "@theia/editor": "1.73.0",
+    "@theia/filesystem": "1.73.0",
+    "@audesys/theia-bridge": "file:../../crates/audesys-theia-bridge"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^2.0.0",
+    "@theia/cli": "1.73.0"
+  }
+}

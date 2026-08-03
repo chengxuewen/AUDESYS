@@ -154,3 +154,6 @@ signal-*.png
 # Theia extension build artifacts
 theia-extensions/*/lib/
 theia-extensions/*/node_modules/
+ld/
+__probe.config.ts
+e2e/__probe.spec.ts
