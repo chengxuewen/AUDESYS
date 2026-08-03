@@ -54,6 +54,15 @@ export function injectLdCssVariables(): void {
         stroke: var(--ld-selection-color, #2196f3);
         stroke-width: 1.5;
       }
+
+      /* Grid background — override GLSP grid.css variables (size from TYPES.Grid=40) */
+      .sprotty-graph.grid-background {
+        --grid-color: rgba(100, 150, 200, 0.15);
+        --grid-stroke-width: 0.5px;
+      }
+      .theia-dark .sprotty-graph.grid-background {
+        --grid-color: rgba(100, 150, 200, 0.25);
+      }
     `;
     document.head.appendChild(style);
 }

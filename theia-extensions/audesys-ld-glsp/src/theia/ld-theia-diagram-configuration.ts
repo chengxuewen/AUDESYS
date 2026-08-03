@@ -4,7 +4,7 @@
  * Specifies the diagram type identifier that the GLSP client uses to
  * match incoming GModel data to the correct diagram editor.
  */
-import { ContainerConfiguration, IDiagramOptions, initializeDiagramContainer } from '@eclipse-glsp/client';
+import { ContainerConfiguration, IDiagramOptions, initializeDiagramContainer, gridModule, helperLineModule } from '@eclipse-glsp/client';
 import { GLSPDiagramConfiguration } from '@eclipse-glsp/theia-integration/lib/browser';
 import { Container } from '@theia/core/shared/inversify';
 import { LdDiagramLanguage } from './ld-language';
@@ -16,6 +16,13 @@ export class LdTheiaDiagramConfiguration extends GLSPDiagramConfiguration {
     }
 
     override configureContainer(container: Container, ...containerConfiguration: ContainerConfiguration): void {
-        initializeDiagramContainer(container, ldGlspClientModule, ...containerConfiguration);
+        // gridModule + helperLineModule must load at container level (FeatureModules
+        // cannot load from inside a ContainerModule callback). Order matters:
+        // grid first so its ISnapper binding exists, then client module rebinds.
+        initializeDiagramContainer(container,
+            gridModule,
+            helperLineModule,
+            ldGlspClientModule,
+            ...containerConfiguration);
     }
 }

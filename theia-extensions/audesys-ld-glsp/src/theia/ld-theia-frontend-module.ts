@@ -20,6 +20,9 @@ import { LdEditorOpenHandler } from './ld-theia-opener';
 import { injectLdCssVariables } from '../client/ld-css-inject';
 import '../client/ld-palette-icons.css';
 import { injectable, inject } from '@theia/core/shared/inversify';
+import { CommandContribution } from '@theia/core/lib/common/command';
+import { KeybindingContribution } from '@theia/core/lib/browser/keybinding';
+import { LdGridCommandContribution } from './ld-grid-command';
 
 @injectable()
 class LdOpenerBootstrap implements FrontendApplicationContribution {
@@ -43,6 +46,9 @@ export class LdTheiaFrontendModule extends GLSPTheiaFrontendModule {
     configure(context: ContainerContext): void {
         context.bind(LdOpenerBootstrap).toSelf().inSingletonScope();
         context.bind(FrontendApplicationContribution).toService(LdOpenerBootstrap);
+        // Grid toggle command + Ctrl+G keybinding
+        context.bind(CommandContribution).to(LdGridCommandContribution);
+        context.bind(KeybindingContribution).to(LdGridCommandContribution);
     }
 }
 

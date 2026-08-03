@@ -29,7 +29,7 @@ import {
     ComparisonNode,
 } from '../gmodel/nodes';
 import { WireConnection } from '../gmodel/edges';
-
+import { RUNG_HEIGHT, RUNG_GROUP_HEIGHT, RUNG_GROUP_WIDTH } from '../gmodel/grid';
 /** Key used to store LdGraph in ModelState. */
 export const LD_SOURCE_KEY = 'ld-source-model';
 
@@ -200,13 +200,12 @@ export class LdDiagramGenerator implements GModelFactory {
      * Empty rungs still render — GLSP needs the rung as an insert container.
      */
     private buildRungGroup(rung: Rung): GNode | undefined {
-        // ponytail: fixed rung height 80px, width from left rail to right rail
-        const rungY = (rung.rungNumber - 1) * 80;
+        const rungY = (rung.rungNumber - 1) * RUNG_HEIGHT;
         return GNode.builder()
             .type('rung:group')
             .id(rung.id)
             .position(0, rungY)
-            .size(800, 76) // ponytail: fixed width, T2a.4 layout engine replaces
+            .size(RUNG_GROUP_WIDTH, RUNG_GROUP_HEIGHT)
             .addArg('rungNumber', rung.rungNumber)
             .addCssClass('rung-group')
             .build();

@@ -221,11 +221,13 @@ function parseCompileOutput(raw: string): CompileResult {
 // Snapping Helpers
 // ============================================================================
 
-const GRID_X = 120; // Contact horizontal spacing
-const GRID_Y = 80;  // Rung vertical spacing
-const CONTACT_SIZE = 36;
-const RAIL_WIDTH = 4;
-const COIL_X_OFFSET = 600; // ponytail: fixed offset, T2a.4 layout engine replaces
+// Grid constants — unified 40×40 with client GridSnapper (T2.2).
+// Contact column spacing (120 = 3 cells) is enforced by addContact,
+// moveElement snaps to the same 40px grid as the client drag.
+import { LD_GRID, CONTACT_SIZE, RAIL_WIDTH, COIL_X_OFFSET, RUNG_HEIGHT } from '../gmodel/grid';
+
+const GRID_X = LD_GRID.x; // 40 — client drag snap grid
+const GRID_Y = LD_GRID.y; // 40 — matches rung 2-cell spacing
 
 function snapToGrid(p: Point): Point {
   return {
@@ -233,7 +235,6 @@ function snapToGrid(p: Point): Point {
     y: Math.round(p.y / GRID_Y) * GRID_Y,
   };
 }
-
 // ============================================================================
 // LdOperationHandler
 // ============================================================================

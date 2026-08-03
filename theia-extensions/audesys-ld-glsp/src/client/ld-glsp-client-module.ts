@@ -21,6 +21,8 @@ import {
     fadeFeature,
     hoverFeedbackFeature,
     popupFeature,
+    TYPES,
+    GridSnapper,
 } from '@eclipse-glsp/client';
 
 // LD views
@@ -93,6 +95,14 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     configureModelElement(context, LD_NODE_TYPES.RUNG_GROUP, GNode, LdRungGroupView, {
         enable: [selectFeature],
     });
+
+    // ── Grid snapping (40×40) ──
+    // gridModule (loaded in diagram-configuration) already binds TYPES.Grid (10×10)
+    // and TYPES.ISnapper (GridSnapper). We REBIND both to 40×40:
+    // - GridSnapper constructor has no @inject(TYPES.Grid), must pass explicitly
+    // - Using rebind prevents AmbiguousMatchError (2 ISnapper bindings)
+    rebind(TYPES.Grid).toConstantValue({ x: 40, y: 40 });
+    rebind(TYPES.ISnapper).toConstantValue(new GridSnapper({ x: 40, y: 40 }));
 });
 
 export function nextContactName(): string { return `IN${contactCounter++}`; }
