@@ -197,10 +197,9 @@ export class LdDiagramGenerator implements GModelFactory {
     /**
      * Build a visual rung group (optional visual container).
      * Each rung gets a thin bounding-box GNode for visual grouping.
+     * Empty rungs still render — GLSP needs the rung as an insert container.
      */
     private buildRungGroup(rung: Rung): GNode | undefined {
-        if (rung.elementIds.length === 0) return undefined;
-
         // ponytail: fixed rung height 80px, width from left rail to right rail
         const rungY = (rung.rungNumber - 1) * 80;
         return GNode.builder()
@@ -212,7 +211,6 @@ export class LdDiagramGenerator implements GModelFactory {
             .addCssClass('rung-group')
             .build();
     }
-
     /** Build a comparison box node. */
     private buildComparison(cmp: ComparisonNode): GNode {
         return GNode.builder()

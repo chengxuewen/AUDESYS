@@ -37,6 +37,23 @@ export function injectLdCssVariables(): void {
         --ld-rung-label-color: #aaa;
         --ld-fb-fill: #455a64;
       }
+
+      /* Ghost element (insert preview) — semi-transparent, dashed outline */
+      .sprotty-graph .ghost-element {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+      .sprotty-graph .ghost-element rect,
+      .sprotty-graph .ghost-element line,
+      .sprotty-graph .ghost-element path {
+        stroke-dasharray: 4 2;
+      }
+
+      /* Insert indicator (cross) — small, subtle */
+      .sprotty-graph .insert-indicator polyline {
+        stroke: var(--ld-selection-color, #2196f3);
+        stroke-width: 1.5;
+      }
     `;
     document.head.appendChild(style);
 }

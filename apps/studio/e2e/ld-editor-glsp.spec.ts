@@ -30,9 +30,9 @@ async function openLdDiagram(page: import('@playwright/test').Page) {
   await page.goto(URL);
   await page.waitForTimeout(8000);
 
-  // Open command palette → New Ladder
+  // Open command palette → New Ladder Diagram (LD) File
   await page.keyboard.press('F1');
-  await page.locator('.quick-input-field input').fill('>New Ladder');
+  await page.locator('.quick-input-widget input').fill('>New Ladder Diagram');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(3000);
 

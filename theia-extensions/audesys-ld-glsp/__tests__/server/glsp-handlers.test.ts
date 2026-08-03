@@ -433,7 +433,7 @@ describe('LdChangeContactTypeHandler', () => {
 // ============================================================================
 
 describe('LdSourceModelStorage', () => {
-  it('creates default LdGraph when no source model exists', () => {
+  it('creates default LdGraph with initial rung when no source model exists', () => {
     const storage = new LdSourceModelStorage();
     const store = new Map<string, unknown>();
     (storage as any).modelState = {
@@ -448,9 +448,9 @@ describe('LdSourceModelStorage', () => {
 
     const graph = store.get(LD_SOURCE_KEY) as LdGraph;
     expect(graph).toBeDefined();
-    expect(graph.nodes).toEqual([]);
-    expect(graph.edges).toEqual([]);
-    expect(graph.rungs).toEqual([]);
+    // Empty diagram gets an initial rung + 2 power rails (insert container)
+    expect(graph.rungs.length).toBe(1);
+    expect(graph.nodes.length).toBe(2); // left + right power rails
   });
 
   it('does not overwrite existing model on loadSourceModel', () => {

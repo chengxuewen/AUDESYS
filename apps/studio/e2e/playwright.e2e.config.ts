@@ -8,6 +8,7 @@ export default defineConfig({
     'smoke/startup-browser.spec.ts',
     'expanded/theia-e2e.spec.ts',
     'ld-editor.spec.ts',
+    'ld-editor-glsp.spec.ts',
     'hmi-designer.spec.ts',
     'codesys-workflow.spec.ts',
   ],

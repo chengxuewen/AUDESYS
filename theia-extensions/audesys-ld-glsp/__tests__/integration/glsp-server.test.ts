@@ -86,14 +86,15 @@ describe('LdDiagramModule — 集成测试', () => {
             state = createMockState();
             injectState(storage, state);
         });
-        it('loadSourceModel 创建空的 LdGraph', () => {
+        it('loadSourceModel 创建带初始 rung 的 LdGraph', () => {
             storage.loadSourceModel(RequestModelAction.create());
             const graph = state.get<LdGraph>(LD_SOURCE_KEY);
             expect(graph).toBeDefined();
             expect(graph!.id).toBeTruthy();
-            expect(graph!.nodes).toHaveLength(0);
+            // 空图自动获得初始 rung + 2 电源轨 (insert 容器)
+            expect(graph!.rungs).toHaveLength(1);
+            expect(graph!.nodes).toHaveLength(2);
             expect(graph!.edges).toHaveLength(0);
-            expect(graph!.rungs).toHaveLength(0);
         });
         it('loadSourceModel 保留已有源模型', () => {
             const existing = createLdGraph('test-id');

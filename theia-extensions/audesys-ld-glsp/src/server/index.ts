@@ -165,7 +165,12 @@ export class LdSourceModelStorage implements SourceModelStorage {
                 try {
                     const filePath = sourceUri.replace('file://', '');
                     const content = fs.readFileSync(filePath, 'utf-8');
-                    this.modelState.set(LD_SOURCE_KEY, JSON.parse(content) as LdGraph);
+                    let graph = JSON.parse(content) as LdGraph;
+                    // LD diagrams must have at least one rung (container for insert)
+                    if (graph.rungs.length === 0) {
+                        graph = this.ensureInitialRung(graph);
+                    }
+                    this.modelState.set(LD_SOURCE_KEY, graph);
                     return;
                 } catch (e) {
                 }
@@ -173,11 +178,21 @@ export class LdSourceModelStorage implements SourceModelStorage {
             // Try sourceModel (direct content injection)
             const sourceModel = action.options?.sourceModel;
             if (typeof sourceModel === 'string' && sourceModel) {
-                this.modelState.set(LD_SOURCE_KEY, JSON.parse(sourceModel) as LdGraph);
+                const graph = JSON.parse(sourceModel) as LdGraph;
+                this.modelState.set(LD_SOURCE_KEY, this.ensureInitialRung(graph));
             } else {
-                this.modelState.set(LD_SOURCE_KEY, createLdGraph());
+                // Empty diagram: create with an initial rung so node creation works
+                const handler = new LdOperationHandler();
+                this.modelState.set(LD_SOURCE_KEY, handler.addRung(createLdGraph()));
             }
         }
+    }
+
+    /** Ensure the graph has at least one rung (GLSP needs a container for inserts). */
+    private ensureInitialRung(graph: LdGraph): LdGraph {
+        if (graph.rungs.length > 0) return graph;
+        const handler = new LdOperationHandler();
+        return handler.addRung(graph);
     }
 
     saveSourceModel(_action: SaveModelAction): void {
@@ -205,15 +220,28 @@ export class LdCreateNodeHandler extends OperationHandler {
         const args = (op as any).args as Record<string, unknown> ?? {};
         let rungId: string | undefined;
 
-        if (args.rungId && typeof args.rungId === 'string') {
+        // GLSP sends containerId as the insert target (rung id from client)
+        if (op.containerId) {
+            const found = graph.rungs.find((r) => r.id === op.containerId);
+            if (found) {
+                rungId = op.containerId;
+            }
+        }
+        if (!rungId && args.rungId && typeof args.rungId === 'string') {
             const found = graph.rungs.find((r) => r.id === args.rungId);
             if (!found) throw new Error(`Rung not found: ${args.rungId}`);
             rungId = args.rungId as string;
-        } else {
-            graph = this.handler.addRung(graph);
-            rungId = graph.rungs[0].id;
         }
-
+        if (!rungId) {
+            // No rung specified — use the first rung (LD graphs always have one)
+            const firstRung = graph.rungs[0];
+            if (!firstRung) {
+                graph = this.handler.addRung(graph);
+                rungId = graph.rungs[0].id;
+            } else {
+                rungId = firstRung.id;
+            }
+        }
         switch (op.elementTypeId) {
             case 'node:contact': {
                 const contactType: ContactType = (args.contactType as ContactType) || 'NO';

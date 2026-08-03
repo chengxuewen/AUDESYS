@@ -1,16 +1,14 @@
 "use strict";
 /**
- * IL completion provider — suggests IEC 61131-3 IL instructions and modifiers.
+ * IL completion provider — suggests IEC 61131-3 IL instructions.
  *
- * The completion items cover:
- *   - 31 IL instructions with category grouping
- *   - Modifier suffixes (N/C) for conditional instructions
- *   - Labels (triggered by typing at start of line)
+ * IMPORTANT: Only lists instructions the IL compiler actually supports.
+ * Sync with crates/audesys-il-compiler/src/lexer.rs parse_mnemonic().
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IL_CATEGORY_LIST = exports.IL_INSTRUCTION_COUNT = void 0;
 exports.getILCompletionItems = getILCompletionItems;
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /** Completion item categories for grouping */
 const IL_CATEGORIES = {
     'Load/Store': 'Bit loads and stores',
@@ -20,13 +18,17 @@ const IL_CATEGORIES = {
     'Jump': 'Program flow jumps',
     'Call': 'Function block calls',
     'Return': 'Return from function block',
+    'Timers': 'Timer function blocks',
+    'Counters': 'Counter function blocks',
+    'Edge': 'Edge detection function blocks',
+    'Flip-Flop': 'Bistable function blocks',
 };
+/** All compiler-supported IL instructions (33). Sync with lexer.rs parse_mnemonic() */
 const IL_COMPLETIONS = [
     // Load/Store
     { label: 'LD', category: 'Load/Store', documentation: 'Load — makes operand equal to current result', insertText: 'LD  ', detail: 'Load' },
     { label: 'LDN', category: 'Load/Store', documentation: 'Load Negated — loads negated value of operand', insertText: 'LDN ', detail: 'Load Negated' },
     { label: 'ST', category: 'Load/Store', documentation: 'Store — stores current result to operand', insertText: 'ST  ', detail: 'Store' },
-    { label: 'STN', category: 'Load/Store', documentation: 'Store Negated — stores negated current result', insertText: 'STN ', detail: 'Store Negated' },
     { label: 'S', category: 'Load/Store', documentation: 'Set — sets operand to TRUE when CR is 1', insertText: 'S   ', detail: 'Set (coil)' },
     { label: 'R', category: 'Load/Store', documentation: 'Reset — resets operand to FALSE when CR is 1', insertText: 'R   ', detail: 'Reset (coil)' },
     // Bit Logic
@@ -35,12 +37,13 @@ const IL_COMPLETIONS = [
     { label: 'OR', category: 'Bit Logic', documentation: 'OR — bitwise OR with current result', insertText: 'OR   ', detail: 'Bitwise OR' },
     { label: 'ORN', category: 'Bit Logic', documentation: 'OR Negated — OR with negated operand', insertText: 'ORN  ', detail: 'Bitwise OR Negated' },
     { label: 'XOR', category: 'Bit Logic', documentation: 'XOR — bitwise exclusive OR with current result', insertText: 'XOR  ', detail: 'Bitwise XOR' },
-    { label: 'XORN', category: 'Bit Logic', documentation: 'XOR Negated — XOR with negated operand', insertText: 'XORN ', detail: 'Bitwise XOR Negated' },
+    { label: 'NOT', category: 'Bit Logic', documentation: 'NOT — inverts the current result (no operand)', insertText: 'NOT', detail: 'Bitwise NOT' },
     // Arithmetic
     { label: 'ADD', category: 'Arithmetic', documentation: 'Add — adds operand to current result', insertText: 'ADD ', detail: 'Addition' },
     { label: 'SUB', category: 'Arithmetic', documentation: 'Subtract — subtracts operand from current result', insertText: 'SUB ', detail: 'Subtraction' },
     { label: 'MUL', category: 'Arithmetic', documentation: 'Multiply — multiplies current result by operand', insertText: 'MUL ', detail: 'Multiplication' },
     { label: 'DIV', category: 'Arithmetic', documentation: 'Divide — divides current result by operand', insertText: 'DIV ', detail: 'Division' },
+    { label: 'MOD', category: 'Arithmetic', documentation: 'Modulo — remainder of current result divided by operand', insertText: 'MOD ', detail: 'Modulo' },
     // Comparison
     { label: 'GT', category: 'Comparison', documentation: 'Greater Than — CR = 1 if current result > operand', insertText: 'GT ', detail: 'Greater Than' },
     { label: 'GE', category: 'Comparison', documentation: 'Greater or Equal — CR = 1 if current result >= operand', insertText: 'GE ', detail: 'Greater or Equal' },
@@ -54,28 +57,35 @@ const IL_COMPLETIONS = [
     { label: 'JMPCN', category: 'Jump', documentation: 'Jump Conditional Negated — jump if CR = 0', insertText: 'JMPCN', detail: 'Jump if CR false' },
     // Call
     { label: 'CAL', category: 'Call', documentation: 'Call — unconditional function block call', insertText: 'CAL  ', detail: 'Unconditional Call' },
-    { label: 'CALC', category: 'Call', documentation: 'Call Conditional — call FB if CR = 1', insertText: 'CALC ', detail: 'Call if CR true' },
-    { label: 'CALCN', category: 'Call', documentation: 'Call Conditional Negated — call FB if CR = 0', insertText: 'CALCN', detail: 'Call if CR false' },
     // Return
     { label: 'RET', category: 'Return', documentation: 'Return — unconditional return from FB', insertText: 'RET  ', detail: 'Unconditional Return' },
-    { label: 'RETC', category: 'Return', documentation: 'Return Conditional — return if CR = 1', insertText: 'RETC ', detail: 'Return if CR true' },
-    { label: 'RETCN', category: 'Return', documentation: 'Return Conditional Negated — return if CR = 0', insertText: 'RETCN', detail: 'Return if CR false' },
+    // Timers
+    { label: 'TON', category: 'Timers', documentation: 'On-Delay Timer — Q = TRUE after PT once IN = TRUE', insertText: 'TON ', detail: 'Timer On-Delay' },
+    { label: 'TOF', category: 'Timers', documentation: 'Off-Delay Timer — Q = FALSE after PT once IN = FALSE', insertText: 'TOF ', detail: 'Timer Off-Delay' },
+    { label: 'TP', category: 'Timers', documentation: 'Pulse Timer — Q = TRUE for PT duration on IN rising edge', insertText: 'TP ', detail: 'Timer Pulse' },
+    // Counters
+    { label: 'CTU', category: 'Counters', documentation: 'Counter Up — increments on CU rising edge', insertText: 'CTU ', detail: 'Counter Up' },
+    { label: 'CTD', category: 'Counters', documentation: 'Counter Down — decrements on CD rising edge', insertText: 'CTD ', detail: 'Counter Down' },
+    // Edge
+    { label: 'R_TRIG', category: 'Edge', documentation: 'Rising Edge — Q = TRUE for 1 cycle on CLK 0→1', insertText: 'R_TRIG ', detail: 'Rising Edge Detection' },
+    { label: 'F_TRIG', category: 'Edge', documentation: 'Falling Edge — Q = TRUE for 1 cycle on CLK 1→0', insertText: 'F_TRIG ', detail: 'Falling Edge Detection' },
+    // Flip-Flop
+    { label: 'SR', category: 'Flip-Flop', documentation: 'Set-dominant Flip-Flop — S1=TRUE → Q1=TRUE', insertText: 'SR ', detail: 'Set-dominant Bistable' },
+    { label: 'RS', category: 'Flip-Flop', documentation: 'Reset-dominant Flip-Flop — R1=TRUE → Q1=FALSE', insertText: 'RS ', detail: 'Reset-dominant Bistable' },
 ];
 /**
  * Generate Monarch language completion items for monaco-editor.
- * Returns an array of CompletionItem-like objects compatible with
- * monaco.languages.CompletionItem.
  */
 function getILCompletionItems() {
     return IL_COMPLETIONS.map(item => ({
         label: item.label,
-        kind: 0, // monaco.languages.CompletionItemKind.Keyword = 14, but avoid import
+        kind: 0,
         detail: `[${item.category}] ${item.detail}`,
         documentation: {
             value: item.documentation,
         },
         insertText: item.insertText,
-        range: undefined, // monaco computes range from word
+        range: undefined,
     }));
 }
 /** Exported for use by other modules */

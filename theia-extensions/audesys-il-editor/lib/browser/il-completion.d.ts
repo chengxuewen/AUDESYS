@@ -1,15 +1,11 @@
 /**
- * IL completion provider — suggests IEC 61131-3 IL instructions and modifiers.
+ * IL completion provider — suggests IEC 61131-3 IL instructions.
  *
- * The completion items cover:
- *   - 31 IL instructions with category grouping
- *   - Modifier suffixes (N/C) for conditional instructions
- *   - Labels (triggered by typing at start of line)
+ * IMPORTANT: Only lists instructions the IL compiler actually supports.
+ * Sync with crates/audesys-il-compiler/src/lexer.rs parse_mnemonic().
  */
 /**
  * Generate Monarch language completion items for monaco-editor.
- * Returns an array of CompletionItem-like objects compatible with
- * monaco.languages.CompletionItem.
  */
 export declare function getILCompletionItems(): any[];
 /** Exported for use by other modules */

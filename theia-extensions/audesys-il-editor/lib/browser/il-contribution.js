@@ -51,12 +51,14 @@ const inversify_1 = require("@theia/core/shared/inversify");
 const monaco = __importStar(require("@theia/monaco-editor-core"));
 const il_language_1 = require("./il-language");
 const il_completion_1 = require("./il-completion");
+const il_diagnostics_1 = require("./il-diagnostics");
 /** IL language ID used in Monaco */
 exports.IL_LANGUAGE_ID = 'il';
 exports.IL_FILE_EXTENSIONS = ['.il', '.IL'];
 let ILMonacoContribution = class ILMonacoContribution {
     initialize() {
         this.registerILLanguage();
+        (0, il_diagnostics_1.registerILDiagnostics)();
     }
     registerILLanguage() {
         // 1. Register the language
