@@ -859,3 +859,26 @@
 - **方案**: 复杂变更（改架构/影响 >5 文件）先团队审核再执行（think-before-act Phase 2）
 - **验证**: 审核发现的 CRITICAL 必须修复，LOW 记录为技术债
 - **禁止**: 不要跳过团队审核直接执行大型架构变更
+
+## LD 编辑器 T6/T7/T7b 会话补漏 (2026-08-04)
+
+### deleteKeyCode — React Flow v12 默认仅 Backspace，Delete 键失效
+- **问题**: 选中节点后按 Delete 无反应，E2E F6/T6 失败
+- **原因**: @xyflow/react v12.11.2 的 `deleteKeyCode` 默认值只有 `['Backspace']`，不含 'Delete'（v11 默认两者都有）
+- **方案**: 显式设置 `deleteKeyCode={['Delete', 'Backspace']}`（LD 与 FBD 编辑器均需）
+- **验证**: 选中节点 → 按 Delete → 节点删除
+- **禁止**: 不要假设 Delete 键默认可用 — v12 行为与 v11 不同
+
+### E2E 拖拽断言不要用 zoom 算术 — React Flow 有 ~5px 内部阈值
+- **问题**: T6 网格切换测试用 `(90px/zoom)` 精确计算期望拖拽 delta，结果确定性失败
+- **原因**: React Flow 拖拽有内部 ~5px 指针阈值，实际 delta = 90 + ~5，除以 zoom 后与期望不符；且 zoom 随窗口尺寸变化
+- **方案**: 用行为断言替代算术断言 — 网格开启时断言 `transform % 40 === 0`，关闭时断言 `% 40 !== 0`（on-grid/off-grid 行为验证）
+- **验证**: 开关网格 → 拖拽 → 位置吸附/不吸附
+- **禁止**: 不要用精确像素 delta + zoom 计算断言拖拽位置 — 用网格对齐行为断言
+
+### 浏览器前端不能直调 napi-rs bridge — 编译必须走 JSON-RPC
+- **问题**: 前端 `handler.compile(graph)` 用 defaultCompile → `require('@audesys/theia-bridge')`，在浏览器 bundle 中 esbuild 把原生模块 main 打包成路径字符串，运行时 TypeError → compile 永远失败
+- **原因**: napi-rs 原生 .node 模块只能在 Node.js 后端加载，浏览器 bundle 无法加载
+- **方案**: 编译走 widget.compileGraph()（先 validate → 再经 LdCompileServer JSON-RPC 到后端 loadBridge 扫描 lib/backend/native/ 加载 .node）
+- **验证**: 浏览器 E2E 点击 Compile → "Compile OK"
+- **禁止**: 不要在浏览器前端直接 require napi-rs bridge — 必须经后端 JSON-RPC
