@@ -923,3 +923,39 @@
 - **方案**: (a) 500ms 防抖 validate + 红色错误标记（ld-node--error/rung-group--error + ⚠ 徽标 + tooltip + 工具栏计数）; (b) 监控模式骨架（Monitor 切换 + 值徽标 + ld-edge--active 流线高亮，monitorValues 状态预留 Runtime 集成）
 - **验证**: `parseValidationErrors` 纯函数 7 测试 + vitest 128/128
 - **教训**: 工业编辑器核心体验是即时反馈 — 编译期错误提示不够，需 SmartCoding 式实时验证
+
+## LD 编辑器验证 + 测试补齐会话 (2026-08-04)
+
+### 空 rung 是合法中间态 — 报 error 是误报
+- **问题**: 新建空白 LD 点 Add Rung 显示红色报警（`Empty rung: ... has no elements`），编译被阻塞
+- **原因**: validateGraph 把空 rung 报为 error，P2 实时验证标红；但空 rung 是画图正常起点（CODESYS/TwinCAT 同此）
+- **方案**: 空 rung 降级为 warning（ValidationResult.warnings），不阻塞编译（空网络编译为默认 Load+Halt 程序，已验证 il_compile("") 成功）
+- **验证**: `grep -c 'warnings' src/model/serialization.ts` > 0；E2E T27/T29
+- **禁止**: 不要把空 rung 当 error — 新文件自动有 1 个空 rung，标红即骚扰
+
+### RUNG_GROUP_WIDTH 幻影右 padding（GLSP 遗留）
+- **问题**: 右轨（x=640）显示在 rung 容器中部（容器 800px 宽），不贴右边缘
+- **原因**: `RUNG_GROUP_WIDTH = RAIL_X_RIGHT + 160` 是 GLSP 时代"右 padding"遗留，React Flow 迁移后 rung 容器有可见虚线边框，160px 空白暴露
+- **方案**: `RUNG_GROUP_WIDTH = RAIL_X_RIGHT + RAIL_WIDTH`（644）；rails 位置不变（fixture/E2E 硬编码 x=640）
+- **验证**: E2E T28（rail 与容器右缘 <20px）；`grep 'RUNG_GROUP_WIDTH' src/model/grid.ts` = `RAIL_X_RIGHT + RAIL_WIDTH`
+- **禁止**: 不要在 grid.ts 恢复 +160 — 检查任何"padding"常量的 GLSP 来源
+
+### React Flow 子节点按位置排序渲染 — E2E 禁 nth()
+- **问题**: T12 断言 `node.nth(1)` 取 NC 触点，容器 800→644 后新触点 x=0 排最前 → nth(1)=c1（NO）→ 断言失败
+- **原因**: React Flow 按 position 排序渲染子节点（非插入序），新节点 x 小时排前；nth() 索引随布局变化漂移
+- **方案**: E2E 断言按**值匹配**（stroke 含 `nc-fill`）而非 DOM 顺序；`locator.filter({ has: ... })` 定位
+- **验证**: T12 3 次稳定通过；`grep 'nc-fill' apps/studio/e2e/ld-editor-reactflow.spec.ts` > 0
+- **禁止**: E2E 中禁止用 `.nth()` 定位可能排序变化的节点 — 用属性/文本值匹配
+
+### warning 高亮全部空 rung = 视觉噪声 → selected-only
+- **问题**: 3 个空 rung 全部黄色高亮，无法聚焦当前编辑 rung
+- **原因**: LdCanvas 无条件加 `ld-node--warning` class；RungGroupNode `hasWarnings` 不感知 selected；CSS warning(!important) 定义在 selected 后覆盖蓝色
+- **方案**: LdCanvas 只注入 data（warningCount/warningTitle），视觉在 RungGroupNode 内 `&& selected` 渲染（tooltip 保留 hover 提示）
+- **验证**: E2E T27（未选中 0 个 warning class，选中后 1 个）；`grep 'selected' src/components/nodes/RungGroupNode.tsx`
+- **禁止**: 不要在 LdCanvas sync effect 加 warning className — 组件内 selected 才能感知
+
+### 过时 GLSP spec 文档债务
+- **问题**: `openspec/specs/ld-glsp-editor-spec.md` 43 处 GLSP 引用（sprotty/SGraph），D110 移除 GLSP 后未更新
+- **方案**: 追加 LD-RF-034..037 React Flow 现行规范章节，GLSP 章节标注历史参考；测试映射指向 vitest/E2E
+- **验证**: `grep -c 'LD-RF' openspec/specs/ld-glsp-editor-spec.md` = 5
+- **教训**: 架构变更（D110）必须同步更新 SDD spec，否则测试映射指向已删除代码
