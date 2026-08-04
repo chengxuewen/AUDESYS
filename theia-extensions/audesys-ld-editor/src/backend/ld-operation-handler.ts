@@ -16,6 +16,7 @@
 import {
   LdGraph,
   Rung,
+  ParallelBranch,
   generateId,
   createContact,
   createCoil,
@@ -24,6 +25,7 @@ import {
   createRung,
   createWire,
   createLdGraph,
+  createBranch,
 } from '../model/model';
 import {
   ContactNode,
@@ -39,6 +41,8 @@ import {
 } from '../model/nodes';
 import { BaseEdge, WireConnection } from '../model/edges';
 import { validateGraph, ValidationResult } from '../model/serialization';
+import { getFbPins, getFbHeight, FB_WIDTH } from '../model/fb-catalog';
+
 
 // ============================================================================
 // Operation Parameter Types
@@ -98,6 +102,30 @@ export interface AddFbParams {
   rungId: string;
 }
 
+export interface RenameVariableParams {
+  elementId: string;
+  variableName: string;
+}
+
+export interface OpenBranchParams {
+  rungId: string;
+  anchorId: string;
+}
+
+export interface CloseBranchParams {
+  branchId: string;
+}
+
+export interface DeleteBranchParams {
+  branchId: string;
+}
+
+export interface AddBranchContactParams {
+  branchId: string;
+  /** Click position — only the rung is used; x is forced to the branch column */
+  position: Point;
+}
+
 
 // ============================================================================
 // Compile Result Types
@@ -141,6 +169,17 @@ function rungToLdText(rung: Rung, graph: LdGraph): string {
       const token = mapCoilTypeToLdToken(c.coilType);
       lines.push(`  ${token} ${c.variableName}`);
     }
+    // Emit parallel-branch members hanging off this series element (OR/ORN).
+    // Rust LD lexer: lines starting with '|' compile to OR/ORN instructions.
+    for (const branch of rung.branches ?? []) {
+      if (branch.anchorId !== elemId) continue;
+      for (const memberId of branch.elementIds) {
+        const m = nodeMap.get(memberId);
+        if (!m || m.type !== 'node:contact') continue;
+        const mc = m as ContactNode;
+        lines.push(`  | ${mc.contactType} ${mc.variableName}`);
+      }
+    }
   }
   return lines.join('\n');
 }
@@ -154,7 +193,7 @@ function mapCoilTypeToLdToken(coilType: CoilType): string {
   }
 }
 
-function graphToLdText(graph: LdGraph): string {
+export function graphToLdText(graph: LdGraph): string {
   if (graph.rungs.length === 0) return 'NETWORK\n';
   return graph.rungs.map((r) => rungToLdText(r, graph)).join('\n\n');
 }
@@ -178,7 +217,7 @@ function defaultCompile(source: string): string {
  * The napi-rs `compileLd` returns a JSON string — either HalProgram on
  * success, or a diagnostic array on failure.
  */
-function parseCompileOutput(raw: string): CompileResult {
+export function parseCompileOutput(raw: string): CompileResult {
   try {
     const parsed: unknown = JSON.parse(raw);
     // Distinguish HalProgram (has `instructions`) from error array
@@ -224,8 +263,7 @@ function parseCompileOutput(raw: string): CompileResult {
 // Grid constants — unified 40×40 with client GridSnapper (T2.2).
 // Contact column spacing (120 = 3 cells) is enforced by addContact,
 // moveElement snaps to the same 40px grid as the client drag.
-import { LD_GRID, CONTACT_SIZE, RAIL_WIDTH, COIL_X_OFFSET, RUNG_HEIGHT } from '../model/grid';
-
+import { LD_GRID, CONTACT_SIZE, RAIL_WIDTH, COIL_X_OFFSET, RUNG_HEIGHT, BRANCH_FIRST_Y } from '../model/grid';
 const GRID_X = LD_GRID.x; // 40 — client drag snap grid
 const GRID_Y = LD_GRID.y; // 40 — matches rung 2-cell spacing
 
@@ -313,6 +351,10 @@ export class LdOperationHandler {
       }
     }
 
+    // Branch-aware rewire: an inserted contact may become the new successor
+    // of an existing branch — member chains re-point to it.
+    rewireRungBranches(next, next.rungs[rungIdx]);
+
     return next;
   }
 
@@ -359,6 +401,9 @@ export class LdOperationHandler {
       next.edges.push(wire);
     }
 
+    // Branch-aware rewire: branch members re-route to the new successor (coil)
+    rewireRungBranches(next, next.rungs[rungIdx]);
+
     // Wire: coil → right power rail
     const rightRail = findRightRailOnRung(next, next.rungs[rungIdx]);
     if (rightRail) {
@@ -384,22 +429,61 @@ export class LdOperationHandler {
     const next = cloneGraph(graph);
 
     if (node) {
-      // Remove connected edges
-      next.edges = next.edges.filter(
-        (e) => e.sourceId !== elementId && e.targetId !== elementId,
-      );
-      // Remove from node list
-      next.nodes = next.nodes.filter((n) => n.id !== elementId);
-      // Remove from rung element lists
-      for (let i = 0; i < next.rungs.length; i++) {
-        const rung = next.rungs[i];
-        if (rung.elementIds.includes(elementId)) {
-          next.rungs[i] = {
-            ...rung,
-            elementIds: rung.elementIds.filter((id) => id !== elementId),
-          };
+      // Deleting a branch anchor drops the whole branch (members included).
+      // Deleting a branch member prunes it from its branch (branch dies if empty).
+      const dropNodeIds = new Set<string>([elementId]);
+      const dropBranchIds = new Set<string>();
+      for (const rung of next.rungs) {
+        for (const branch of rung.branches ?? []) {
+          if (branch.anchorId === elementId) {
+            dropBranchIds.add(branch.id);
+            for (const m of branch.elementIds) dropNodeIds.add(m);
+          }
         }
       }
+
+      // Remove connected edges (direct + cascaded members)
+      next.edges = next.edges.filter(
+        (e) => !dropNodeIds.has(e.sourceId) && !dropNodeIds.has(e.targetId),
+      );
+      next.nodes = next.nodes.filter((n) => !dropNodeIds.has(n.id));
+
+      // Rebuild rungs: prune elementIds, branches and branch membership
+      next.rungs = next.rungs.map((rung) => {
+        const elementIds = rung.elementIds.filter((id) => !dropNodeIds.has(id));
+        let changed = elementIds.length !== rung.elementIds.length;
+        let branches = (rung.branches ?? []).filter((b) => !dropBranchIds.has(b.id));
+        branches = branches.map((b) => {
+          if (!b.elementIds.includes(elementId)) return b;
+          changed = true;
+          // Re-stack the surviving members (rows 120, 160, ...) — otherwise the
+          // member keeps its old row and extent:'parent' clamps it inside the
+          // shrunken rung container.
+          const memberIds = b.elementIds.filter((id) => id !== elementId);
+          // Re-stack the surviving members (rows 120, 160, ...) — otherwise a
+          // member keeps its old row and extent:'parent' clamps it inside the
+          // shrunken rung container.
+          memberIds.forEach((id, idx) => {
+            const member = findNode(next, id);
+            if (member) {
+              const ni = next.nodes.findIndex((n) => n.id === id);
+              if (ni >= 0) {
+                next.nodes[ni] = {
+                  ...member,
+                  position: { x: b.x, y: BRANCH_FIRST_Y + idx * GRID_Y },
+                };
+              }
+            }
+          });
+          return { ...b, elementIds: memberIds };
+        });
+        const nonEmpty = branches.filter((b) => b.elementIds.length > 0);
+        if (nonEmpty.length !== branches.length) changed = true;
+        if (!changed) return rung;
+        const updated = { ...rung, elementIds, branches: nonEmpty };
+        rewireRungBranches(next, updated);
+        return updated;
+      });
     } else if (edge) {
       next.edges = next.edges.filter((e) => e.id !== elementId);
     }
@@ -623,30 +707,188 @@ export class LdOperationHandler {
     const rung = findRung(graph, params.rungId);
     const snapped = snapToGrid(params.position);
 
-    // Default TON pins: EN, ENO, IN1, OUT1
-    const inputPins: Pin[] = [
-      { name: 'EN', dataType: 'BOOL', position: { x: 0, y: 0 } },
-      { name: 'IN1', dataType: 'BOOL', position: { x: 0, y: 40 } },
-    ];
-    const outputPins: Pin[] = [
-      { name: 'ENO', dataType: 'BOOL', position: { x: 120, y: 0 } },
-      { name: 'OUT1', dataType: 'BOOL', position: { x: 120, y: 40 } },
-    ];
+    // Pins come from the FB catalog (IEC 61131-3 pin sets per type)
+    const pins = getFbPins(params.fbType);
+    if (!pins) {
+      throw new ValidationError(`Unknown FB type: ${params.fbType}`);
+    }
 
-    const fb = createFb(params.fbType, inputPins, outputPins, snapped);
+    const fb = createFb(params.fbType, pins.inputPins, pins.outputPins, snapped);
+    fb.size = { width: FB_WIDTH, height: getFbHeight(params.fbType) };
+
     const next = cloneGraph(graph);
     next.nodes.push(fb);
 
-    // Add to rung element list
+    // Add to rung element list (maintain left-to-right order by x)
+    const elements = [...rung.elementIds];
+    let insertIdx = elements.length;
+    for (let i = 0; i < elements.length; i++) {
+      const n = findNode(graph, elements[i]);
+      if (n && n.position.x > snapped.x) {
+        insertIdx = i;
+        break;
+      }
+    }
+    elements.splice(insertIdx, 0, fb.id);
     const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
-    const elements = [...rung.elementIds, fb.id];
     next.rungs[rungIdx] = { ...rung, elementIds: elements };
+
+    // Auto-connect: predecessor to EN, ENO to successor (pin-anchored wires)
+    const prevId = insertIdx > 0 ? elements[insertIdx - 1] : findLeftRailOnRung(next, next.rungs[rungIdx])?.id;
+    if (prevId) {
+      const wire = createWire(prevId, fb.id);
+      wire.targetPin = 'EN';
+      next.edges.push(wire);
+    }
+    const succId = elements[insertIdx + 1]
+      ?? findCoilOnRung(next, next.rungs[rungIdx])?.id
+      ?? findRightRailOnRung(next, next.rungs[rungIdx])?.id;
+    if (succId) {
+      const wire = createWire(fb.id, succId);
+      wire.sourcePin = 'ENO';
+      next.edges.push(wire);
+    }
+
+    // Branch-aware rewire: the FB may become a branch's new successor
+    rewireRungBranches(next, next.rungs[rungIdx]);
 
     return next;
   }
 
+  // ── Variable Rename ──────────────────────────────────────
 
-  // ── Validation & Compilation ──────────────────────────────
+  /**
+   * Rename the variable bound to a contact or coil.
+   * Validates: element is a contact/coil, name non-empty and whitespace-free.
+   */
+  renameVariable(graph: LdGraph, params: RenameVariableParams): LdGraph {
+    const node = findNode(graph, params.elementId);
+    if (!node || (node.type !== 'node:contact' && node.type !== 'node:coil')) {
+      throw new ValidationError(`Not a contact or coil: ${params.elementId}`);
+    }
+    const name = params.variableName.trim();
+    if (name.length === 0) {
+      throw new ValidationError('Variable name cannot be empty');
+    }
+    if (/\s/.test(name)) {
+      throw new ValidationError('Variable name cannot contain whitespace');
+    }
+    const current = (node as ContactNode | CoilNode).variableName;
+    if (name === current) {
+      return graph; // No change - idempotent
+    }
+
+    const next = cloneGraph(graph);
+    const idx = next.nodes.findIndex((n) => n.id === params.elementId);
+    if (idx >= 0) {
+      const node = next.nodes[idx] as ContactNode | CoilNode;
+      next.nodes[idx] = { ...node, variableName: name } as ContactNode | CoilNode;
+    }
+    return next;
+  }
+
+  // ── Parallel Branches ────────────────────────────────────
+
+  /**
+   * Open a parallel branch hanging off a series contact (the anchor).
+   * The anchor stays in the series chain; members are added via addBranchContact.
+   */
+  openBranch(graph: LdGraph, params: OpenBranchParams): LdGraph {
+    const rung = findRung(graph, params.rungId);
+    const anchor = findNode(graph, params.anchorId);
+    if (!anchor || anchor.type !== 'node:contact') {
+      throw new ValidationError('Branch anchor must be a contact');
+    }
+    if (!rung.elementIds.includes(params.anchorId)) {
+      throw new ValidationError('Anchor is not on this rung');
+    }
+    const branches = rung.branches ?? [];
+    if (branches.some((b) => b.anchorId === params.anchorId)) {
+      throw new ValidationError('A branch already exists at this contact');
+    }
+
+    const next = cloneGraph(graph);
+    const branch = createBranch(rung.id, params.anchorId, anchor.position.x);
+    const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
+    next.rungs[rungIdx] = { ...rung, branches: [...branches, branch] };
+    return next;
+  }
+
+  /**
+   * Add a contact to a parallel branch (stacked below the anchor).
+   * x is forced to the branch column; y stacks at 120, 160, 200...
+   */
+  addBranchContact(graph: LdGraph, params: AddBranchContactParams): LdGraph {
+    const { branch } = findBranch(graph, params.branchId);
+    const rung = findRung(graph, branch.rungId);
+
+    const contactCount = graph.nodes.filter((n) => n.type === 'node:contact').length;
+    const contact = createContact(ContactType.NO, `IN${contactCount}`, {
+      x: branch.x,
+      y: BRANCH_FIRST_Y + branch.elementIds.length * GRID_Y,
+    });
+
+    const next = cloneGraph(graph);
+    next.nodes.push(contact);
+
+    const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
+    const branches = (rung.branches ?? []).map((b) =>
+      b.id === branch.id ? { ...b, elementIds: [...b.elementIds, contact.id] } : b,
+    );
+    const updatedRung = { ...rung, branches };
+    next.rungs[rungIdx] = updatedRung;
+
+    rewireRungBranches(next, updatedRung);
+    return next;
+  }
+
+  /**
+   * Close a parallel branch — validates it has at least one member.
+   * The branch stays in the model ("closed" is a UX phase, not a model state).
+   */
+  closeBranch(graph: LdGraph, params: CloseBranchParams): LdGraph {
+    const { branch } = findBranch(graph, params.branchId);
+    if (branch.elementIds.length === 0) {
+      throw new ValidationError('Cannot close an empty branch - add at least one contact');
+    }
+    return graph; // validation only
+  }
+
+  /**
+   * Delete a parallel branch: removes members (nodes + edges) and the
+   * branch record, then restores the series edge anchor-to-successor.
+   */
+  deleteBranch(graph: LdGraph, params: DeleteBranchParams): LdGraph {
+    const { rung, branch } = findBranch(graph, params.branchId);
+    const memberIds = new Set(branch.elementIds);
+
+    const next = cloneGraph(graph);
+    next.nodes = next.nodes.filter((n) => !memberIds.has(n.id));
+    next.edges = next.edges.filter(
+      (e) => !memberIds.has(e.sourceId) && !memberIds.has(e.targetId),
+    );
+
+    const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
+    const updatedRung = {
+      ...rung,
+      branches: (rung.branches ?? []).filter((b) => b.id !== branch.id),
+    };
+    next.rungs[rungIdx] = updatedRung;
+
+    rewireRungBranches(next, updatedRung);
+
+    // Restore the series edge for the deleted branch's anchor
+    const succ = seriesSuccessor(updatedRung, branch.anchorId);
+    if (succ) {
+      const exists = next.edges.some(
+        (e) => e.sourceId === branch.anchorId && e.targetId === succ,
+      );
+      if (!exists) {
+        next.edges.push(createWire(branch.anchorId, succ));
+      }
+    }
+    return next;
+  }
 
   /**
    * Validate the structural integrity of a ladder diagram.
@@ -688,12 +930,15 @@ export class LdOperationHandler {
         }
       }
 
-      // Check: at least one contact if there's a coil
-      if (coils.length > 0 && contacts.length === 0) {
+      // Check: at least one contact if there's a coil (FB-only rungs allowed
+      // - FB nodes provide the condition but do not compile to LD text)
+      const fbNodes = rungNodes.filter((n) => n.type === 'node:fb');
+      if (coils.length > 0 && contacts.length === 0 && fbNodes.length === 0) {
         ldErrors.push(
           `Rung ${rung.rungNumber}: has a coil but no contacts`,
         );
       }
+
     }
 
     const allErrors = [...filteredErrors, ...ldErrors];
@@ -796,4 +1041,69 @@ function findRightRailOnRung(graph: LdGraph, rung: Rung): PowerRailNode | undefi
     (n): n is PowerRailNode =>
       n.type === 'node:powerrail' && (n as PowerRailNode).side === PowerRailSide.Right,
   ) as PowerRailNode | undefined;
+}
+
+function findBranch(graph: LdGraph, branchId: string): { rung: Rung; branch: ParallelBranch } {
+  for (const rung of graph.rungs) {
+    const branch = (rung.branches ?? []).find((b) => b.id === branchId);
+    if (branch) return { rung, branch };
+  }
+  throw new ValidationError(`Branch not found: ${branchId}`);
+}
+
+/** Next series element after the anchor in rung.elementIds (may be a coil). */
+function seriesSuccessor(rung: Rung, anchorId: string): string | null {
+  const idx = rung.elementIds.indexOf(anchorId);
+  if (idx < 0 || idx + 1 >= rung.elementIds.length) return null;
+  return rung.elementIds[idx + 1];
+}
+
+/**
+ * Rewire all branches of a rung: drops old branch edges (member-touching
+ * and anchor-to-successor) and re-creates them from scratch.
+ *
+ * Edge layout per branch (N members, anchor a, successor s):
+ *   a -m1 (horizontal), m1 | m2 | ... | mN (vertical bus), mN -s (horizontal)
+ */
+function rewireRungBranches(next: LdGraph, rung: Rung): void {
+  const branches = rung.branches ?? [];
+  if (branches.length === 0) return;
+
+  const memberIds = new Set<string>();
+  for (const b of branches) {
+    for (const m of b.elementIds) memberIds.add(m);
+  }
+
+  // Drop old branch edges
+  next.edges = next.edges.filter((e) => {
+    if (memberIds.has(e.sourceId) || memberIds.has(e.targetId)) return false;
+    for (const b of branches) {
+      const succ = seriesSuccessor(rung, b.anchorId);
+      if (succ && e.sourceId === b.anchorId && e.targetId === succ) return false;
+    }
+    return true;
+  });
+
+  // Re-create edges
+  for (const b of branches) {
+    const succ = seriesSuccessor(rung, b.anchorId);
+    if (b.elementIds.length === 0) {
+      if (succ) next.edges.push(createWire(b.anchorId, succ));
+      continue;
+    }
+    const first = b.elementIds[0];
+    const last = b.elementIds[b.elementIds.length - 1];
+    next.edges.push(createWire(b.anchorId, first));
+    for (let i = 0; i < b.elementIds.length - 1; i++) {
+      const w = createWire(b.elementIds[i], b.elementIds[i + 1]);
+      w.sourcePin = 'bus-out';
+      w.targetPin = 'bus-in';
+      next.edges.push(w);
+    }
+    const target = succ ?? findRightRailOnRung(next, rung)?.id ?? null;
+    if (target) {
+      // Last member re-joins the series via its right-hand out handle
+      next.edges.push(createWire(last, target));
+    }
+  }
 }

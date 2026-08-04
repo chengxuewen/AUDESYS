@@ -98,11 +98,16 @@ export function validateGraph(graph: LdGraph): ValidationResult {
   const nodeIds = new Set(graph.nodes.map((n) => n.id));
   const edgeIds = new Set(graph.edges.map((e) => e.id));
 
-  // Collect all node IDs referenced by rungs
+  // Collect all node IDs referenced by rungs (elementIds + branch members)
   const rungNodeIds = new Set<string>();
   for (const rung of graph.rungs) {
     for (const elemId of rung.elementIds) {
       rungNodeIds.add(elemId);
+    }
+    for (const branch of rung.branches ?? []) {
+      for (const memberId of branch.elementIds) {
+        rungNodeIds.add(memberId);
+      }
     }
   }
 
@@ -142,6 +147,24 @@ export function validateGraph(graph: LdGraph): ValidationResult {
           `Invalid rung reference: rung "${rung.id}" (rung ${rung.rungNumber}) ` +
           `references non-existent node "${elemId}"`,
         );
+      }
+    }
+  }
+
+  // 5. Branch integrity — anchor exists, members exist
+  for (const rung of graph.rungs) {
+    for (const branch of rung.branches ?? []) {
+      if (!nodeIds.has(branch.anchorId)) {
+        errors.push(
+          `Branch "${branch.id}": anchor "${branch.anchorId}" does not exist`,
+        );
+      }
+      for (const memberId of branch.elementIds) {
+        if (!nodeIds.has(memberId)) {
+          errors.push(
+            `Branch "${branch.id}": member "${memberId}" does not exist`,
+          );
+        }
       }
     }
   }

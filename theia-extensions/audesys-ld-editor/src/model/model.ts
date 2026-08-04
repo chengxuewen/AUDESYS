@@ -48,6 +48,13 @@ export interface Rung {
   comment?: string;
   /** Ordered list of element IDs on this rung (left-to-right) */
   elementIds: string[];
+  /**
+   * Optional parallel branches (OR groups) on this rung.
+   * Each branch hangs off a series element (the anchor) at one column;
+   * its members are stacked vertically below the anchor and compile
+   * to OR/ORN instructions. Absent for older .ld files.
+   */
+  branches?: ParallelBranch[];
 }
 
 // ============================================================================
@@ -75,7 +82,30 @@ export interface LdGraph {
 }
 
 // ============================================================================
-// Factory Functions
+// Parallel Branch
+// ============================================================================
+
+/**
+ * A parallel branch (OR group) on a rung.
+ *
+ * The branch hangs off a series element (`anchorId` — the top path of the
+ * group). Members are stacked vertically below the anchor at the same
+ * column x. In IL the anchor is emitted as LD/AND (its series position)
+ * and every member as OR/ORN.
+ */
+export interface ParallelBranch {
+  /** Unique identifier (UUID v4) */
+  id: string;
+  /** ID of the rung this branch belongs to */
+  rungId: string;
+  /** ID of the series element the branch hangs off (the top path) */
+  anchorId: string;
+  /** Member contact IDs, top-to-bottom order (each = one OR path) */
+  elementIds: string[];
+  /** Column x position — all members share the anchor's column */
+  x: number;
+}
+
 // ============================================================================
 
 let nextId = 0;
@@ -83,12 +113,14 @@ let nextId = 0;
 /**
  * Generate a unique element ID.
  *
- * Uses a simple monotonic counter prefixed for readability.
- * In production, this would be replaced with UUID v4 generation.
+ * Monotonic counter + random suffix. The suffix guards against collisions
+ * with hand-authored ids in loaded .ld files (a fixture rung literally named
+ * 'rung-1' collided with the first generated 'rung-1' — React Flow dedupes
+ * nodes by id, silently dropping one rung).
  */
 export function generateId(prefix: string): string {
   nextId += 1;
-  return `${prefix}-${nextId}`;
+  return `${prefix}-${nextId}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 /**
@@ -270,6 +302,24 @@ export function createRung(
     rungNumber,
     comment,
     elementIds,
+  };
+}
+
+/**
+ * Create a parallel branch structure.
+ *
+ * @param rungId - ID of the owning rung
+ * @param anchorId - ID of the series element the branch hangs off
+ * @param x - Column x position of the branch
+ * @returns A fully-formed ParallelBranch with no members yet
+ */
+export function createBranch(rungId: string, anchorId: string, x: number): ParallelBranch {
+  return {
+    id: generateId('branch'),
+    rungId,
+    anchorId,
+    elementIds: [],
+    x,
   };
 }
 

@@ -52,6 +52,16 @@ export interface WireConnection extends BaseEdge {
    * between source and target (auto-routed by the layout engine).
    */
   routingPoints?: Point[];
+  /**
+   * Source pin anchor id (e.g. FB output pin "ENO", or the bus handle
+   * "bus-out" for vertical branch wires). Absent = default right handle.
+   */
+  sourcePin?: string;
+  /**
+   * Target pin anchor id (e.g. FB input pin "EN", or "bus-in").
+   * Absent = default left handle.
+   */
+  targetPin?: string;
 }
 
 // ============================================================================

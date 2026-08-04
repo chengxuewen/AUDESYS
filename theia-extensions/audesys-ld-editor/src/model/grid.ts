@@ -31,3 +31,9 @@ export const RAIL_X_RIGHT = COIL_X_OFFSET + CONTACT_SIZE + RAIL_WIDTH;
 
 /** Rung group container width (right rail + right padding). */
 export const RUNG_GROUP_WIDTH = RAIL_X_RIGHT + 160;
+
+/**
+ * First branch-member row y offset (3 rows below the top row).
+ * Main row sits at ELEMENT_Y = 40; members stack 120, 160, 200...
+ */
+export const BRANCH_FIRST_Y = 120;
