@@ -1237,3 +1237,29 @@ test('T29 add-contact on empty rung clears the empty-rung warning', async ({ pag
     await expect(badge).toContainText('✓', { timeout: 10000 });
     await expect(rungBody).not.toHaveClass(/ld-rung-group--warning/, { timeout: 10000 });
 });
+
+// ── T30: Tool placement works by clicking INSIDE the rung (CODESYS-style) ──
+
+test('T30 NO Contact places when clicking inside the rung container (not only pane)', async ({ page }) => {
+    writeFixture('rungclick30.ld', bareGraph('rungclick30'));
+    await openLdFile(page, 'rungclick30.ld');
+
+    // Select NO Contact tool, then click INSIDE the rung container body.
+    // Regression: onNodeClick ignored non-branch tools, so only pane clicks
+    // (left of the rail / outside the rung) created elements — CODESYS/OpenPLC
+    // place elements by clicking inside the network row instead.
+    await toolbarButton(page, 'NO Contact').click();
+    const rung = page.locator('.react-flow__node-rung');
+    await expect(rung).toBeVisible({ timeout: 10000 });
+    const rungBox = await rung.boundingBox();
+    await page.mouse.click(rungBox!.x + rungBox!.width * 0.3, rungBox!.y + 30);
+
+    const contactNode = page.locator('.react-flow__node-contact');
+    await expect(contactNode).toHaveCount(1, { timeout: 10000 });
+    await expect(contactNode.first()).toContainText('IN0');
+
+    // The contact actually sits inside the rung (parentId wiring), not at the pane edge
+    const transform = await contactNode.first().evaluate((el) => (el as HTMLElement).style.transform);
+    const x = Number(/translate\((-?[\d.]+)px/.exec(transform)?.[1] ?? -1);
+    expect(x).toBeGreaterThan(0); // placed at the click x (right of left rail), not clamped to 0
+});

@@ -1232,16 +1232,28 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         setPendingTool(null);
     }, [branchMode, pendingTool, screenToFlowPosition, createWithTool, addBranchMember]);
 
-    const onNodeClick = React.useCallback((_: unknown, node: LdRfNode): void => {
-        if (!pendingTool || pendingTool !== 'branch') {
+    const onNodeClick = React.useCallback((event: React.MouseEvent, node: LdRfNode): void => {
+        if (!pendingTool) {
             return;
         }
-        if (node.type !== RF_TYPE_CONTACT || !node.parentId) {
-            setStatus('Open Branch: click a contact on the rung');
+        if (pendingTool === 'branch') {
+            if (node.type !== RF_TYPE_CONTACT || !node.parentId) {
+                setStatus('Open Branch: click a contact on the rung');
+                return;
+            }
+            openBranchAt(node.id, node.parentId);
             return;
         }
-        openBranchAt(node.id, node.parentId);
-    }, [pendingTool, openBranchAt]);
+        // Any other tool (contact/coil/FB/rail): clicking a rung container
+        // is equivalent to clicking the canvas — place the element there.
+        // (CODESYS/OpenPLC place elements by clicking inside the network row.)
+        if (node.type !== RF_TYPE_RUNG) {
+            return;
+        }
+        const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+        createWithTool(pendingTool, flowPos);
+        setPendingTool(null);
+    }, [pendingTool, openBranchAt, screenToFlowPosition, createWithTool]);
 
     // ── Node dragging: horizontal constraint + commit ────────
 
