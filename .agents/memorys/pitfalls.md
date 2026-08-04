@@ -882,3 +882,12 @@
 - **方案**: 编译走 widget.compileGraph()（先 validate → 再经 LdCompileServer JSON-RPC 到后端 loadBridge 扫描 lib/backend/native/ 加载 .node）
 - **验证**: 浏览器 E2E 点击 Compile → "Compile OK"
 - **禁止**: 不要在浏览器前端直接 require napi-rs bridge — 必须经后端 JSON-RPC
+
+## LD 编辑器 P1 会话补漏 (2026-08-04)
+
+### pos-only replace 多行内容 → 孤儿片段（语法损坏）
+- **问题**: edit 工具用 `pos` 单行 replace 插入多行代码块时，只替换了 1 行，原接口/组件的剩余行变成孤儿片段（顶层 `variableName?: string;`、悬空 `}, [tryApply, handler]);`、重复 `const CoilForm` 头），导致 TS1128/TS1005 语法错误
+- **原因**: 误以为 pos 无 end 的 replace 会替换多行 — 实际只替换 pos 那一行，插入的多行内容后面残留原行
+- **方案**: (a) 多行插入用 `pos + end` 范围 replace 或 append（锚定结构边界）；(b) 编辑后立即 `npx tsc --noEmit` 验证；(c) 出现 TS1128 孤儿片段时 grep 原类型名定位残留
+- **验证**: `grep -c 'const CoilForm' file` 应为 1；tsc 0 errors
+- **禁止**: 不要用 pos-only replace 替换单行并期望多行生效 — 多行内容必须用范围 replace
