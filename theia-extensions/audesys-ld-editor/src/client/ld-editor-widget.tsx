@@ -21,9 +21,10 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 
 import { LdGraph, createLdGraph } from '../model/model';
 import { fromJSON, toJSON } from '../model/serialization';
-import { LdOperationHandler } from '../backend/ld-operation-handler';
+import { LdOperationHandler, CompileResult, graphToLdText, parseCompileOutput } from '../backend/ld-operation-handler';
 import { LdGModelState } from '../state/ld-gmodel-state';
 import { LdPropertyState } from '../property-view/ld-property-state';
+import { LdCompileServer } from '../common/ld-compile-protocol';
 import { LdCanvas, LdCanvasController } from '../components/LdCanvas';
 
 /**
@@ -57,6 +58,7 @@ export class LdEditorWidget extends ReactWidget implements Saveable, Navigatable
     private readonly handler: LdOperationHandler;
     private readonly fileService: FileService;
     private readonly propertyState: LdPropertyState | undefined;
+    private readonly compileServer: LdCompileServer;
     private readonly controllerRef: React.MutableRefObject<LdCanvasController | null> = { current: null };
     private readonly onDirtyChangedEmitter = new Emitter<void>();
 
@@ -69,12 +71,19 @@ export class LdEditorWidget extends ReactWidget implements Saveable, Navigatable
         initialContent: string,
         fileService: FileService,
         propertyState?: LdPropertyState,
+        compileServer?: LdCompileServer,
     ) {
         super();
         this.uri = uri;
         this.fileService = fileService;
         this.propertyState = propertyState;
         this.handler = new LdOperationHandler();
+        // E2E/no-backend fallback: compile surface degrades to a rejected promise.
+        this.compileServer = compileServer ?? {
+            compileLd: () => {
+                throw new Error('LD compile server not available');
+            },
+        };
 
         const initial = parseInitialGraph(initialContent);
         this.state = new LdGModelState(initial.graph);
@@ -118,11 +127,34 @@ export class LdEditorWidget extends ReactWidget implements Saveable, Navigatable
         this.update();
     }
 
+    /**
+     * Compile the current graph via the backend JSON-RPC service.
+     * Exposed on window.__ldEditor for E2E tests (compile has no toolbar UI).
+     */
+    private async compileGraph(): Promise<CompileResult> {
+        const source = graphToLdText(this.state.graph);
+        // The JSON-RPC proxy is async — await the backend's raw response.
+        const raw = await this.compileServer.compileLd(source);
+        return parseCompileOutput(raw);
+    }
+
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
         // ReactWidget created via `new` never fires @postConstruct —
         // trigger the initial React render explicitly (pitfalls.md pattern).
         this.update();
+        // E2E hook: compile has no toolbar UI yet; tests drive it via the window.
+        (window as unknown as Record<string, unknown>).__ldEditor = {
+            compile: (): Promise<CompileResult> => this.compileGraph(),
+        };
+    }
+
+    protected override onCloseRequest(msg: Message): void {
+        super.onCloseRequest(msg);
+        const hook = (window as unknown as Record<string, unknown>).__ldEditor;
+        if (hook && (hook as { compile?: unknown }).compile === this.compileGraph) {
+            delete (window as unknown as Record<string, unknown>).__ldEditor;
+        }
     }
 
     protected render(): React.ReactNode {

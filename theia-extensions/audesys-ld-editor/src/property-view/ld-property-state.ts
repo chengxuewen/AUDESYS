@@ -19,7 +19,7 @@ export type SelectedElement =
       id: string;
       elementType: 'contact';
       variableName: string;
-      contactType: 'NO' | 'NC';
+      contactType: 'NO' | 'NC' | 'P' | 'N';
       position: { x: number; y: number };
     }
   | {

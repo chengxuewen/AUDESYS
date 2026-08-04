@@ -16,12 +16,14 @@ import {
     FrontendApplication,
     FrontendApplicationContribution,
     OpenerService,
+    WebSocketConnectionProvider,
 } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 
 import { LdPropertyState } from '../property-view/ld-property-state';
 import { LdPropertyContribution } from '../property-view/ld-property-contribution';
 import { LdEditorOpenHandler } from './ld-editor-opener';
+import { LdCompileServer, LdCompileServicePath } from '../common/ld-compile-protocol';
 
 import '@xyflow/react/dist/style.css';
 
@@ -40,8 +42,12 @@ class LdEditorBootstrap implements FrontendApplicationContribution {
     @inject(LdPropertyState)
     private readonly propertyState!: LdPropertyState;
 
+    @inject(WebSocketConnectionProvider)
+    private readonly connectionProvider!: WebSocketConnectionProvider;
+
     onStart(_app: FrontendApplication): void {
-        const handler = new LdEditorOpenHandler(this.shell, this.fileService, this.propertyState);
+        const compileServer = this.connectionProvider.createProxy<LdCompileServer>(LdCompileServicePath);
+        const handler = new LdEditorOpenHandler(this.shell, this.fileService, this.propertyState, compileServer);
         this.openerService.addHandler?.(handler);
     }
 }

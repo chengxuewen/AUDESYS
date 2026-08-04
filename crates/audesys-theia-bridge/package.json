@@ -1,7 +1,7 @@
 {
   "name": "@audesys/theia-bridge",
   "version": "0.1.0",
-  "main": "audesys-theia-bridge.darwin-x64.node",
+  "main": "index.darwin-x64.node",
   "types": "index.d.ts",
   "scripts": {
     "build": "napi build --platform --release",

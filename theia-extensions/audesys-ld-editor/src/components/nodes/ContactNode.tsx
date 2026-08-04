@@ -7,6 +7,11 @@
  *
  * Handles: target on the left, source on the right, anchored at the
  * symbol's vertical centre (y = 18) so wire edges meet the contact body.
+ * Parallel-branch members additionally expose top/bottom bus handles
+ * (bus-in / bus-out) used by the vertical branch wires.
+ *
+ * Double-clicking the variable label opens an inline rename input
+ * (committed via `d.onRename`).
  */
 
 import React from '@theia/core/shared/react';
@@ -26,16 +31,49 @@ const HANDLE_STYLE: React.CSSProperties = {
     top: HALF,
 };
 
+/** Top/bottom bus anchors (branch vertical wires). */
+const BUS_HANDLE_STYLE: React.CSSProperties = {
+    width: 8,
+    height: 8,
+    minWidth: 0,
+    minHeight: 0,
+    background: 'transparent',
+    border: 'none',
+};
+
 const str = (v: unknown, fallback: string): string =>
     typeof v === 'string' && v.length > 0 ? v : fallback;
 
-export const ContactNode: React.FC<NodeProps> = ({ data, selected }) => {
-    const contactType = str(data.contactType, 'NO');
-    const variableName = str(data.variableName, '??');
+interface LdContactData extends Record<string, unknown> {
+    variableName?: string;
+    contactType?: string;
+    onRename?: (id: string, name: string) => void;
+}
+
+export const ContactNode: React.FC<NodeProps> = ({ id, data, selected }) => {
+    const d = data as unknown as LdContactData;
+    const contactType = str(d.contactType, 'NO');
+    const variableName = str(d.variableName, '??');
     const isNO = contactType === 'NO' || contactType === 'P';
     const color = isNO
         ? 'var(--ld-contact-no-fill, #4caf50)'
         : 'var(--ld-contact-nc-fill, #f44336)';
+
+    const [editing, setEditing] = React.useState(false);
+    const [draft, setDraft] = React.useState(variableName);
+
+    const startEdit = (): void => {
+        setDraft(variableName);
+        setEditing(true);
+    };
+    const commit = (): void => {
+        setEditing(false);
+        const name = draft.trim();
+        if (name.length > 0 && name !== variableName) {
+            d.onRename?.(id, name);
+        }
+    };
+    const cancel = (): void => setEditing(false);
 
     return (
         <div className="ld-contact">
@@ -77,9 +115,28 @@ export const ContactNode: React.FC<NodeProps> = ({ data, selected }) => {
                     </text>
                 )}
             </svg>
-            <div className="ld-node-label">{variableName}</div>
+            {editing ? (
+                <input
+                    className="ld-node-rename"
+                    value={draft}
+                    autoFocus
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={commit}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') commit();
+                        if (e.key === 'Escape') cancel();
+                    }}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                />
+            ) : (
+                <div className="ld-node-label" onDoubleClick={startEdit} title="Double-click to rename">
+                    {variableName}
+                </div>
+            )}
             <Handle type="target" position={Position.Left} id="in" style={HANDLE_STYLE} />
             <Handle type="source" position={Position.Right} id="out" style={HANDLE_STYLE} />
+            <Handle type="target" position={Position.Top} id="bus-in" style={BUS_HANDLE_STYLE} />
+            <Handle type="source" position={Position.Bottom} id="bus-out" style={BUS_HANDLE_STYLE} />
         </div>
     );
 };

@@ -241,6 +241,8 @@ const ContactForm: React.FC<PropertyFormProps> = ({ element, onPropertyChange, e
         options={[
           { label: 'NO (Normally Open)', value: 'NO' },
           { label: 'NC (Normally Closed)', value: 'NC' },
+          { label: 'P (Rising Edge)', value: 'P' },
+          { label: 'N (Falling Edge)', value: 'N' },
         ]}
         onChange={(v) => onPropertyChange('contactType', v)}
       />
@@ -406,6 +408,9 @@ export class LdPropertyWidget extends ReactWidget {
 
   protected override onAfterAttach(msg: Message): void {
     super.onAfterAttach(msg);
+    // Created via `new` (contribution) — @postConstruct never fires; trigger
+    // the initial React render explicitly (pitfalls.md D104 pattern).
+    this.update();
     this.injectStyles();
   }
 

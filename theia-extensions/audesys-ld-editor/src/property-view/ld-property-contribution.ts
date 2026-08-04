@@ -49,6 +49,12 @@ export class LdPropertyContribution implements FrontendApplicationContribution {
     }
 
     private async openPropertyView(): Promise<void> {
+        // Both initializeLayout and onStart call this — dedupe, otherwise two
+        // widgets with the same id end up as two bottom-panel tabs.
+        const existing = this.shell.getWidgetById(LdPropertyWidget.ID);
+        if (existing) {
+            return;
+        }
         const widget = new LdPropertyWidget(this.propertyState);
         await this.shell.addWidget(widget, {
             area: 'bottom',

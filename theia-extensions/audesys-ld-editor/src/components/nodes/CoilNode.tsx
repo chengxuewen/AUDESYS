@@ -7,6 +7,9 @@
  *
  * Handles: target on the left, source on the right, anchored at the
  * symbol's vertical centre (y = 18).
+ *
+ * Double-clicking the variable label opens an inline rename input
+ * (committed via `d.onRename`).
  */
 
 import React from '@theia/core/shared/react';
@@ -29,13 +32,36 @@ const HANDLE_STYLE: React.CSSProperties = {
 const str = (v: unknown, fallback: string): string =>
     typeof v === 'string' && v.length > 0 ? v : fallback;
 
-export const CoilNode: React.FC<NodeProps> = ({ data, selected }) => {
-    const coilType = str(data.coilType, 'Normal');
-    const variableName = str(data.variableName, '??');
+interface LdCoilData extends Record<string, unknown> {
+    variableName?: string;
+    coilType?: string;
+    onRename?: (id: string, name: string) => void;
+}
+
+export const CoilNode: React.FC<NodeProps> = ({ id, data, selected }) => {
+    const d = data as unknown as LdCoilData;
+    const coilType = str(d.coilType, 'Normal');
+    const variableName = str(d.variableName, '??');
     const color =
         coilType === 'Set' ? 'var(--ld-coil-set-fill, #ff9800)' :
         coilType === 'Reset' ? 'var(--ld-coil-reset-fill, #f44336)' :
         'var(--ld-coil-normal-fill, #4caf50)';
+
+    const [editing, setEditing] = React.useState(false);
+    const [draft, setDraft] = React.useState(variableName);
+
+    const startEdit = (): void => {
+        setDraft(variableName);
+        setEditing(true);
+    };
+    const commit = (): void => {
+        setEditing(false);
+        const name = draft.trim();
+        if (name.length > 0 && name !== variableName) {
+            d.onRename?.(id, name);
+        }
+    };
+    const cancel = (): void => setEditing(false);
 
     return (
         <div className="ld-coil">
@@ -68,7 +94,24 @@ export const CoilNode: React.FC<NodeProps> = ({ data, selected }) => {
                     </text>
                 )}
             </svg>
-            <div className="ld-node-label">{variableName}</div>
+            {editing ? (
+                <input
+                    className="ld-node-rename"
+                    value={draft}
+                    autoFocus
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={commit}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') commit();
+                        if (e.key === 'Escape') cancel();
+                    }}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                />
+            ) : (
+                <div className="ld-node-label" onDoubleClick={startEdit} title="Double-click to rename">
+                    {variableName}
+                </div>
+            )}
             <Handle type="target" position={Position.Left} id="in" style={HANDLE_STYLE} />
             <Handle type="source" position={Position.Right} id="out" style={HANDLE_STYLE} />
         </div>

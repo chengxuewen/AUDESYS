@@ -14,6 +14,7 @@ import { URI } from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 
 import { LdPropertyState } from '../property-view/ld-property-state';
+import { LdCompileServer } from '../common/ld-compile-protocol';
 import { LdEditorWidget } from './ld-editor-widget';
 
 export class LdEditorOpenHandler implements OpenHandler {
@@ -28,6 +29,7 @@ export class LdEditorOpenHandler implements OpenHandler {
         private readonly shell: ApplicationShell,
         private readonly fileService: FileService,
         private readonly propertyState: LdPropertyState,
+        private readonly compileServer: LdCompileServer,
     ) { }
 
     canHandle(uri: URI): number {
@@ -51,7 +53,7 @@ export class LdEditorOpenHandler implements OpenHandler {
             // diagram; the widget falls back to a fresh one-rung graph.
         }
 
-        const widget = new LdEditorWidget(uri, content, this.fileService, this.propertyState);
+        const widget = new LdEditorWidget(uri, content, this.fileService, this.propertyState, this.compileServer);
         this.widgets.set(key, widget);
         widget.disposed.connect(() => this.widgets.delete(key));
 
