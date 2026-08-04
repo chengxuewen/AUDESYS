@@ -774,3 +774,51 @@
 - **问题**: 计划初稿"废弃 D92-D109"是错误的一刀切
 - **原因**: D108（编译器管线）+ D105（Yarn Workspaces）是 Rust 编译器/构建系统设计，与 GLSP 无关
 - **方案**: 逐项判定：废弃纯 GLSP（D92/93/97/99/101/103/104/107），保留通用（D95/96/98/105/106/108），部分处理（D94/100/102/109）
+
+## LD P0 E2E (T14-T22) — 2026-08-04
+
+### 扩展编译必须从扩展目录跑 tsc（本会话重犯 4 次）
+- **问题**: `npx tsc -b` 在 apps/studio 目录运行只编译 app 的 src-gen，扩展 lib/ 不更新，theia build 打包了过期 lib → 测试行为不变，白费 3 轮构建
+- **方案**: 修改 theia-extensions/*/src 后必须在扩展目录 `npx tsc -b`（验证 `grep -c 新符号 lib/...` > 0），再回 apps/studio `npx theia build`
+- **禁止**: 在 apps/studio 跑 tsc 期望编译扩展
+
+### tsbuildinfo 过期导致 tsc -b 静默跳过编译
+- **问题**: 修改 ld-editor-backend-module.ts 后 `tsc -b` 无错误无输出，lib/ 却是旧代码
+- **原因**: GLSP 时代遗留的 tsconfig.tsbuildinfo 与文件系统状态不一致，增量编译认为无需重建
+- **方案**: 删除扩展目录的 *.tsbuildinfo 后重新 `npx tsc -b`
+- **验证**: `grep -c 'loadBridge' lib/backend/ld-editor-backend-module.js` 必须 > 0
+
+### esbuild 把原生模块 main 打包成路径字符串
+- **问题**: bundle 中 `require('@audesys/theia-bridge')` 变成 `CRn.exports="./native/...node"`（字符串）而不是已加载的 addon → `bridge.compileLd` 未定义
+- **方案**: 后端运行时从 `lib/backend/native/` 目录扫描 `.node` 文件并 require（见 ld-editor-backend-module.ts loadBridge）
+- **验证**: bundle 的 compile 调用走 loadBridge 扫描路径
+
+### git 跟踪的 napi 二进制过期（main ≠ binaryName）
+- **问题**: package.json `main` 指向 `audesys-theia-bridge.darwin-x64.node`（git 跟踪的 Jul 21 旧文件），而 `npm run build`（napi build）输出 `index.darwin-x64.node`（binaryName）→ 编译永远用旧二进制，OR 支持缺失
+- **修复**: main 改为 `index.darwin-x64.node` + `git rm` 旧二进制 + 同步 node_modules 物理副本（file: 依赖在 install 时复制，不会自动更新）
+- **验证**: `node -e "require('.../index.darwin-x64.node').compileLd('NETWORK\n  NO IN0\n  | NO IN1\n  OUT Y0')"` 输出含 "Or"
+
+### React Flow v12 父子节点扁平渲染（无 DOM 嵌套）
+- **问题**: 断言 `.react-flow__node-rung .react-flow__node-contact`（DOM 嵌套）永远失败——v12.11.2 NodeRenderer 把子节点渲染为兄弟节点，靠 positionAbsolute 定位
+- **方案**: parentId 断言改为位置断言（子节点 transform = 父 rung 偏移 + 相对位置）
+- **注意**: T10/T18 已按此改写
+
+### 节点 label line-height 塌陷 → Playwright "not visible"
+- **问题**: `.ld-contact { line-height: 0 }` 使 `.ld-node-label` 高度为 0 → 双击不可达、Playwright 判定不可见
+- **修复**: label 改为 absolute 定位（top:38px）+ line-height:12px，节点盒保持 36px（避免 extent:'parent' 夹紧）
+- **教训**: 在 line-height:0 容器内加文本元素必须显式设置行高
+
+### 编辑器在页面关闭时保存脏图 → fixture 污染
+- **问题**: 测试修改图后页面关闭，Theia 把脏图写回 fixture 文件（rungs 不断累积）→ 重试/后续运行读到污染文件
+- **方案**: 每个测试开始时重写自己的 fixture（retry 安全）；beforeAll 重写只在每次运行起点
+- **验证**: 文件 mtime 与 rungNumber 核对
+
+### ReactWidget 经 new 创建必须 this.update()（D104 模式遗漏）
+- **问题**: LdPropertyWidget 由 contribution `new` 创建，onAfterAttach 只注入 CSS 未调用 `this.update()` → React 内容永不挂载（面板空白，测试找不到 .ld-property__select）
+- **修复**: onAfterAttach 加 `this.update()`
+- **附带**: contribution 的 initializeLayout + onStart 双调用创建了两个同名 widget → `shell.getWidgetById(ID)` 去重
+
+### extent:'parent' 夹紧（成员超出收缩后的 rung 容器）
+- **问题**: 删除分支成员后，幸存成员保留原 y（160）而 rung 容器高度按成员数收缩 → 成员被夹到 128（164-36）
+- **修复**: deleteElement 重新堆叠幸存成员（BRANCH_FIRST_Y + idx*40）；rungContainerHeight 按最深成员实际 y + 节点高计算
+- **验证**: T20 survivor.y === 120

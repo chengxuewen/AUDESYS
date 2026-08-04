@@ -1,7 +1,7 @@
 # AUDESYS 项目状态
 
 ## 当前阶段
-- **GLSP 完全移除 + React Flow 迁移完成** — 2026-08-03，LD/FBD 编辑器从 GLSP 迁移到 React Flow（D110）。`audesys-ld-glsp/`（4442 行）+ `audesys-fbd-glsp/`（2928 行）已删除，新建 `audesys-ld-editor/`（3710 行）。vitest 44/44 + Playwright E2E 13 场景。详见 .sisyphus/plans/glsp-removal-react-flow-migration/
+- **GLSP 完全移除 + React Flow 迁移完成** — 2026-08-03，LD/FBD 编辑器从 GLSP 迁移到 React Flow（D110）。`audesys-ld-glsp/`（4442 行）+ `audesys-fbd-glsp/`（2928 行）已删除，新建 `audesys-ld-editor/`（3710 行）。vitest 86/86 + Playwright E2E 20 场景（2026-08-04 T14-T22 并联分支/FB/改名/P-N 全绿）。详见 .sisyphus/plans/glsp-removal-react-flow-migration/
 - **LD/IL 编辑器改进完成** — 2026-07-31，Phase 1-2 完成：IL 编译器新增 S/R/NOT/MOD/定时器/计数器/边沿/双稳态 (33 助记符)、LD 并联分支 (| NO/NC→OR/ORN)、多输出、P/N 跳变触点、rung:group 视图、3 个 GLSP 操作 Handler。63 测试通过 (31 LD + 32 IL)。详见计划 .sisyphus/plans/ld-editor-improvements/
 - **FBD GLSP 迁移完成** — 2026-07-31，FBD 编辑器从 React+SVG 迁移到完整 Eclipse GLSP 架构。14 新文件、GPort 端口系统、5 种逻辑门 IView、36 测试全通过。详见 D107。
 - **Yarn Workspaces 迁移完成** — 2026-07-31，Studio 从 npm + file: link + 两步构建迁移到 Theia 官方 Yarn Workspaces monorepo。消除 `build-glsp.sh` 两步构建 workaround，Symbol 重复问题永久解决。构建流程：`yarn install && npx theia build`。
