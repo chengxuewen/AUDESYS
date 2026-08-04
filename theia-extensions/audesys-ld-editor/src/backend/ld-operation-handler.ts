@@ -67,6 +67,8 @@ export interface DeleteElementParams {
 export interface MoveElementParams {
   elementId: string;
   newPosition: Point;
+  /** ponytail: grid toggle (T6) — snap:false keeps the free drag position. */
+  snap?: boolean;
 }
 
 export interface ConnectWireParams {
@@ -500,7 +502,7 @@ export class LdOperationHandler {
       throw new ValidationError(`Node not found: ${params.elementId}`);
     }
 
-    const snapped = snapToGrid(params.newPosition);
+    const snapped = params.snap === false ? params.newPosition : snapToGrid(params.newPosition);
     const next = cloneGraph(graph);
 
     const idx = next.nodes.findIndex((n) => n.id === params.elementId);

@@ -35,7 +35,7 @@ import { ContactNode as ContactModelNode, ContactType, CoilNode as CoilModelNode
 import { toJSON } from '../model/serialization';
 import { LD_GRID, CONTACT_SIZE, RUNG_HEIGHT, RUNG_GROUP_HEIGHT, RUNG_GROUP_WIDTH, COIL_X_OFFSET, RAIL_WIDTH, BRANCH_FIRST_Y } from '../model/grid';
 import { FbType, fbPaletteEntries } from '../model/fb-catalog';
-import { LdOperationHandler } from '../backend/ld-operation-handler';
+import { LdOperationHandler, CompileResult } from '../backend/ld-operation-handler';
 import { LdGModelState } from '../state/ld-gmodel-state';
 import { LdPropertyState, SelectedElement } from '../property-view/ld-property-state';
 import { WireConnection } from '../model/edges';
@@ -509,21 +509,43 @@ export interface LdCanvasProps {
     propertyState?: LdPropertyState;
     controllerRef?: React.MutableRefObject<LdCanvasController | null>;
     onDirtyChange?: (dirty: boolean) => void;
+    /**
+     * Compile entry point (widget routes it to the backend JSON-RPC bridge;
+     * the frontend bundle cannot load the native .node addon).
+     * Defaults to handler.compile for standalone/local usage.
+     */
+    compile?: (graph: LdGraph) => Promise<CompileResult> | CompileResult;
 }
-
 const LdCanvasInner: React.FC<LdCanvasProps> = ({
-    state, handler, propertyState, controllerRef, onDirtyChange,
+    state, handler, propertyState, controllerRef, onDirtyChange, compile: compileFn,
 }) => {
     const { setNodes, setEdges, screenToFlowPosition } = useReactFlow();
     const [graph, setGraph] = React.useState<LdGraph>(() => state.graph);
     const [pendingTool, setPendingTool] = React.useState<LdTool | null>(null);
     const [status, setStatus] = React.useState('');
+    const [gridEnabled, setGridEnabled] = React.useState(true);
+    /** Last compile outcome — diagnostics feed the status tooltip. */
+    const [compileResult, setCompileResult] = React.useState<CompileResult | null>(null);
+    const [compileBusy, setCompileBusy] = React.useState(false);
     /** Active parallel branch being edited (open → add members → close). */
     const [branchMode, setBranchMode] = React.useState<{ branchId: string; rungId: string } | null>(null);
     /** Horizontal-drag constraint: original y per dragged node. */
     const dragStartY = React.useRef<Map<string, number>>(new Map());
 
     React.useEffect(injectCanvasStyles, []);
+
+    // Ctrl+G grid toggle (capture phase: wins over Theia's document-level
+    // keybindings while the LD widget is open).
+    React.useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent): void => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+                e.preventDefault();
+                setGridEnabled((v) => !v);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, []);
 
     const notifyDirty = React.useCallback((): void => {
         onDirtyChange?.(state.dirty);
@@ -576,6 +598,28 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     const addRung = React.useCallback((): void => {
         tryApply((g) => handler.addRung(g));
     }, [tryApply, handler]);
+
+    // ── Compile (T7/T7b) ──────────────────────────────────────
+
+    const runCompile = React.useCallback(async (): Promise<void> => {
+        setCompileBusy(true);
+        try {
+            const result = compileFn ? await compileFn(state.graph) : handler.compile(state.graph);
+            setCompileResult(result);
+            if (result.success) {
+                setStatus('Compile OK');
+            } else {
+                const errors = result.diagnostics.filter((d) => d.severity === 'error').length;
+                const warnings = result.diagnostics.filter((d) => d.severity === 'warning').length;
+                setStatus(`Compile: ${errors} errors, ${warnings} warnings`);
+            }
+        } catch (err) {
+            setCompileResult(null);
+            setStatus(`Compile failed: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setCompileBusy(false);
+        }
+    }, [compileFn, handler, state]);
 
     // ── Parallel branch flow ──────────────────────────────────
 
@@ -742,8 +786,9 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         tryApply((g) => handler.moveElement(g, {
             elementId: node.id,
             newPosition: { x: node.position.x, y: node.position.y },
+            snap: gridEnabled,
         }));
-    }, [tryApply, handler]);
+    }, [tryApply, handler, gridEnabled]);
 
     // ── Deletion (nodes cascade-remove their edges in the handler) ──
 
@@ -895,12 +940,26 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
 
     const initialFlow = React.useMemo(() => graphToFlow(graph, renameVar), []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    const diagnosticsTitle = compileResult && !compileResult.success && compileResult.diagnostics.length > 0
+        ? compileResult.diagnostics.map((d) => `[${d.code}] ${d.message}`).join('\n')
+        : undefined;
+
     return (
-        <div className="ld-editor-root">
+        <div className={gridEnabled ? 'ld-editor-root' : 'ld-editor-root ld-grid--disabled'}>
             <div className="ld-toolbar">
                 <button onClick={undo} disabled={state.undoDepth === 0} title="Undo">Undo</button>
                 <button onClick={redo} disabled={state.redoDepth === 0} title="Redo">Redo</button>
                 <button onClick={addRung} title="Add a rung at the bottom">Add Rung</button>
+                <button
+                    onClick={() => setGridEnabled((v) => !v)}
+                    className={gridEnabled ? 'ld-toolbar__tool--active' : ''}
+                    title="Toggle grid snapping (Ctrl+G)"
+                >
+                    Toggle Grid
+                </button>
+                <button onClick={runCompile} disabled={compileBusy} title="Compile the diagram (LD → HalProgram)">
+                    Compile
+                </button>
                 <div className="ld-toolbar__sep" />
                 {TOOLS.map((tool) => (
                     <button
@@ -935,14 +994,14 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                         {tool.label}
                     </button>
                 ))}
-                <div className="ld-status">{status}</div>
+                <div className="ld-status" title={diagnosticsTitle}>{status}</div>
             </div>
             <ReactFlow
                 defaultNodes={initialFlow.nodes}
                 defaultEdges={initialFlow.edges}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
-                snapToGrid={true}
+                snapToGrid={gridEnabled}
                 snapGrid={[LD_GRID.x, LD_GRID.y]}
                 defaultEdgeOptions={{ zIndex: 1 }}
                 nodesConnectable={false}
@@ -958,7 +1017,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 onSelectionChange={onSelectionChange}
                 className={pendingTool || branchMode ? 'ld-canvas--placing' : undefined}
             >
-                <Background variant={BackgroundVariant.Dots} gap={LD_GRID.x} size={1} />
+                <Background variant={gridEnabled ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={LD_GRID.x} size={1} />
                 <Controls />
                 <MiniMap pannable zoomable />
             </ReactFlow>

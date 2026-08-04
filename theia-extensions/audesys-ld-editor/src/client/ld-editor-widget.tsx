@@ -129,9 +129,22 @@ export class LdEditorWidget extends ReactWidget implements Saveable, Navigatable
 
     /**
      * Compile the current graph via the backend JSON-RPC service.
-     * Exposed on window.__ldEditor for E2E tests (compile has no toolbar UI).
+     * Mirrors handler.compile: validates first, then bridges — the toolbar
+     * Compile button and the E2E window.__ldEditor hook share this path.
      */
     private async compileGraph(): Promise<CompileResult> {
+        const validation = this.handler.validate(this.state.graph);
+        if (!validation.valid) {
+            return {
+                success: false,
+                programJson: '',
+                diagnostics: validation.errors.map((msg, i) => ({
+                    severity: 'error' as const,
+                    message: msg,
+                    code: `V${String(i + 1).padStart(3, '0')}`,
+                })),
+            };
+        }
         const source = graphToLdText(this.state.graph);
         // The JSON-RPC proxy is async — await the backend's raw response.
         const raw = await this.compileServer.compileLd(source);
@@ -156,13 +169,13 @@ export class LdEditorWidget extends ReactWidget implements Saveable, Navigatable
             delete (window as unknown as Record<string, unknown>).__ldEditor;
         }
     }
-
     protected render(): React.ReactNode {
         return React.createElement(LdCanvas, {
             state: this.state,
             handler: this.handler,
             propertyState: this.propertyState,
             controllerRef: this.controllerRef,
+            compile: (): Promise<CompileResult> => this.compileGraph(),
             onDirtyChange: (): void => {
                 this.onDirtyChangedEmitter.fire();
                 this.update();

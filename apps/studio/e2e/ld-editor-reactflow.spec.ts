@@ -100,6 +100,15 @@ function contactGraph(id: string): FxGraph {
     };
 }
 
+/** Rung with a coil but NO contacts — deliberately invalid (compile must reject). */
+function coilOnlyGraph(id: string): FxGraph {
+    return {
+        id,
+        nodes: [...rails(), coil('k1', 'OUT0')],
+        edges: [wire('w1', 'rail-l', 'k1'), wire('w2', 'k1', 'rail-r')],
+        rungs: [{ id: 'rung-1', rungNumber: 1, comment: 'Main', elementIds: ['k1'] }],
+    };
+}
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function writeFixture(name: string, graph: FxGraph): string {
@@ -172,7 +181,7 @@ async function readTransform(locator: Locator): Promise<{ x: number; y: number }
     expect(match, `unexpected transform "${transform}"`).not.toBeNull();
     return { x: Number(match![1]), y: Number(match![2]) };
 }
-
+/** Multi-step mouse drag of a node element by (dx, dy) screen pixels. */
 /** Multi-step mouse drag of a node element by (dx, dy) screen pixels. */
 async function dragNodeBy(page: Page, locator: Locator, dx: number, dy: number): Promise<void> {
     const box = await locator.boundingBox();
@@ -308,21 +317,72 @@ test('T5 delete contact → node removed and connected edges cascade-deleted', a
     await expect(page.locator('.react-flow__node-coil')).toHaveCount(1);
 });
 
-// ── T6: Grid toggle ─────────────────────────────────────────────────────────
-// ponytail: the React Flow editor has snapToGrid always on and exposes no
-// Ctrl+G toggle (that command belonged to the removed GLSP editor).
-// Un-testable until a toggle exists; tracked in the migration plan.
+// ── T6: Grid toggle (Ctrl+G + toolbar button) ───────────────────────────────
 
-test.fixme('T6 toggle grid (Ctrl+G) → snapToGrid behavior changes', async () => { });
+test('T6 toggle grid (button + Ctrl+G) → snapToGrid behavior changes', async ({ page }) => {
+    writeFixture('grid6.ld', contactGraph('grid6')); // per-test rewrite: app saves on close
+    await openLdFile(page, 'grid6.ld');
 
-// ── T7 / T7b: Compilation ───────────────────────────────────────────────────
-// Compile has no UI surface in the React Flow editor yet (backend module is a
-// Phase-1 placeholder and no window.__ldEditor hook exists). Handler.compile
-// is covered by src/__tests__/operation-handler.test.ts instead.
+    const node = page.locator('.react-flow__node-contact').first();
+    await expect(node).toBeVisible();
+    const root = page.locator('.ld-editor-root');
 
-test.fixme('T7 compile success → compileLd returns HalProgram', async () => { });
-test.fixme('T7b compile error → diagnostics returned', async () => { });
+    // Default: grid ON (no disabled indicator class)
+    await expect(root).not.toHaveClass(/ld-grid--disabled/);
 
+    // Snap ON: drag → position lands on the 40px grid
+    const before = await readTransform(node);
+    await dragNodeBy(page, node, 100, 0);
+    await expect
+        .poll(async () => (await readTransform(node)).x, { timeout: 10000 })
+        .not.toBe(before.x);
+    expect((await readTransform(node)).x % 40).toBe(0);
+
+    // Toggle OFF via the toolbar button → indicator class appears
+    await toolbarButton(page, 'Toggle Grid').click();
+    await expect(root).toHaveClass(/ld-grid--disabled/);
+
+    // Snap OFF: drag → position lands OFF the 40px grid (free movement).
+    // Note: React Flow applies an internal ~5px pointer threshold on top of the
+    // drag, so the exact delta is (screenPx + ~5) / zoom — assert the result
+    // directly instead of computing an expected flow delta.
+    const onGrid = await readTransform(node);
+    await dragNodeBy(page, node, 90, 0);
+    await expect
+        .poll(async () => (await readTransform(node)).x, { timeout: 10000 })
+        .not.toBe(onGrid.x);
+    const free = await readTransform(node);
+    expect(free.x % 40).not.toBe(0);
+    // Toggle ON again via Ctrl+G → indicator gone, snap restored
+    await page.keyboard.press('Control+g');
+    await expect(root).not.toHaveClass(/ld-grid--disabled/);
+    await dragNodeBy(page, node, 90, 0);
+    await expect
+        .poll(async () => (await readTransform(node)).x, { timeout: 10000 })
+        .not.toBe(free.x);
+    expect((await readTransform(node)).x % 40).toBe(0);
+});
+
+// ── T7 / T7b: Compile toolbar button + diagnostics ──────────────────────────
+
+test('T7 compile success → toolbar Compile shows "Compile OK"', async ({ page }) => {
+    writeFixture('compile7.ld', wiredGraph('compile7')); // per-test rewrite: app saves on close
+    await openLdFile(page, 'compile7.ld');
+
+    await toolbarButton(page, 'Compile').click();
+    await expect(page.locator('.ld-status')).toContainText('Compile OK', { timeout: 10000 });
+});
+
+test('T7b compile error → status shows error count and tooltip lists diagnostics', async ({ page }) => {
+    // Deliberately invalid: a coil with no contacts before it
+    writeFixture('compile7b.ld', coilOnlyGraph('compile7b')); // per-test rewrite: app saves on close
+    await openLdFile(page, 'compile7b.ld');
+
+    await toolbarButton(page, 'Compile').click();
+    const status = page.locator('.ld-status');
+    await expect(status).toContainText('Compile: 1 errors', { timeout: 10000 });
+    await expect(status).toHaveAttribute('title', /has a coil but no contacts/);
+});
 // ── T8 + T8b: Save → file JSON updated → reload round-trip ──────────────────
 
 test('T8/T8b save updates file JSON and reload restores the graph', async ({ page }) => {
