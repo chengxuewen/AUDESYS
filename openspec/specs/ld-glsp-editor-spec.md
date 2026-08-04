@@ -390,3 +390,49 @@ grep -rn "from 'sprotty'" theia-extensions/audesys-ld-glsp/src --include="*.ts" 
 # GLSP 服务端进程检查 (LD-BUILD-032)
 ps aux | grep 'ld-glsp.*server/index' | grep -v grep | wc -l
 ```
+---
+
+## 6. LD-RF — React Flow 布局与验证 (2026-08-04, D110 后)
+
+> **状态标注**: 上文 LD-CLIENT/LD-VIEW/LD-SERVER/LD-E2E/LD-BUILD 章节为 GLSP 时代规范（D110 已完全移除 GLSP，GLSP 相关条目仅供历史参考）。本章节是 React Flow 编辑器（`theia-extensions/audesys-ld-editor/`）的现行规范。
+> **组件**: `src/components/LdCanvas.tsx` + `src/components/nodes/` + `src/model/grid.ts` + `src/model/serialization.ts` + `src/model/validation-ui.ts` + `src/backend/ld-operation-handler.ts`
+
+### LD-RF-034: 电源轨框定 rung 容器（右轨贴合右边缘）
+
+右电源轨 x 位置必须与 rung 容器右边缘贴合，禁止存在"幻影右 padding"。
+
+- **前置条件**: `grid.ts` 常量定义
+- **操作**: 检查 `RUNG_GROUP_WIDTH` 与 `RAIL_X_RIGHT` 的关系
+- **期望**: `RUNG_GROUP_WIDTH === RAIL_X_RIGHT + RAIL_WIDTH`（= 644）。左轨 x=0，右轨 x=640（= COIL_X_OFFSET + CONTACT_SIZE + RAIL_WIDTH），容器右边缘 = 右轨 x + 轨道宽
+- **边界**: 曾为 `RAIL_X_RIGHT + 160`（GLSP 时代遗留），导致右轨渲染在容器中部（6533dbc 修复）
+- **测试映射**: `src/__tests__/grid.test.ts`（5 项），E2E T28
+
+### LD-RF-035: 空 rung 是警告（warning）而非错误（error）
+
+空 rung（`elementIds.length === 0`）是编辑过程中的合法中间态，必须降级为 warning，不阻塞编译。
+
+- **前置条件**: 图包含空 rung
+- **操作**: `validateGraph()` 对空 rung 输出 warning；`LdOperationHandler.validate()` 透传 warnings；`compile()` 仅因 errors 失败
+- **期望**: `ValidationResult.warnings` 含 `Empty rung: "..." (rung N) has no elements`；`valid` 仍为 true；Compile 成功（空网络编译为默认 Load+Halt 程序）
+- **边界**: 空 rung 曾为 error（红色徽标 + 阻塞编译），用户创建空白 LD 即误报（99bb2b4 修复）
+- **测试映射**: `src/__tests__/operation-handler.test.ts`（warns-not-errors），E2E T27/T29
+
+### LD-RF-036: 空 rung 警告高亮仅对选中 rung 显示
+
+多个空 rung 时，黄色警告高亮（`ld-rung-group--warning` + ⚠ 徽标）仅渲染在当前选中的 rung 上，未选中的空 rung 不显示黄色边框（tooltip 保留提示）。
+
+- **前置条件**: 3 个空 rung，无选中
+- **操作**: `LdCanvas` 只注入 `warningCount/warningTitle` data（不加 className）；`RungGroupNode` 内 `hasWarnings = warningCount > 0 && !hasErrors && selected`
+- **期望**: 无选中时 `.ld-rung-group--warning` 计数 = 0；点击 rung 后计数 = 1（仅该 rung）
+- **边界**: 曾无条件高亮全部空 rung（视觉噪声）；error 高亮不受 selected 限制（始终显示）
+- **测试映射**: E2E T27
+
+### LD-RF-037: 触点放置类型不依赖 DOM 顺序
+
+E2E 断言触点类型必须按 stroke 值匹配（`nc-fill`），禁止按 `nth()` DOM 顺序（React Flow 按位置排序渲染子节点，新节点可能排在 fixture 节点前）。
+
+- **前置条件**: fixture 含 1 个 NO 触点 + 放置 1 个 NC 触点
+- **操作**: 通过 stroke 属性值定位 NC 触点
+- **期望**: 存在 stroke 含 `nc-fill` 的触点；`nth(1)` 可能是 c1（NO）——不得作为定位依据
+- **边界**: 6533dbc（容器 800→644）后触点 x=0 排最前，暴露了 nth 断言脆弱性
+- **测试映射**: E2E T12

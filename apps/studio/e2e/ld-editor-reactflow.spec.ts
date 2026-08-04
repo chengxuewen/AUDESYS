@@ -493,10 +493,22 @@ test('T12 NC contact and Set/Reset coil variants render; NO→NC switch via prop
 
     // NC contact straight from the toolbar renders with the NC color variable
     await placeWithTool(page, 'NC Contact', 0.3, 0.4);
-    const ncContact = page.locator('.react-flow__node-contact').nth(1);
+    // The placed NC contact renders with the NC stroke — match by stroke
+    // value, NOT by nth() order (React Flow renders children by position,
+    // so the new node may sort before the fixture contact).
+    await expect
+        .poll(async () => {
+            const strokes = await page.evaluate(() =>
+                [...document.querySelectorAll('.react-flow__node-contact')]
+                    .map((c) => [...c.querySelectorAll('svg rect')].map((r) => r.getAttribute('stroke'))),
+            );
+            return strokes.flat().join(' ');
+        }, { timeout: 10000 })
+        .toContain('nc-fill');
+    const ncContact = page.locator('.react-flow__node-contact').filter({
+        has: page.locator('svg rect[stroke*="nc-fill"]'),
+    }).first();
     await expect(ncContact).toBeVisible({ timeout: 10000 });
-    const ncStroke = await ncContact.locator('svg rect').first().getAttribute('stroke');
-    expect(ncStroke ?? '').toContain('nc-fill');
 
     // Coil Set renders an "S", Coil Reset renders an "R"
     await placeWithTool(page, 'Coil S', 0.7, 0.4);
@@ -1144,4 +1156,84 @@ test('T26 cross-reference panel lists variables and row click highlights usages'
     // Ctrl+Shift+X closes the panel
     await page.keyboard.press('Control+Shift+x');
     await expect(panel).toHaveCount(0, { timeout: 10000 });
+});
+
+// ── T27: Empty-rung warning is yellow, selected-only, non-blocking ──────────
+
+test('T27 empty rungs warn (yellow, selected-only) and Add Rung + Compile succeed', async ({ page }) => {
+    writeFixture('warn27.ld', bareGraph('warn27'));
+    await openLdFile(page, 'warn27.ld');
+
+    // One empty rung from the fixture → warning badge (yellow), NOT red error
+    const badge = page.locator('.ld-validation-badge');
+    await expect(badge).toContainText('warning', { timeout: 10000 });
+    await expect(badge).not.toContainText('error');
+
+    // Add Rung ×2 → 3 empty rungs, all warnings, zero errors
+    await toolbarButton(page, 'Add Rung').click();
+    await toolbarButton(page, 'Add Rung').click();
+    await expect(page.locator('.ld-rung-group')).toHaveCount(3, { timeout: 10000 });
+    await expect(badge).toContainText('3 warnings', { timeout: 10000 });
+
+    // None selected initially → no rung shows the yellow warning class
+    await expect(page.locator('.ld-rung-group--warning')).toHaveCount(0, { timeout: 10000 });
+
+    // Click the second rung → ONLY it gets the yellow warning highlight
+    const rungs = page.locator('.ld-rung-group');
+    await rungs.nth(1).click();
+    await expect(page.locator('.ld-rung-group--warning')).toHaveCount(1, { timeout: 10000 });
+    await expect(rungs.nth(1)).toHaveClass(/ld-rung-group--warning/);
+
+    // Compile is NOT blocked by empty rungs (empty networks are legal)
+    await toolbarButton(page, 'Compile').click();
+    await expect(page.locator('.ld-status')).toContainText('Compile OK', { timeout: 15000 });
+});
+
+// ── T28: Power rails frame the rung container (right rail hugs right edge) ──
+
+test('T28 right power rail sits at the rung container right edge', async ({ page }) => {
+    writeFixture('rail28.ld', wiredGraph('rail28'));
+    await openLdFile(page, 'rail28.ld');
+
+    const rung = page.locator('.react-flow__node-rung');
+    await expect(rung).toBeVisible({ timeout: 10000 });
+
+    // Container width must equal rail span + stroke: 640 (right rail x) + 4
+    await expect.poll(async () => {
+        return await rung.evaluate((el) => (el as HTMLElement).getBoundingClientRect().width);
+    }, { timeout: 10000 }).toBeLessThan(700);
+
+    // Right rail must overlap the container's right edge (rail x == 640,
+    // container right edge == 644 → rail starts 4px inside the edge)
+    await expect.poll(async () => {
+        const railRight = await page.locator('.react-flow__node-powerrail[data-id="rail-r"]').evaluate((el) => (el as HTMLElement).getBoundingClientRect().x);
+        const rungRight = await rung.evaluate((el) => (el as HTMLElement).getBoundingClientRect().x + (el as HTMLElement).getBoundingClientRect().width);
+        return Math.abs(rungRight - railRight);
+    }, { timeout: 10000 }).toBeLessThan(20);
+});
+
+// ── T29: Empty rung validation is non-blocking end-to-end (compile passes) ──
+
+test('T29 add-contact on empty rung clears the empty-rung warning', async ({ page }) => {
+    writeFixture('warn29.ld', bareGraph('warn29'));
+    await openLdFile(page, 'warn29.ld');
+
+    // Initially: 1 empty rung → 1 warning
+    const badge = page.locator('.ld-validation-badge');
+    await expect(badge).toContainText('1 warning', { timeout: 10000 });
+
+    // Select the rung so the warning is visible, then drop a contact into it
+    const rung = page.locator('.react-flow__node-rung');
+    const rungBody = rung.locator('.ld-rung-group');
+    await rung.click();
+    await expect(rungBody).toHaveClass(/ld-rung-group--warning/, { timeout: 10000 });
+
+    // Place a NO contact on the rung body (tool palette → canvas click)
+    await toolbarButton(page, 'NO Contact').click();
+    const rungBox = await rung.boundingBox();
+    await page.mouse.click(rungBox!.x + 100, rungBox!.y + 60);
+
+    // Warning disappears once the rung has an element; badge flips to ✓
+    await expect(badge).toContainText('✓', { timeout: 10000 });
+    await expect(rungBody).not.toHaveClass(/ld-rung-group--warning/, { timeout: 10000 });
 });
