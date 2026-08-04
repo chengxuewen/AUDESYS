@@ -88,6 +88,7 @@ export class IecNewFileContribution implements CommandContribution, MenuContribu
                             fileUri = workspaceRoot.resource.resolve(name);
                             counter++;
                         } while (await this.fileService.exists(fileUri) && counter < 100);
+                        await this.fileService.writeFile(
                             fileUri,
                             BinaryBuffer.fromString(entry.template)
                         );

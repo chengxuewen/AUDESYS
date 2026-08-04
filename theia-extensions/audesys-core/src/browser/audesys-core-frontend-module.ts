@@ -7,6 +7,7 @@ import { IecNavigatorDecorator } from './iec-navigator-decorator';
 import { IecFileIconTheme } from './iec-icons';
 import { IecNewFileContribution } from './iec-new-file-contribution';
 import { IecContextMenuContribution } from './iec-context-menu';
+import { OpenFolderMenuContribution } from './open-folder-menu';
 import { WindowTitleContribution } from './window-title-contribution';
 import { SignalBrowserContribution } from './signal-browser/signal-browser-contribution';
 import { ScopeViewContribution } from './scope-view/scope-view-contribution';
@@ -27,6 +28,9 @@ export default new ContainerModule((bind) => {
     bind(CommandContribution).to(IecContextMenuContribution).inSingletonScope();
     bind(MenuContribution).to(IecContextMenuContribution).inSingletonScope();
 
+    // Open Folder menu entry — Theia hides it on macOS/browser mode
+    bind(CommandContribution).to(OpenFolderMenuContribution).inSingletonScope();
+    bind(MenuContribution).to(OpenFolderMenuContribution).inSingletonScope();
     // Signal Browser widget — left sidebar panel at rank 300
     bind(SignalBrowserContribution).toSelf().inSingletonScope();
     bind(WidgetFactory).toService(SignalBrowserContribution);
