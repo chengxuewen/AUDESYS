@@ -1027,11 +1027,13 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 className = className ? `${className} ld-node--error` : 'ld-node--error';
                 data = { ...data, errorTitle: nodeErrors.join('\n') };
             }
-            // Warnings (e.g. empty rung): yellow badge, non-blocking.
+            // Warnings (e.g. empty rung): inject data only — the visual
+            // highlight (yellow border + badge) is rendered inside
+            // RungGroupNode, which shows it only for the selected rung
+            // (avoids every empty rung glowing at once).
             if (rungNumber > 0 && validation.warningRungNumbers.includes(rungNumber)) {
                 const rungWarn = validation.rungWarnings.get(rungNumber) ?? [];
                 if (rungWarn.length > 0) {
-                    className = className ? `${className} ld-node--warning` : 'ld-node--warning';
                     data = { ...data, warningCount: rungWarn.length, warningTitle: rungWarn.join('\n') };
                 }
             }

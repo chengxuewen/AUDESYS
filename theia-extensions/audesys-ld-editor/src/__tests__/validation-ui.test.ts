@@ -73,6 +73,33 @@ describe('parseValidationErrors', () => {
         expect(markup.rungWarnings.get(1)).toHaveLength(1);
     });
 
+    it('multiple empty rungs all land in the warning channel (no red errors)', () => {
+        // Arrange — 3 empty rungs (Add Rung ×3 scenario)
+        const graph = {
+            ...createLdGraph(),
+            rungs: [createRung(1, [], 'Main'), createRung(2, []), createRung(3, [])],
+        };
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: [
+                `Empty rung: "${graph.rungs[0].id}" (rung 1) has no elements`,
+                `Empty rung: "${graph.rungs[1].id}" (rung 2) has no elements`,
+                `Empty rung: "${graph.rungs[2].id}" (rung 3) has no elements`,
+            ],
+        };
+
+        // Act
+        const markup = parseValidationErrors(result, graph);
+
+        // Assert: all 3 are warnings; zero rungs flagged as errors
+        expect(markup.total).toBe(0);
+        expect(markup.rungNumbers).toEqual([]);
+        expect(markup.warningRungNumbers).toEqual([1, 2, 3]);
+        expect(markup.warningTotal).toBe(3);
+        expect([...markup.rungWarnings.keys()].sort()).toEqual([1, 2, 3]);
+    });
+
     it('maps orphan-node messages to the existing node id', () => {
         // Arrange
         const graph = graphWithRung();

@@ -42,7 +42,7 @@ export const RungGroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     const warningTitle = str(data.warningTitle);
     const hasAnnotation = title.length > 0 || comment.length > 0 || selected;
     const hasErrors = errorCount > 0;
-    const hasWarnings = warningCount > 0 && !hasErrors;
+    const hasWarnings = warningCount > 0 && !hasErrors && selected;
     const [editingTitle, setEditingTitle] = React.useState(false);
     const [editingComment, setEditingComment] = React.useState(false);
     const [titleDraft, setTitleDraft] = React.useState(title);
