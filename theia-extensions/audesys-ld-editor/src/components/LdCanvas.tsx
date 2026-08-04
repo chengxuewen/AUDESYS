@@ -39,6 +39,7 @@ import { LdOperationHandler, CompileResult } from '../backend/ld-operation-handl
 import { LdGModelState } from '../state/ld-gmodel-state';
 import { LdPropertyState, SelectedElement } from '../property-view/ld-property-state';
 import { WireConnection } from '../model/edges';
+import { parseValidationErrors, ValidationMarkup } from '../model/validation-ui';
 import { findVariable, listVariables } from '../model/variable-utils';
 
 import { ContactNode } from './nodes/ContactNode';
@@ -68,6 +69,12 @@ export interface LdNodeData extends Record<string, unknown> {
     onChangeType?: (id: string, type: string) => void;
     onSetTitle?: (id: string, title: string) => void;
     onSetComment?: (id: string, comment: string) => void;
+    /** P2 validation: error count + messages for the rung container. */
+    errorCount?: number;
+    errorTitle?: string;
+    /** P2 monitoring: live value + mode flag for contact/coil badges. */
+    monitoring?: boolean;
+    value?: number;
 }
 
 export type LdRfNode = Node<LdNodeData>;
@@ -599,9 +606,61 @@ const LD_CANVAS_CSS = `
   outline-offset: 2px;
   border-radius: 4px;
 }
-.react-flow__node.ld-node--current-match {
-  outline-color: var(--ld-find-current-color, #ff9800);
-  background: rgba(255, 183, 77, 0.12);
+/* P2 real-time validation (SmartCoding-style): red markers + badges */
+.react-flow__node.ld-node--error {
+  outline: 2px solid var(--ld-error-color, #f44336);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.ld-rung-group--error {
+  border-color: var(--ld-error-color, #f44336) !important;
+}
+.ld-rung-group__error-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  color: #fff;
+  background: var(--ld-error-color, #f44336);
+  border-radius: 8px;
+  padding: 0 5px;
+  z-index: 5;
+  pointer-events: none;
+}
+.ld-validation-badge {
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--theia-successForeground, #89d185);
+  white-space: nowrap;
+}
+.ld-validation-badge--error {
+  color: var(--ld-error-color, #f44336);
+  font-weight: 600;
+}
+/* P2 monitoring mode: live value badges + active signal-path wires */
+.ld-value-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--theia-editor-foreground, #ccc);
+  background: var(--theia-input-background, #3c3c3c);
+  border: 1px solid var(--theia-panel-border, #555);
+  border-radius: 8px;
+  z-index: 4;
+  pointer-events: none;
+}
+.ld-value-badge--on {
+  color: #1e1e1e;
+  background: var(--ld-edge-active-color, #ffc107);
+  border-color: var(--ld-edge-active-color, #ffc107);
+  font-weight: 700;
 }
 /* Cross Reference panel (P1) */
 .ld-xref-panel {
@@ -720,8 +779,32 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     const findInputRef = React.useRef<HTMLInputElement | null>(null);
     /** Horizontal-drag constraint: original y per dragged node. */
     const dragStartY = React.useRef<Map<string, number>>(new Map());
+    // ── P2 real-time validation + monitoring ─────────────────
+    /** SmartCoding-style markup: which rungs/nodes carry which errors. */
+    const [validation, setValidation] = React.useState<ValidationMarkup>({
+        total: 0, messages: [], rungNumbers: [], rungIds: [], rungErrors: new Map(), nodeIds: [], nodeErrors: new Map(),
+    });
+    /** Monitor mode: live value badges + active signal-path wires. */
+    const [monitoring, setMonitoring] = React.useState(false);
+    /** Skeleton signal source (future: Runtime IPC). id → live value. */
+    const [monitorValues, setMonitorValues] = React.useState<Record<string, number>>({});
 
     React.useEffect(injectCanvasStyles, []);
+
+    // Debounced validation: run immediately on mount, then 500ms after
+    // every graph change (CODESYS SmartCoding pattern).
+    const firstValidation = React.useRef(true);
+    React.useEffect(() => {
+        if (firstValidation.current) {
+            firstValidation.current = false;
+            setValidation(parseValidationErrors(handler.validate(graph), graph));
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            setValidation(parseValidationErrors(handler.validate(graph), graph));
+        }, 500);
+        return () => window.clearTimeout(timer);
+    }, [graph, handler]);
 
     // Ctrl+G grid toggle, Ctrl+F find, Ctrl+Shift+X cross-ref, Esc closes
     // find (capture phase: wins over Theia's document-level keybindings
@@ -882,20 +965,65 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
 
     // Sync LdGraph changes into the React Flow store (uncontrolled mode:
     // defaultNodes on mount, imperative setNodes/setEdges afterwards).
+    // P2: also folds in validation markers (ld-node--error, rung badges) and
+    // monitoring data (value badges + active wire flags) in one pass.
     React.useEffect(() => {
         const flow = graphToFlow(graph, flowCallbacks);
         const found = new Set(highlightIds);
-        setNodes(flow.nodes.map((n) => {
-            if (!found.has(n.id)) {
+        const errorNodeIds = new Set(validation.nodeIds);
+        const errorRungIds = new Set(validation.rungIds);
+        const rungIdByNumber = new Map<number, string>();
+        for (const r of graph.rungs) rungIdByNumber.set(r.rungNumber, r.id);
+        const hasRuntimeValues = Object.keys(monitorValues).length > 0;
+
+        const nodes = flow.nodes.map((n) => {
+            let className: string | undefined;
+            if (found.has(n.id)) {
+                className = n.id === currentMatchId
+                    ? 'ld-node--found ld-node--current-match'
+                    : 'ld-node--found';
+            }
+            let data = n.data;
+            // Rung-level errors: rung id from markup, or rungNumber lookup.
+            const rungNumber = typeof n.data.rungNumber === 'number' ? n.data.rungNumber : 0;
+            const rungErrorIds = errorRungIds.has(n.id)
+                ? [n.id]
+                : (rungNumber > 0 && validation.rungNumbers.includes(rungNumber) ? [n.id] : []);
+            if (rungErrorIds.length > 0) {
+                const rungErrors = validation.rungErrors.get(rungNumber) ?? [];
+                if (rungErrors.length > 0) {
+                    className = className ? `${className} ld-node--error` : 'ld-node--error';
+                    data = { ...data, errorCount: rungErrors.length, errorTitle: rungErrors.join('\n') };
+                }
+            }
+            if (errorNodeIds.has(n.id)) {
+                const nodeErrors = validation.nodeErrors.get(n.id) ?? [];
+                className = className ? `${className} ld-node--error` : 'ld-node--error';
+                data = { ...data, errorTitle: nodeErrors.join('\n') };
+            }
+            // Monitor mode: inject the live value into contact/coil data.
+            if (monitoring && (n.type === RF_TYPE_CONTACT || n.type === RF_TYPE_COIL)) {
+                data = { ...data, monitoring: true, value: monitorValues[n.id] ?? 0 };
+            }
+            if (data === n.data && className === undefined) {
                 return n;
             }
-            const className = n.id === currentMatchId
-                ? 'ld-node--found ld-node--current-match'
-                : 'ld-node--found';
-            return { ...n, className };
-        }));
-        setEdges(flow.edges);
-    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId]);
+            return { ...n, className, data };
+        });
+        setNodes(nodes);
+
+        // Flow highlighting: wire is active when its source carries a truthy
+        // value; with no runtime values injected yet, alternate for the demo.
+        const edges = flow.edges.map((e, i) => {
+            if (!monitoring) return e;
+            const active = hasRuntimeValues
+                ? (monitorValues[e.source] ?? 0) !== 0
+                : i % 2 === 0; // ponytail: demo pattern until Runtime injects values
+            if (!active) return e;
+            return { ...e, data: { ...e.data, active: true } };
+        });
+        setEdges(edges);
+    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId, monitoring, monitorValues, validation]);
 
 
     // ── Toolbar actions ───────────────────────────────────────
@@ -1307,6 +1435,13 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 >
                     Cross Ref
                 </button>
+                <button
+                    onClick={() => setMonitoring((v) => !v)}
+                    className={monitoring ? 'ld-toolbar__tool--active' : ''}
+                    title="Monitor mode — live value badges and active signal paths (values come from the Runtime in a future integration)"
+                >
+                    Monitor
+                </button>
                 <div className="ld-toolbar__sep" />
                 {TOOLS.map((tool) => (
                     <button
@@ -1361,6 +1496,12 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                         </span>
                     </>
                 )}
+                <span
+                    className={validation.total > 0 ? 'ld-validation-badge ld-validation-badge--error' : 'ld-validation-badge'}
+                    title={validation.messages.length > 0 ? validation.messages.join('\n') : undefined}
+                >
+                    {validation.total > 0 ? `⚠ ${validation.total} error${validation.total === 1 ? '' : 's'}` : '✓'}
+                </span>
                 <div className="ld-status" title={diagnosticsTitle}>{status}</div>
             </div>
             {xrefOpen && (

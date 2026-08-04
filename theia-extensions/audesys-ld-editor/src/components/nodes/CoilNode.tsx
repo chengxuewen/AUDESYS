@@ -41,6 +41,9 @@ interface LdCoilData extends Record<string, unknown> {
     comment?: string;
     onRename?: (id: string, name: string) => void;
     onChangeType?: (id: string, type: string) => void;
+    /** P2 monitoring: live value badge. */
+    monitoring?: boolean;
+    value?: number;
 }
 
 /** Replacement options (P1): Normal ↔ Negated ↔ Set ↔ Reset, variable name preserved. */
@@ -81,8 +84,14 @@ export const CoilNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         ? `${comment} — double-click to rename`
         : 'Double-click to rename';
 
+    const monitoring = d.monitoring === true;
+    const value = typeof d.value === 'number' ? d.value : 0;
+
     return (
         <div className="ld-coil">
+            {monitoring && (
+                <span className={value !== 0 ? 'ld-value-badge ld-value-badge--on' : 'ld-value-badge'}>{value}</span>
+            )}
             {selected && (
                 <NodeToolbar position={Position.Top} offset={6}>
                     <div className="ld-type-switch">

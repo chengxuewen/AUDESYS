@@ -19,6 +19,8 @@ import { BaseEdge, getSmoothStepPath, getStraightPath, EdgeProps } from '@xyflow
  */
 export const WireEdge: React.FC<EdgeProps> = (props) => {
     const sameRow = props.sourceY === props.targetY;
+    // P2 monitoring: data.active marks the wire as carrying a live signal.
+    const active = (props.data as Record<string, unknown> | undefined)?.active === true;
     const [path] = sameRow
         ? getStraightPath({
             sourceX: props.sourceX,
@@ -38,15 +40,18 @@ export const WireEdge: React.FC<EdgeProps> = (props) => {
         <BaseEdge
             id={props.id}
             path={path}
+            className={active ? 'ld-edge--active' : undefined}
             // Wires are auto-generated decoration — no fat hit area. Branch bus
             // edges run through member columns; their 20px interaction path
             // would swallow clicks on the members themselves.
             interactionWidth={0}
             style={{
-                stroke: props.selected
-                    ? 'var(--ld-selection-color, #2196f3)'
-                    : 'var(--ld-wire-color, #666)',
-                strokeWidth: 2,
+                stroke: active
+                    ? 'var(--ld-edge-active-color, #ffc107)'
+                    : props.selected
+                        ? 'var(--ld-selection-color, #2196f3)'
+                        : 'var(--ld-wire-color, #666)',
+                strokeWidth: active ? 3 : 2,
                 pointerEvents: 'none',
             }}
         />

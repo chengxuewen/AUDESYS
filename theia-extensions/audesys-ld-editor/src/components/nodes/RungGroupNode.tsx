@@ -23,6 +23,9 @@ interface LdRungData extends Record<string, unknown> {
     comment?: string;
     onSetTitle?: (id: string, title: string) => void;
     onSetComment?: (id: string, comment: string) => void;
+    /** P2 validation: rung-level error count + messages (tooltip). */
+    errorCount?: number;
+    errorTitle?: string;
 }
 
 export const RungGroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
@@ -30,7 +33,10 @@ export const RungGroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     const rungNumber = num(data.rungNumber, 0);
     const title = str(data.title);
     const comment = str(data.comment);
+    const errorCount = num(data.errorCount, 0);
+    const errorTitle = str(data.errorTitle);
     const hasAnnotation = title.length > 0 || comment.length > 0 || selected;
+    const hasErrors = errorCount > 0;
 
     const [editingTitle, setEditingTitle] = React.useState(false);
     const [editingComment, setEditingComment] = React.useState(false);
@@ -59,7 +65,13 @@ export const RungGroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     };
 
     return (
-        <div className={`ld-rung-group${selected ? ' ld-rung-group--selected' : ''}${hasAnnotation ? ' ld-rung-group--annotated' : ''}`}>
+        <div
+            className={`ld-rung-group${selected ? ' ld-rung-group--selected' : ''}${hasAnnotation ? ' ld-rung-group--annotated' : ''}${hasErrors ? ' ld-rung-group--error' : ''}`}
+            title={errorTitle || undefined}
+        >
+            {hasErrors && (
+                <span className="ld-rung-group__error-badge">⚠ {errorCount}</span>
+            )}
             {editingTitle ? (
                 <input
                     className="ld-rung-group__title-input"
