@@ -17,10 +17,10 @@
 - **HMI 设计器就绪** — 2026-07-19，可视化拖拽编辑器（react-rnd 自由布局画布）、7 种工业 widget（Gauge/Trend/Tank/Indicator/Button/Display/Text）、信号绑定对话框（controller_signal_snapshot 集成）、属性面板（位置/尺寸/标签/信号/类型专属配置）、Edit/Preview 模式切换、YAML 持久化（save_hmi_layout/load_hmi_layout）
 
 ## 仓库状态
-- **最新提交**: `9ee10d0` — `fix(ld): add rung:group containableElementTypeIds for node creation`（当前会话含 LD 网格集成 + 创建调试，部分未提交）
-- **提交历史**: 197+ commits on main (2026-07-08 至 2026-08-03)
+- **最新提交**: `d772ded` — `docs(memory): lesson-review 补漏 5 条 (2026-08-04)`（LD 编辑器 P0 功能 + E2E T14-T22 + GLSP 移除，26 commits ahead of origin/main 未 push）
+- **提交历史**: 210+ commits on main (2026-07-08 至 2026-08-04)
 - **源代码**: 24 crates（crates/）+ 1 Tauri 应用（3rdparty/AUDEDeck/）。apps/studio/ 已弃用（D71 Theia 迁移）
-- **测试**: 799 `#[test]` 标注 + vitest 163 tests (LD GLSP) + Rust (40 LD + 39 IL) + Playwright E2E |
+- **测试**: 799 `#[test]` 标注 + vitest 86 tests (LD React Flow) + 26 tests (FBD React Flow) + Rust (40 LD + 39 IL) + Playwright E2E 20 场景 (LD React Flow) |
 - **SDD 规范**: 239 项（openspec/specs/7 份）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(41) + HMI(22) + Studio Theia(55)
 - **CI**: qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ GitHub Actions macOS+Linux 矩阵
 - **依赖**: `@colbymchenry/codegraph` (devDependency) + Rust toolchain stable
