@@ -29,8 +29,8 @@ export const COIL_X_OFFSET = 600;
 /** Right power rail x position = coil offset + contact size + rail width. */
 export const RAIL_X_RIGHT = COIL_X_OFFSET + CONTACT_SIZE + RAIL_WIDTH;
 
-/** Rung group container width (right rail + right padding). */
-export const RUNG_GROUP_WIDTH = RAIL_X_RIGHT + 160;
+/** Rung group container width — right edge hugs the right power rail. */
+export const RUNG_GROUP_WIDTH = RAIL_X_RIGHT + RAIL_WIDTH;
 
 /**
  * First branch-member row y offset (3 rows below the top row).
