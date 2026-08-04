@@ -39,6 +39,7 @@ import { LdOperationHandler, CompileResult } from '../backend/ld-operation-handl
 import { LdGModelState } from '../state/ld-gmodel-state';
 import { LdPropertyState, SelectedElement } from '../property-view/ld-property-state';
 import { WireConnection } from '../model/edges';
+import { findVariable, listVariables } from '../model/variable-utils';
 
 import { ContactNode } from './nodes/ContactNode';
 import { CoilNode } from './nodes/CoilNode';
@@ -572,6 +573,85 @@ const LD_CANVAS_CSS = `
   right: 6px;
   text-align: right;
 }
+
+/* Find (P1): input + match status + node highlight classes */
+.ld-find-input {
+  font-size: 11px;
+  font-family: var(--theia-ui-font-family);
+  color: var(--theia-input-foreground, #ccc);
+  background: var(--theia-input-background, #252526);
+  border: 1px solid var(--theia-focusBorder, #007fd4);
+  border-radius: 2px;
+  padding: 2px 4px;
+  width: 150px;
+  outline: none;
+}
+.ld-find-status {
+  font-size: 11px;
+  color: var(--theia-descriptionForeground, #bbb);
+  min-width: 56px;
+}
+.ld-find-status--none {
+  color: var(--theia-errorForeground, #f48771);
+}
+.react-flow__node.ld-node--found {
+  outline: 2px solid var(--ld-find-color, #ffb74d);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.react-flow__node.ld-node--current-match {
+  outline-color: var(--ld-find-current-color, #ff9800);
+  background: rgba(255, 183, 77, 0.12);
+}
+/* Cross Reference panel (P1) */
+.ld-xref-panel {
+  border-bottom: 1px solid var(--theia-panel-border, #444);
+  background: var(--theia-sideBar-background, #252526);
+  max-height: 40%;
+  overflow-y: auto;
+  font-size: 11px;
+  font-family: var(--theia-ui-font-family);
+}
+.ld-xref-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--theia-panel-border, #444);
+  font-weight: 600;
+}
+.ld-xref-panel__header button {
+  background: transparent;
+  border: none;
+  color: var(--theia-foreground, #ccc);
+  cursor: pointer;
+  font-size: 12px;
+}
+.ld-xref-panel__empty {
+  padding: 4px 8px;
+  font-style: italic;
+  color: var(--theia-descriptionForeground, #bbb);
+}
+.ld-xref-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.ld-xref-row:hover {
+  background: var(--theia-list-hoverBackground, #2a2d2e);
+}
+.ld-xref-row__name {
+  font-weight: 600;
+  min-width: 120px;
+}
+.ld-xref-row__count {
+  color: var(--theia-descriptionForeground, #bbb);
+}
+.ld-xref-row__usages {
+  color: var(--theia-descriptionForeground, #bbb);
+}
 `;
 
 function injectCanvasStyles(): void {
@@ -620,7 +700,7 @@ export interface LdCanvasProps {
 const LdCanvasInner: React.FC<LdCanvasProps> = ({
     state, handler, propertyState, controllerRef, onDirtyChange, compile: compileFn,
 }) => {
-    const { setNodes, setEdges, screenToFlowPosition } = useReactFlow();
+    const { setNodes, setEdges, screenToFlowPosition, getInternalNode, getZoom, setCenter } = useReactFlow();
     const [graph, setGraph] = React.useState<LdGraph>(() => state.graph);
     const [pendingTool, setPendingTool] = React.useState<LdTool | null>(null);
     const [status, setStatus] = React.useState('');
@@ -630,23 +710,115 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     const [compileBusy, setCompileBusy] = React.useState(false);
     /** Active parallel branch being edited (open → add members → close). */
     const [branchMode, setBranchMode] = React.useState<{ branchId: string; rungId: string } | null>(null);
+    // ── Find (Ctrl+F) + Cross Reference (Ctrl+Shift+X) ──────
+    const [findOpen, setFindOpen] = React.useState(false);
+    const [findQuery, setFindQuery] = React.useState('');
+    const [findIndex, setFindIndex] = React.useState(0);
+    const [xrefOpen, setXrefOpen] = React.useState(false);
+    /** Cross-ref click highlight: every usage of the chosen variable. */
+    const [xrefFocus, setXrefFocus] = React.useState<{ ids: string[]; currentId: string } | null>(null);
+    const findInputRef = React.useRef<HTMLInputElement | null>(null);
     /** Horizontal-drag constraint: original y per dragged node. */
     const dragStartY = React.useRef<Map<string, number>>(new Map());
 
     React.useEffect(injectCanvasStyles, []);
 
-    // Ctrl+G grid toggle (capture phase: wins over Theia's document-level
-    // keybindings while the LD widget is open).
+    // Ctrl+G grid toggle, Ctrl+F find, Ctrl+Shift+X cross-ref, Esc closes
+    // find (capture phase: wins over Theia's document-level keybindings
+    // while the LD widget is open).
     React.useEffect(() => {
         const onKeyDown = (e: KeyboardEvent): void => {
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+            const mod = e.ctrlKey || e.metaKey;
+            const key = e.key.toLowerCase();
+            if (mod && key === 'g') {
                 e.preventDefault();
                 setGridEnabled((v) => !v);
+            } else if (mod && e.shiftKey && key === 'x') {
+                e.preventDefault();
+                setXrefOpen((v) => !v);
+            } else if (mod && !e.shiftKey && key === 'f') {
+                e.preventDefault();
+                setFindOpen(true);
+            } else if (e.key === 'Escape') {
+                setFindOpen(false);
             }
         };
         window.addEventListener('keydown', onKeyDown, true);
         return () => window.removeEventListener('keydown', onKeyDown, true);
     }, []);
+
+    // ── Find + Cross Reference (P1) ──────────────────────────
+
+    /** Matches of the current find query (empty when find is closed). */
+    const findMatches = React.useMemo<string[]>(() => {
+        if (!findOpen) {
+            return [];
+        }
+        return findVariable(graph, findQuery).map((n) => n.id);
+    }, [graph, findQuery, findOpen]);
+
+    /** Reset navigation when the query (or panel) changes. */
+    React.useEffect(() => {
+        setFindIndex(0);
+    }, [findQuery, findOpen]);
+
+    /** Nodes currently highlighted (find wins over cross-ref click). */
+    const highlightIds = findMatches.length > 0 ? findMatches : (xrefFocus?.ids ?? []);
+    const currentMatchId = findMatches.length > 0
+        ? findMatches[Math.min(findIndex, findMatches.length - 1)]
+        : (xrefFocus?.currentId ?? undefined);
+
+    /** Cross-reference variable rows (alphabetical). */
+    const xrefVars = React.useMemo(() => listVariables(graph), [graph]);
+
+    const rungNumberFor = React.useCallback((nodeId: string): number => {
+        const rung = graph.rungs.find((r) =>
+            r.elementIds.includes(nodeId) || (r.branches ?? []).some((b) => b.elementIds.includes(nodeId)),
+        );
+        return rung?.rungNumber ?? 0;
+    }, [graph]);
+
+    const usageLabels = React.useCallback((nodeIds: string[]): string =>
+        nodeIds.map((id) => `R${rungNumberFor(id)}`).join(', '), [rungNumberFor]);
+
+    /** Scroll the viewport to a node (keeps the current zoom). */
+    const scrollToNode = React.useCallback((nodeId: string): void => {
+        const internal = getInternalNode(nodeId);
+        if (!internal) {
+            return;
+        }
+        const zoom = getZoom();
+        setCenter(internal.internals.positionAbsolute.x, internal.internals.positionAbsolute.y, { zoom, duration: 300 });
+    }, [getInternalNode, getZoom, setCenter]);
+
+    /** Enter in the find input: advance to the next match. */
+    const goNextMatch = React.useCallback((): void => {
+        if (findMatches.length === 0) {
+            return;
+        }
+        const next = (findIndex + 1) % findMatches.length;
+        setFindIndex(next);
+        scrollToNode(findMatches[next]);
+    }, [findMatches, findIndex, scrollToNode]);
+
+    /** Cross-ref row click: highlight every usage and jump to the first. */
+    const jumpToVariable = React.useCallback((name: string): void => {
+        const ids = findVariable(graph, name).map((n) => n.id);
+        if (ids.length === 0) {
+            return;
+        }
+        setFindOpen(false);
+        setXrefFocus({ ids, currentId: ids[0] });
+        scrollToNode(ids[0]);
+    }, [graph, scrollToNode]);
+
+    /** Focus + select the find input whenever the panel opens. */
+    React.useEffect(() => {
+        if (findOpen) {
+            findInputRef.current?.focus();
+            findInputRef.current?.select();
+        }
+    }, [findOpen]);
 
     const notifyDirty = React.useCallback((): void => {
         onDirtyChange?.(state.dirty);
@@ -712,9 +884,18 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     // defaultNodes on mount, imperative setNodes/setEdges afterwards).
     React.useEffect(() => {
         const flow = graphToFlow(graph, flowCallbacks);
-        setNodes(flow.nodes);
+        const found = new Set(highlightIds);
+        setNodes(flow.nodes.map((n) => {
+            if (!found.has(n.id)) {
+                return n;
+            }
+            const className = n.id === currentMatchId
+                ? 'ld-node--found ld-node--current-match'
+                : 'ld-node--found';
+            return { ...n, className };
+        }));
         setEdges(flow.edges);
-    }, [graph, setNodes, setEdges, renameVar]);
+    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId]);
 
 
     // ── Toolbar actions ───────────────────────────────────────
@@ -1112,6 +1293,20 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 <button onClick={runCompile} disabled={compileBusy} title="Compile the diagram (LD → HalProgram)">
                     Compile
                 </button>
+                <button
+                    onClick={() => setFindOpen((v) => !v)}
+                    className={findOpen ? 'ld-toolbar__tool--active' : ''}
+                    title="Find variable (Ctrl+F)"
+                >
+                    Find
+                </button>
+                <button
+                    onClick={() => setXrefOpen((v) => !v)}
+                    className={xrefOpen ? 'ld-toolbar__tool--active' : ''}
+                    title="Variable cross reference (Ctrl+Shift+X)"
+                >
+                    Cross Ref
+                </button>
                 <div className="ld-toolbar__sep" />
                 {TOOLS.map((tool) => (
                     <button
@@ -1146,8 +1341,46 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                         {tool.label}
                     </button>
                 ))}
+                {findOpen && (
+                    <>
+                        <input
+                            ref={findInputRef}
+                            className="ld-find-input"
+                            value={findQuery}
+                            placeholder="Find variable…"
+                            onChange={(e) => setFindQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    goNextMatch();
+                                }
+                            }}
+                        />
+                        <span className={findQuery.trim().length > 0 && findMatches.length === 0 ? 'ld-find-status ld-find-status--none' : 'ld-find-status'}>
+                            {findQuery.trim().length === 0 ? '' : findMatches.length === 0 ? 'No matches' : `${Math.min(findIndex, findMatches.length - 1) + 1}/${findMatches.length}`}
+                        </span>
+                    </>
+                )}
                 <div className="ld-status" title={diagnosticsTitle}>{status}</div>
             </div>
+            {xrefOpen && (
+                <div className="ld-xref-panel">
+                    <div className="ld-xref-panel__header">
+                        <span>Cross Reference</span>
+                        <button onClick={() => setXrefOpen(false)} title="Close (Ctrl+Shift+X)">×</button>
+                    </div>
+                    {xrefVars.length === 0 && (
+                        <div className="ld-xref-panel__empty">No variables in diagram</div>
+                    )}
+                    {xrefVars.map((v) => (
+                        <div key={v.name} className="ld-xref-row" onClick={() => jumpToVariable(v.name)}>
+                            <span className="ld-xref-row__name">{v.name}</span>
+                            <span className="ld-xref-row__count">{v.count}</span>
+                            <span className="ld-xref-row__usages">{usageLabels(v.nodeIds)}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
             <ReactFlow
                 defaultNodes={initialFlow.nodes}
                 defaultEdges={initialFlow.edges}
