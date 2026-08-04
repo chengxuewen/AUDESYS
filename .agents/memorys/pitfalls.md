@@ -822,3 +822,40 @@
 - **问题**: 删除分支成员后，幸存成员保留原 y（160）而 rung 容器高度按成员数收缩 → 成员被夹到 128（164-36）
 - **修复**: deleteElement 重新堆叠幸存成员（BRANCH_FIRST_Y + idx*40）；rungContainerHeight 按最深成员实际 y + 节点高计算
 - **验证**: T20 survivor.y === 120
+
+## LD 编辑器完善会话补漏 (2026-08-04)
+
+### git add 指定已删除二进制 → pathspec 整体失败
+- **问题**: `git add ... crates/audesys-theia-bridge/audesys-theia-bridge.darwin-x64.node` 报 `fatal: pathspec did not match any files`，导致**整批 add 失败**（后续文件也没暂存），commit 落空
+- **原因**: 该二进制已在上一提交删除（工作区不存在），但命令仍引用它
+- **方案**: git add 前先 `git status --short` 确认文件实际存在；删除的文件用 `git add <path>` 引用目录级路径（如 `crates/audesys-theia-bridge/`）而不是具体文件名
+- **验证**: `git status --short | grep -v '^??'` 确认暂存文件符合预期再 commit
+- **禁止**: 不要在一个 git add 中混入已删除的文件路径 — 一个 pathspec 失败使整批暂存失败
+
+### .gitignore 相对路径陷阱 — 从仓库根而非实际目录
+- **问题**: `.gitignore` 写 `e2e/__probe.spec.ts` 期望忽略 `apps/studio/e2e/__probe.spec.ts`，但 git check-ignore 返回未忽略
+- **原因**: .gitignore 模式相对仓库根解析 — 实际文件路径是 `apps/studio/e2e/__probe.spec.ts`，需要完整相对路径
+- **方案**: 写 .gitignore 时用完整相对路径（`apps/studio/e2e/__probe.spec.ts`），或用 `**/__probe.spec.ts` 通配
+- **验证**: `git check-ignore <file>` 返回路径即生效
+- **禁止**: 不要假设 .gitignore 模式匹配子目录文件 — 模式相对根
+
+### 大型变更需分逻辑提交 — 提交前先分类
+- **问题**: GLSP 移除 + React Flow 迁移涉及 163 文件，最初考虑单提交
+- **原因**: 变更跨 4 个逻辑域（编辑器代码/测试/配置/记忆），单提交难以 review 和回滚
+- **方案**: 按 git-master 惯例分 4 提交：feat(editor)/test(e2e)/docs(memory)/chore(cleanup)，每提交原子
+- **验证**: `git log --oneline` 每个提交聚焦单一主题
+- **禁止**: 不要把所有变更塞进一个提交 — 按逻辑域拆分
+
+### FBD 编辑器缺 E2E — vitest 通过 ≠ 浏览器可用
+- **问题**: FBD React Flow 编辑器迁移后只有 vitest 26/26，无 Playwright E2E；LD 已有 20 场景
+- **原因**: Phase 3 FBD 迁移时只跑了单元测试，未补 E2E（时间限制）
+- **方案**: 待办 — FBD E2E 补齐（端口连线/FB 拖放/编译路径）
+- **验证**: `apps/studio/e2e/` 应含 fbd-editor spec
+- **教训**: 每个编辑器迁移的验收标准必须含 E2E，vitest 无法捕获浏览器集成问题
+
+### 团队审核三成员并行 — 计划质量提升模式
+- **问题**: 重大计划（GLSP 移除）经 glsp-expert/sdd-tester/completeness 三视角并行审核，发现 D108 误废（CRITICAL）+ 选择器错误 + 提取遗漏
+- **原因**: 单视角计划容易遗漏跨域问题（架构/测试/完整性）
+- **方案**: 复杂变更（改架构/影响 >5 文件）先团队审核再执行（think-before-act Phase 2）
+- **验证**: 审核发现的 CRITICAL 必须修复，LOW 记录为技术债
+- **禁止**: 不要跳过团队审核直接执行大型架构变更
