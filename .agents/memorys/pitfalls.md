@@ -900,3 +900,26 @@
 - **方案**: LdCanvas ReactFlow 加 `zoomOnDoubleClick={false}` — 编辑器里 dblclick = 编辑（rung 标题/注释、节点改名），永不缩放。缩放仍可用 Ctrl+滚轮/pinch/Controls
 - **验证**: `page.mouse.dblclick` / `locator.dblclick` 后 `.ld-rung-group__title-input` 可见；E2E T23-T26 27/27 通过
 - **禁止**: 不要假设非 draggable 节点的 dblclick 事件能到达 React — d3-zoom dblclick.zoom 会 stopImmediatePropagation
+
+## LD 编辑器 P2 + Open Folder 会话补漏 (2026-08-04)
+
+### Theia macOS 浏览器模式缺 Open Folder 菜单项
+- **问题**: 用户 File 菜单选目录后 Open 无反应 — File 菜单没有 "Open Folder"，只有 "Open Workspace from File..."（期待 .theia-workspace 文件）
+- **原因**: Theia `workspace-frontend-contribution.js` 条件 `if (!isOSX && this.isElectron())` 才注册 Open Folder — macOS 浏览器模式被隐藏
+- **方案**: audesys-core 扩展注册 `audesys.openFolder` 命令 + File 菜单项，用 FileDialogService `showOpenDialog({canSelectFolders: true})`（沿用 ADD_FOLDER 模式）
+- **验证**: File 菜单显示 Open Folder... → 选择目录 → Open → workspace 打开（root 已设置）
+- **禁止**: 不要假设 Theia 跨平台菜单一致 — 浏览器模式缺 macOS 原生菜单项
+
+### git HEAD 中带入了损坏代码（缺 writeFile 调用）
+- **问题**: audesys-core 编译失败 `iec-new-file-contribution.ts(93)` TS1128 — do-while 后缺 `writeFile(` 调用，参数悬空
+- **原因**: 之前的提交直接带入了损坏代码（git show HEAD 版本同样损坏）— pre-existing 未验证编译
+- **方案**: 补上 `await this.fileService.writeFile(fileUri, BinaryBuffer.fromString(entry.template))`
+- **验证**: `npx tsc -b` 0 errors
+- **教训**: 提交前必须编译验证；git HEAD 完好 ≠ 编译通过（损坏代码可能已提交）
+- **禁止**: 不要假设已提交代码可编译 — pre-existing 损坏会阻塞新功能编译
+
+### P2 实时验证 + 监控模式（SmartCoding 对齐）
+- **问题**: 编辑器无实时错误反馈 — 用户需手动 Compile 才知道错误
+- **方案**: (a) 500ms 防抖 validate + 红色错误标记（ld-node--error/rung-group--error + ⚠ 徽标 + tooltip + 工具栏计数）; (b) 监控模式骨架（Monitor 切换 + 值徽标 + ld-edge--active 流线高亮，monitorValues 状态预留 Runtime 集成）
+- **验证**: `parseValidationErrors` 纯函数 7 测试 + vitest 128/128
+- **教训**: 工业编辑器核心体验是即时反馈 — 编译期错误提示不够，需 SmartCoding 式实时验证

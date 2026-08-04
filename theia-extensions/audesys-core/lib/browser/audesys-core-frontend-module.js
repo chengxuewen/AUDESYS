@@ -9,6 +9,7 @@ const iec_navigator_decorator_1 = require("./iec-navigator-decorator");
 const iec_icons_1 = require("./iec-icons");
 const iec_new_file_contribution_1 = require("./iec-new-file-contribution");
 const iec_context_menu_1 = require("./iec-context-menu");
+const open_folder_menu_1 = require("./open-folder-menu");
 const window_title_contribution_1 = require("./window-title-contribution");
 const signal_browser_contribution_1 = require("./signal-browser/signal-browser-contribution");
 const scope_view_contribution_1 = require("./scope-view/scope-view-contribution");
@@ -24,6 +25,9 @@ exports.default = new inversify_1.ContainerModule((bind) => {
     // Context menu: Compile / Deploy / Validate (right-click in navigator)
     bind(common_1.CommandContribution).to(iec_context_menu_1.IecContextMenuContribution).inSingletonScope();
     bind(common_1.MenuContribution).to(iec_context_menu_1.IecContextMenuContribution).inSingletonScope();
+    // Open Folder menu entry — Theia hides it on macOS/browser mode
+    bind(common_1.CommandContribution).to(open_folder_menu_1.OpenFolderMenuContribution).inSingletonScope();
+    bind(common_1.MenuContribution).to(open_folder_menu_1.OpenFolderMenuContribution).inSingletonScope();
     // Signal Browser widget — left sidebar panel at rank 300
     bind(signal_browser_contribution_1.SignalBrowserContribution).toSelf().inSingletonScope();
     bind(browser_1.WidgetFactory).toService(signal_browser_contribution_1.SignalBrowserContribution);

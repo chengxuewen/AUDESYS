@@ -1,4 +1,4 @@
-import * as React from 'react';
+import * as React from '@theia/core/shared/react';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import type { Message } from '@theia/core/lib/browser';
 /**
