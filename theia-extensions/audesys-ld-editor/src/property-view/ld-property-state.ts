@@ -20,6 +20,7 @@ export type SelectedElement =
       elementType: 'contact';
       variableName: string;
       contactType: 'NO' | 'NC' | 'P' | 'N';
+      comment: string;
       position: { x: number; y: number };
     }
   | {
@@ -27,6 +28,7 @@ export type SelectedElement =
       elementType: 'coil';
       variableName: string;
       coilType: 'Normal' | 'Negated' | 'Set' | 'Reset';
+      comment: string;
       position: { x: number; y: number };
     }
   | {
@@ -40,6 +42,7 @@ export type SelectedElement =
       elementType: 'rung';
       rungNumber: number;
       comment: string;
+      title: string;
     }
   | {
       id: string;

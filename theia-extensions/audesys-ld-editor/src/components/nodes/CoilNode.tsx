@@ -9,12 +9,15 @@
  * symbol's vertical centre (y = 18).
  *
  * Double-clicking the variable label opens an inline rename input
- * (committed via `d.onRename`).
+ * (committed via `d.onRename`). Hovering shows the element comment
+ * (if any) in the tooltip. When selected, a NodeToolbar switcher
+ * replaces the coil type Normal ↔ Negated ↔ Set ↔ Reset via
+ * `d.onChangeType`, preserving the variable name.
  */
-
 import React from '@theia/core/shared/react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeProps, NodeToolbar } from '@xyflow/react';
 import { CONTACT_SIZE } from '../../model/grid';
+import { CoilType } from '../../model/nodes';
 
 const HALF = CONTACT_SIZE / 2;
 
@@ -35,13 +38,24 @@ const str = (v: unknown, fallback: string): string =>
 interface LdCoilData extends Record<string, unknown> {
     variableName?: string;
     coilType?: string;
+    comment?: string;
     onRename?: (id: string, name: string) => void;
+    onChangeType?: (id: string, type: string) => void;
 }
+
+/** Replacement options (P1): Normal ↔ Negated ↔ Set ↔ Reset, variable name preserved. */
+const COIL_OPTIONS: { value: CoilType; label: string }[] = [
+    { value: CoilType.Normal, label: '()' },
+    { value: CoilType.Negated, label: '(/)' },
+    { value: CoilType.Set, label: '(S)' },
+    { value: CoilType.Reset, label: '(R)' },
+];
 
 export const CoilNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     const d = data as unknown as LdCoilData;
     const coilType = str(d.coilType, 'Normal');
     const variableName = str(d.variableName, '??');
+    const comment = str(d.comment, '');
     const color =
         coilType === 'Set' ? 'var(--ld-coil-set-fill, #ff9800)' :
         coilType === 'Reset' ? 'var(--ld-coil-reset-fill, #f44336)' :
@@ -63,8 +77,28 @@ export const CoilNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     };
     const cancel = (): void => setEditing(false);
 
+    const labelTitle = comment
+        ? `${comment} — double-click to rename`
+        : 'Double-click to rename';
+
     return (
         <div className="ld-coil">
+            {selected && (
+                <NodeToolbar position={Position.Top} offset={6}>
+                    <div className="ld-type-switch">
+                        {COIL_OPTIONS.map((opt) => (
+                            <button
+                                key={opt.value}
+                                className={coilType === opt.value ? 'ld-type-switch__active' : ''}
+                                onClick={() => d.onChangeType?.(id, opt.value)}
+                                title={`Switch to ${opt.label} coil`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                </NodeToolbar>
+            )}
             <svg width={CONTACT_SIZE} height={CONTACT_SIZE}>
                 {selected && (
                     <rect
@@ -108,7 +142,7 @@ export const CoilNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                     onDoubleClick={(e) => e.stopPropagation()}
                 />
             ) : (
-                <div className="ld-node-label" onDoubleClick={startEdit} title="Double-click to rename">
+                <div className="ld-node-label" onDoubleClick={startEdit} title={labelTitle}>
                     {variableName}
                 </div>
             )}

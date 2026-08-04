@@ -86,6 +86,26 @@ export interface ChangeContactTypeParams {
   newType: ContactType;
 }
 
+export interface ChangeCoilTypeParams {
+  elementId: string;
+  newType: CoilType;
+}
+
+export interface SetRungTitleParams {
+  rungId: string;
+  title: string;
+}
+
+export interface SetRungCommentParams {
+  rungId: string;
+  comment: string;
+}
+
+export interface SetElementCommentParams {
+  elementId: string;
+  comment: string;
+}
+
 export interface DeleteRungParams {
   rungId: string;
 }
@@ -569,6 +589,91 @@ export class LdOperationHandler {
 
   // ── Property Changes ─────────────────────────────────────
 
+  /**
+   * Change a coil's type (Normal ↔ Negated ↔ Set ↔ Reset), preserving
+   * the variable name.
+   */
+  changeCoilType(graph: LdGraph, params: ChangeCoilTypeParams): LdGraph {
+    const node = findNode(graph, params.elementId);
+    if (!node || node.type !== 'node:coil') {
+      throw new ValidationError(`Not a coil: ${params.elementId}`);
+    }
+
+    const coil = node as CoilNode;
+    if (coil.coilType === params.newType) {
+      return graph; // No change — idempotent
+    }
+
+    const next = cloneGraph(graph);
+    const idx = next.nodes.findIndex((n) => n.id === params.elementId);
+    if (idx >= 0) {
+      const c = next.nodes[idx] as CoilNode;
+      const updated: CoilNode = { ...c, coilType: params.newType };
+      next.nodes[idx] = updated;
+    }
+
+    return next;
+  }
+
+  /**
+   * Set a rung's network title (CODESYS-style). Empty string clears it.
+   */
+  setRungTitle(graph: LdGraph, params: SetRungTitleParams): LdGraph {
+    const rung = findRung(graph, params.rungId);
+    const title = params.title.trim();
+    if (rung.title === title || (!rung.title && title === '')) {
+      return graph; // No change — idempotent
+    }
+
+    const next = cloneGraph(graph);
+    const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
+    const updated = { ...rung, title: title === '' ? undefined : title };
+    next.rungs[rungIdx] = updated;
+    return next;
+  }
+
+  /**
+   * Set a rung's network comment. Empty string clears it.
+   */
+  setRungComment(graph: LdGraph, params: SetRungCommentParams): LdGraph {
+    const rung = findRung(graph, params.rungId);
+    const comment = params.comment.trim();
+    if (rung.comment === comment || (!rung.comment && comment === '')) {
+      return graph; // No change — idempotent
+    }
+
+    const next = cloneGraph(graph);
+    const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
+    const updated = { ...rung, comment: comment === '' ? undefined : comment };
+    next.rungs[rungIdx] = updated;
+    return next;
+  }
+
+  /**
+   * Set a contact/coil element comment. Empty string clears it.
+   */
+  setElementComment(graph: LdGraph, params: SetElementCommentParams): LdGraph {
+    const node = findNode(graph, params.elementId);
+    if (!node || (node.type !== 'node:contact' && node.type !== 'node:coil')) {
+      throw new ValidationError(`Not a contact or coil: ${params.elementId}`);
+    }
+    const comment = params.comment.trim();
+    const current = (node as ContactNode | CoilNode).comment;
+    if (current === comment || (!current && comment === '')) {
+      return graph; // No change — idempotent
+    }
+
+    const next = cloneGraph(graph);
+    const idx = next.nodes.findIndex((n) => n.id === params.elementId);
+    if (idx >= 0) {
+      const n = next.nodes[idx] as ContactNode | CoilNode;
+      next.nodes[idx] = {
+        ...n,
+        comment: comment === '' ? undefined : comment,
+      } as ContactNode | CoilNode;
+    }
+    return next;
+  }
   /**
    * Change a contact's type (NO ↔ NC).
    */

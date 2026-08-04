@@ -11,12 +11,15 @@
  * (bus-in / bus-out) used by the vertical branch wires.
  *
  * Double-clicking the variable label opens an inline rename input
- * (committed via `d.onRename`).
+ * (committed via `d.onRename`). Hovering shows the element comment
+ * (if any) in the tooltip. When selected, a NodeToolbar switcher
+ * replaces the contact type NO ↔ NC ↔ P ↔ N via `d.onChangeType`,
+ * preserving the variable name.
  */
-
 import React from '@theia/core/shared/react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeProps, NodeToolbar } from '@xyflow/react';
 import { CONTACT_SIZE } from '../../model/grid';
+import { ContactType } from '../../model/nodes';
 
 const HALF = CONTACT_SIZE / 2;
 
@@ -47,13 +50,24 @@ const str = (v: unknown, fallback: string): string =>
 interface LdContactData extends Record<string, unknown> {
     variableName?: string;
     contactType?: string;
+    comment?: string;
     onRename?: (id: string, name: string) => void;
+    onChangeType?: (id: string, type: string) => void;
 }
+
+/** Replacement options (P1): NO ↔ NC ↔ P ↔ N, variable name preserved. */
+const CONTACT_OPTIONS: { value: ContactType; label: string }[] = [
+    { value: ContactType.NO, label: 'NO' },
+    { value: ContactType.NC, label: 'NC' },
+    { value: ContactType.P, label: 'P' },
+    { value: ContactType.N, label: 'N' },
+];
 
 export const ContactNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     const d = data as unknown as LdContactData;
     const contactType = str(d.contactType, 'NO');
     const variableName = str(d.variableName, '??');
+    const comment = str(d.comment, '');
     const isNO = contactType === 'NO' || contactType === 'P';
     const color = isNO
         ? 'var(--ld-contact-no-fill, #4caf50)'
@@ -75,8 +89,28 @@ export const ContactNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     };
     const cancel = (): void => setEditing(false);
 
+    const labelTitle = comment
+        ? `${comment} — double-click to rename`
+        : 'Double-click to rename';
+
     return (
         <div className="ld-contact">
+            {selected && (
+                <NodeToolbar position={Position.Top} offset={6}>
+                    <div className="ld-type-switch">
+                        {CONTACT_OPTIONS.map((opt) => (
+                            <button
+                                key={opt.value}
+                                className={contactType === opt.value ? 'ld-type-switch__active' : ''}
+                                onClick={() => d.onChangeType?.(id, opt.value)}
+                                title={`Switch to ${opt.label} contact`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                </NodeToolbar>
+            )}
             <svg width={CONTACT_SIZE} height={CONTACT_SIZE}>
                 {selected && (
                     <rect
@@ -129,7 +163,7 @@ export const ContactNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                     onDoubleClick={(e) => e.stopPropagation()}
                 />
             ) : (
-                <div className="ld-node-label" onDoubleClick={startEdit} title="Double-click to rename">
+                <div className="ld-node-label" onDoubleClick={startEdit} title={labelTitle}>
                     {variableName}
                 </div>
             )}

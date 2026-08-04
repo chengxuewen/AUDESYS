@@ -105,6 +105,8 @@ export interface ContactNode extends BaseNode {
   contactType: ContactType;
   /** IEC 61131-3 variable name bound to this contact (e.g. "X1", "start_btn") */
   variableName: string;
+  /** Optional user comment (displayed as hover tooltip, editable in the property view) */
+  comment?: string;
 }
 
 // ============================================================================
@@ -186,6 +188,8 @@ export interface CoilNode extends BaseNode {
   coilType: CoilType;
   /** IEC 61131-3 variable name bound to this coil (e.g. "Y1", "motor_run") */
   variableName: string;
+  /** Optional user comment (displayed as hover tooltip, editable in the property view) */
+  comment?: string;
 }
 
 // ============================================================================

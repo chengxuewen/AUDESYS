@@ -61,8 +61,12 @@ export interface LdNodeData extends Record<string, unknown> {
     side?: 'Left' | 'Right';
     rungNumber?: number;
     comment?: string;
+    title?: string;
     height?: number;
     onRename?: (id: string, name: string) => void;
+    onChangeType?: (id: string, type: string) => void;
+    onSetTitle?: (id: string, title: string) => void;
+    onSetComment?: (id: string, comment: string) => void;
 }
 
 export type LdRfNode = Node<LdNodeData>;
@@ -111,10 +115,20 @@ const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.m
         deepestY + CONTACT_SIZE + 8, // member row + node height + padding
     );
 }
+/** Mutation callbacks passed through to node components (stable identities). */
+export interface LdFlowCallbacks {
+    renameVar?: (id: string, name: string) => void;
+    changeContactType?: (id: string, type: string) => void;
+    changeCoilType?: (id: string, type: string) => void;
+    setRungTitle?: (id: string, title: string) => void;
+    setRungComment?: (id: string, comment: string) => void;
+    setElementComment?: (id: string, comment: string) => void;
+}
+
 function contactFlowNode(
     contact: ContactModelNode,
     rungId: string,
-    renameVar?: (id: string, name: string) => void,
+    cb: LdFlowCallbacks,
 ): LdRfNode {
     return {
         id: contact.id,
@@ -125,7 +139,9 @@ function contactFlowNode(
         data: {
             contactType: contact.contactType,
             variableName: contact.variableName,
-            onRename: renameVar,
+            comment: contact.comment ?? '',
+            onRename: cb.renameVar,
+            onChangeType: cb.changeContactType,
         },
     };
 }
@@ -133,7 +149,7 @@ function contactFlowNode(
 function coilFlowNode(
     coil: CoilModelNode,
     rungId: string,
-    renameVar?: (id: string, name: string) => void,
+    cb: LdFlowCallbacks,
 ): LdRfNode {
     return {
         id: coil.id,
@@ -144,7 +160,9 @@ function coilFlowNode(
         data: {
             coilType: coil.coilType,
             variableName: coil.variableName,
-            onRename: renameVar,
+            comment: coil.comment ?? '',
+            onRename: cb.renameVar,
+            onChangeType: cb.changeCoilType,
         },
     };
 }
@@ -163,7 +181,7 @@ function fbFlowNode(fb: FbPlaceholderNode, rungId: string): LdRfNode {
 
 export function graphToFlow(
     graph: LdGraph,
-    renameVar?: (id: string, name: string) => void,
+    cb: LdFlowCallbacks = {},
 ): { nodes: LdRfNode[]; edges: LdRfEdge[] } {
     const nodes: LdRfNode[] = [];
     const nodeIds = new Set<string>();
@@ -188,7 +206,13 @@ export function graphToFlow(
             type: RF_TYPE_RUNG,
             position: { x: 0, y: rungTop },
             style: { width: RUNG_GROUP_WIDTH, height: rungHeights.get(rung.id) ?? RUNG_GROUP_HEIGHT },
-            data: { rungNumber: rung.rungNumber, comment: rung.comment ?? '' },
+            data: {
+                rungNumber: rung.rungNumber,
+                comment: rung.comment ?? '',
+                title: rung.title ?? '',
+                onSetTitle: cb.setRungTitle,
+                onSetComment: cb.setRungComment,
+            },
             draggable: false,
             deletable: false,
         });
@@ -200,10 +224,10 @@ export function graphToFlow(
                 continue;
             }
             if (modelNode.type === 'node:contact') {
-                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, renameVar));
+                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb));
                 nodeIds.add(modelNode.id);
             } else if (modelNode.type === 'node:coil') {
-                nodes.push(coilFlowNode(modelNode as CoilModelNode, rung.id, renameVar));
+                nodes.push(coilFlowNode(modelNode as CoilModelNode, rung.id, cb));
                 nodeIds.add(modelNode.id);
             } else if (modelNode.type === 'node:fb') {
                 nodes.push(fbFlowNode(modelNode as FbPlaceholderNode, rung.id));
@@ -218,7 +242,7 @@ export function graphToFlow(
                 if (!modelNode || modelNode.type !== 'node:contact') {
                     continue;
                 }
-                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, renameVar));
+                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb));
                 nodeIds.add(modelNode.id);
             }
         }
@@ -416,6 +440,83 @@ const LD_CANVAS_CSS = `
   color: var(--ld-rung-label-color, #888);
   pointer-events: none;
 }
+
+/* Annotated header (P1): title line 1, comment line 2 — when the rung
+   has annotations or is selected, the text becomes editable (dblclick). */
+.ld-rung-group--annotated .ld-rung-group__label {
+  pointer-events: auto;
+  cursor: text;
+}
+.ld-rung-group__comment {
+  position: absolute;
+  top: 16px;
+  left: 6px;
+  right: 6px;
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--ld-rung-label-color, #888);
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ld-rung-group--annotated .ld-rung-group__comment {
+  pointer-events: auto;
+  cursor: text;
+}
+.ld-rung-group__comment--empty {
+  font-style: italic;
+  opacity: 0.5;
+}
+.ld-rung-group__title-input, .ld-rung-group__comment-input {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  font-size: 10px;
+  font-family: var(--theia-ui-font-family);
+  color: var(--theia-input-foreground, #ccc);
+  background: var(--theia-input-background, #252526);
+  border: 1px solid var(--theia-focusBorder, #007fd4);
+  border-radius: 2px;
+  outline: none;
+  padding: 0 2px;
+  z-index: 6;
+}
+.ld-rung-group__title-input {
+  top: 1px;
+}
+.ld-rung-group__comment-input {
+  top: 15px;
+}
+/* Element replacement toolbar (P1): contact/coil type switcher. */
+.ld-type-switch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--theia-menu-background, #333);
+  border: 1px solid var(--theia-panel-border, #555);
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.ld-type-switch button {
+  min-width: 22px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: var(--theia-ui-font-family);
+  color: var(--theia-menu-foreground, #ccc);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.ld-type-switch button:hover {
+  background: var(--theia-menu-selectionBackground, #0e639c);
+}
+.ld-type-switch button.ld-type-switch__active {
+  outline: 1px solid var(--theia-focusBorder, #007fd4);
+  font-weight: 600;
+}
 .ld-node-label {
   position: absolute; /* keep the node box at 36px — a taller node gets clamped
                         inside the rung container (extent:'parent') */
@@ -569,13 +670,52 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         tryApply((g) => handler.renameVariable(g, { elementId, variableName: name }));
     }, [tryApply, handler]);
 
+    const changeContactType = React.useCallback((elementId: string, type: string): void => {
+        const newType = type === 'NC' ? ContactType.NC
+            : type === 'P' ? ContactType.P
+            : type === 'N' ? ContactType.N
+            : ContactType.NO;
+        tryApply((g) => handler.changeContactType(g, { elementId, newType }));
+    }, [tryApply, handler]);
+
+    const changeCoilType = React.useCallback((elementId: string, type: string): void => {
+        const newType = type === 'Negated' ? CoilType.Negated
+            : type === 'Set' ? CoilType.Set
+            : type === 'Reset' ? CoilType.Reset
+            : CoilType.Normal;
+        tryApply((g) => handler.changeCoilType(g, { elementId, newType }));
+    }, [tryApply, handler]);
+
+    const setRungTitle = React.useCallback((rungId: string, title: string): void => {
+        tryApply((g) => handler.setRungTitle(g, { rungId, title }));
+    }, [tryApply, handler]);
+
+    const setRungComment = React.useCallback((rungId: string, comment: string): void => {
+        tryApply((g) => handler.setRungComment(g, { rungId, comment }));
+    }, [tryApply, handler]);
+
+    const setElementComment = React.useCallback((elementId: string, comment: string): void => {
+        tryApply((g) => handler.setElementComment(g, { elementId, comment }));
+    }, [tryApply, handler]);
+
+    // Stable identity for graphToFlow — the useCallback deps above are all stable.
+    const flowCallbacks: LdFlowCallbacks = {
+        renameVar,
+        changeContactType,
+        changeCoilType,
+        setRungTitle,
+        setRungComment,
+        setElementComment,
+    };
+
     // Sync LdGraph changes into the React Flow store (uncontrolled mode:
     // defaultNodes on mount, imperative setNodes/setEdges afterwards).
     React.useEffect(() => {
-        const flow = graphToFlow(graph, renameVar);
+        const flow = graphToFlow(graph, flowCallbacks);
         setNodes(flow.nodes);
         setEdges(flow.edges);
     }, [graph, setNodes, setEdges, renameVar]);
+
 
     // ── Toolbar actions ───────────────────────────────────────
 
@@ -832,6 +972,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                     elementType: 'contact',
                     variableName: String(element.data.variableName ?? ''),
                     contactType,
+                    comment: String(element.data.comment ?? ''),
                     position: modelNode?.position ?? element.position,
                 };
             }
@@ -843,6 +984,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                     coilType: (['Normal', 'Negated', 'Set', 'Reset'].includes(String(element.data.coilType))
                         ? String(element.data.coilType)
                         : 'Normal') as 'Normal' | 'Negated' | 'Set' | 'Reset',
+                    comment: String(element.data.comment ?? ''),
                     position: modelNode?.position ?? element.position,
                 };
             case RF_TYPE_FB:
@@ -857,7 +999,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 if (!rung) {
                     return null;
                 }
-                return { id: rung.id, elementType: 'rung', rungNumber: rung.rungNumber, comment: rung.comment ?? '' };
+                return { id: rung.id, elementType: 'rung', rungNumber: rung.rungNumber, comment: rung.comment ?? '', title: rung.title ?? '' };
             }
             case RF_TYPE_RAIL:
                 return {
@@ -911,18 +1053,28 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 return;
             }
             if (property === 'comment') {
+                // Rung id → rung comment; any other element id → element comment.
                 tryApply((g) => {
-                    const index = g.rungs.findIndex((r) => r.id === elementId);
-                    if (index < 0) {
-                        return g;
+                    if (g.rungs.some((r) => r.id === elementId)) {
+                        return handler.setRungComment(g, { rungId: elementId, comment: value });
                     }
-                    const next: LdGraph = JSON.parse(JSON.stringify(g));
-                    next.rungs[index] = { ...next.rungs[index], comment: value };
-                    return next;
+                    return handler.setElementComment(g, { elementId, comment: value });
                 });
                 return;
             }
-            // coilType / fbType: plain node field update
+            if (property === 'title') {
+                tryApply((g) => handler.setRungTitle(g, { rungId: elementId, title: value }));
+                return;
+            }
+            if (property === 'coilType') {
+                const newType = value === 'Negated' ? CoilType.Negated
+                    : value === 'Set' ? CoilType.Set
+                    : value === 'Reset' ? CoilType.Reset
+                    : CoilType.Normal;
+                tryApply((g) => handler.changeCoilType(g, { elementId, newType }));
+                return;
+            }
+            // fbType: plain node field update
             tryApply((g) => {
                 const index = g.nodes.findIndex((n) => n.id === elementId);
                 if (index < 0) {
@@ -938,7 +1090,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
 
     // ── Render ────────────────────────────────────────────────
 
-    const initialFlow = React.useMemo(() => graphToFlow(graph, renameVar), []); // eslint-disable-line react-hooks/exhaustive-deps
+    const initialFlow = React.useMemo(() => graphToFlow(graph, flowCallbacks), []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const diagnosticsTitle = compileResult && !compileResult.success && compileResult.diagnostics.length > 0
         ? compileResult.diagnostics.map((d) => `[${d.code}] ${d.message}`).join('\n')

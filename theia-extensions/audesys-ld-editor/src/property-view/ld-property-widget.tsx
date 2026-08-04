@@ -246,10 +246,16 @@ const ContactForm: React.FC<PropertyFormProps> = ({ element, onPropertyChange, e
         ]}
         onChange={(v) => onPropertyChange('contactType', v)}
       />
+      <TextField
+        label="Comment"
+        value={el.comment}
+        onChange={(v) => onPropertyChange('comment', v)}
+      />
       <PositionDisplay position={el.position} />
     </>
   );
 };
+
 
 const CoilForm: React.FC<PropertyFormProps> = ({ element, onPropertyChange, elementId }) => {
   const el = element as SelectedElement & { elementType: 'coil' };
@@ -272,10 +278,16 @@ const CoilForm: React.FC<PropertyFormProps> = ({ element, onPropertyChange, elem
         ]}
         onChange={(v) => onPropertyChange('coilType', v)}
       />
+      <TextField
+        label="Comment"
+        value={el.comment}
+        onChange={(v) => onPropertyChange('comment', v)}
+      />
       <PositionDisplay position={el.position} />
     </>
   );
 };
+
 
 const FbForm: React.FC<PropertyFormProps> = ({ element, onPropertyChange, elementId }) => {
   const el = element as SelectedElement & { elementType: 'fb' };
@@ -298,6 +310,11 @@ const RungForm: React.FC<PropertyFormProps> = ({ element, onPropertyChange, elem
     <>
       <div className="ld-property__header">Rung Properties</div>
       <ReadonlyField label="Rung Number" value={String(el.rungNumber)} />
+      <TextField
+        label="Title"
+        value={el.title}
+        onChange={(v) => onPropertyChange('title', v)}
+      />
       <TextField
         label="Comment"
         value={el.comment}

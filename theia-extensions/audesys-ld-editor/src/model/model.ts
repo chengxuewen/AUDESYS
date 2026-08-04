@@ -46,6 +46,9 @@ export interface Rung {
   rungNumber: number;
   /** Optional user comment describing the rung's purpose */
   comment?: string;
+  /** Optional network title (CODESYS-style), shown on the rung header line 1 */
+  title?: string;
+  /** Ordered list of element IDs on this rung (left-to-right) */
   /** Ordered list of element IDs on this rung (left-to-right) */
   elementIds: string[];
   /**
