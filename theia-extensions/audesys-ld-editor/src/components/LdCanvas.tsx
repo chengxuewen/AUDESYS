@@ -612,8 +612,16 @@ const LD_CANVAS_CSS = `
   outline-offset: 2px;
   border-radius: 4px;
 }
+.react-flow__node.ld-node--warning {
+  outline: 2px solid var(--ld-warning-color, #ffb74d);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 .ld-rung-group--error {
   border-color: var(--ld-error-color, #f44336) !important;
+}
+.ld-rung-group--warning {
+  border-color: var(--ld-warning-color, #ffb74d) !important;
 }
 .ld-rung-group__error-badge {
   position: absolute;
@@ -628,6 +636,19 @@ const LD_CANVAS_CSS = `
   z-index: 5;
   pointer-events: none;
 }
+.ld-rung-group__warning-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  color: #333;
+  background: var(--ld-warning-color, #ffb74d);
+  border-radius: 8px;
+  padding: 0 5px;
+  z-index: 5;
+  pointer-events: none;
+}
 .ld-validation-badge {
   font-size: 11px;
   line-height: 18px;
@@ -636,6 +657,10 @@ const LD_CANVAS_CSS = `
 }
 .ld-validation-badge--error {
   color: var(--ld-error-color, #f44336);
+  font-weight: 600;
+}
+.ld-validation-badge--warning {
+  color: var(--ld-warning-color, #ffb74d);
   font-weight: 600;
 }
 /* P2 monitoring mode: live value badges + active signal-path wires */
@@ -783,6 +808,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     /** SmartCoding-style markup: which rungs/nodes carry which errors. */
     const [validation, setValidation] = React.useState<ValidationMarkup>({
         total: 0, messages: [], rungNumbers: [], rungIds: [], rungErrors: new Map(), nodeIds: [], nodeErrors: new Map(),
+        warningRungNumbers: [], rungWarnings: new Map(), warningTotal: 0,
     });
     /** Monitor mode: live value badges + active signal-path wires. */
     const [monitoring, setMonitoring] = React.useState(false);
@@ -1000,6 +1026,14 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 const nodeErrors = validation.nodeErrors.get(n.id) ?? [];
                 className = className ? `${className} ld-node--error` : 'ld-node--error';
                 data = { ...data, errorTitle: nodeErrors.join('\n') };
+            }
+            // Warnings (e.g. empty rung): yellow badge, non-blocking.
+            if (rungNumber > 0 && validation.warningRungNumbers.includes(rungNumber)) {
+                const rungWarn = validation.rungWarnings.get(rungNumber) ?? [];
+                if (rungWarn.length > 0) {
+                    className = className ? `${className} ld-node--warning` : 'ld-node--warning';
+                    data = { ...data, warningCount: rungWarn.length, warningTitle: rungWarn.join('\n') };
+                }
             }
             // Monitor mode: inject the live value into contact/coil data.
             if (monitoring && (n.type === RF_TYPE_CONTACT || n.type === RF_TYPE_COIL)) {
@@ -1497,10 +1531,10 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                     </>
                 )}
                 <span
-                    className={validation.total > 0 ? 'ld-validation-badge ld-validation-badge--error' : 'ld-validation-badge'}
-                    title={validation.messages.length > 0 ? validation.messages.join('\n') : undefined}
+                    className={validation.total > 0 ? 'ld-validation-badge ld-validation-badge--error' : (validation.warningTotal > 0 ? 'ld-validation-badge ld-validation-badge--warning' : 'ld-validation-badge')}
+                    title={validation.messages.length > 0 ? validation.messages.join('\n') : [...validation.rungWarnings.values()].flat().join('\n') || undefined}
                 >
-                    {validation.total > 0 ? `⚠ ${validation.total} error${validation.total === 1 ? '' : 's'}` : '✓'}
+                    {validation.total > 0 ? `⚠ ${validation.total} error${validation.total === 1 ? '' : 's'}` : validation.warningTotal > 0 ? `⚠ ${validation.warningTotal} warning${validation.warningTotal === 1 ? '' : 's'}` : '✓'}
                 </span>
                 <div className="ld-status" title={diagnosticsTitle}>{status}</div>
             </div>

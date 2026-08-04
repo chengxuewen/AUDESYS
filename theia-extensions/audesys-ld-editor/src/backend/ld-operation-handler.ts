@@ -1052,6 +1052,7 @@ export class LdOperationHandler {
     return {
       valid: allErrors.length === 0,
       errors: allErrors,
+      warnings: structural.warnings ?? [],
     };
   }
 

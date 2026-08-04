@@ -52,18 +52,25 @@ describe('parseValidationErrors', () => {
         expect(markup.rungErrors.get(2)?.length).toBe(1);
     });
 
-    it('maps empty-rung messages to rung id and number', () => {
+    it('maps empty-rung warnings to rung number (yellow, non-blocking)', () => {
         // Arrange
         const graph = graphWithRung();
         const rungId = graph.rungs[0].id;
-        const result = { valid: false, errors: [`Empty rung: "${rungId}" (rung 1) has no elements`] };
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: [`Empty rung: "${rungId}" (rung 1) has no elements`],
+        };
 
         // Act
         const markup = parseValidationErrors(result, graph);
 
-        // Assert
-        expect(markup.rungNumbers).toEqual([1]);
-        expect(markup.rungIds).toEqual([rungId]);
+        // Assert: surfaces in the warning channel, NOT as a red error
+        expect(markup.rungNumbers).toEqual([]);
+        expect(markup.rungIds).toEqual([]);
+        expect(markup.warningRungNumbers).toEqual([1]);
+        expect(markup.warningTotal).toBe(1);
+        expect(markup.rungWarnings.get(1)).toHaveLength(1);
     });
 
     it('maps orphan-node messages to the existing node id', () => {

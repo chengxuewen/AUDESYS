@@ -330,16 +330,16 @@ describe('validate', () => {
         expect(result.errors).toEqual([]);
     });
 
-    it('rejects an empty rung', () => {
+    it('warns (not errors) on an empty rung — legal intermediate state', () => {
         // Arrange
         const { handler, graph } = graphWithRung();
 
         // Act
         const result = handler.validate(graph);
 
-        // Assert
-        expect(result.valid).toBe(false);
-        expect(result.errors.some((e) => e.includes('Empty rung'))).toBe(true);
+        // Assert: empty rung is non-blocking (valid=true) and surfaces as a warning
+        expect(result.valid).toBe(true);
+        expect(result.warnings?.some((w) => w.includes('Empty rung'))).toBe(true);
     });
 });
 
@@ -401,7 +401,9 @@ describe('compile', () => {
             called = true;
             return JSON.stringify({ instructions: [] });
         });
-        const graph = handler.addRung(createLdGraph()); // empty rung → invalid
+        const graph = handler.addRung(createLdGraph());
+        // Orphan node (not referenced by any rung) is a hard error.
+        graph.nodes.push(createContact(ContactType.NO, 'X99'));
 
         // Act
         const result = handler.compile(graph);

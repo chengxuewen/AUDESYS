@@ -32,6 +32,12 @@ export interface ValidationMarkup {
     nodeIds: string[];
     /** Node id → error messages. */
     nodeErrors: ReadonlyMap<string, string[]>;
+    /** Rung numbers with at least one warning (e.g. empty rung). */
+    warningRungNumbers: number[];
+    /** Rung number → warning messages. */
+    rungWarnings: ReadonlyMap<number, string[]>;
+    /** Total warning count. */
+    warningTotal: number;
 }
 
 const RUNG_NUMBER_RE = /^Rung (\d+):/;
@@ -43,6 +49,8 @@ export function parseValidationErrors(result: ValidationResult, graph: LdGraph):
     const rungErrors = new Map<number, string[]>();
     const rungIdSet = new Set<string>();
     const nodeErrors = new Map<string, string[]>();
+    const rungWarnings = new Map<number, string[]>();
+    const warningRungNumberSet = new Set<number>();
 
     for (const msg of result.errors) {
         const rungMatch = RUNG_NUMBER_RE.exec(msg);
@@ -67,6 +75,17 @@ export function parseValidationErrors(result: ValidationResult, graph: LdGraph):
         }
     }
 
+    for (const msg of result.warnings ?? []) {
+        const emptyRung = EMPTY_RUNG_RE.exec(msg);
+        if (emptyRung) {
+            const n = Number(emptyRung[2]);
+            warningRungNumberSet.add(n);
+            const list = rungWarnings.get(n) ?? [];
+            list.push(msg);
+            rungWarnings.set(n, list);
+        }
+    }
+
     return {
         total: result.errors.length,
         messages: result.errors,
@@ -75,6 +94,9 @@ export function parseValidationErrors(result: ValidationResult, graph: LdGraph):
         rungErrors,
         nodeIds: [...nodeErrors.keys()],
         nodeErrors,
+        warningRungNumbers: [...warningRungNumberSet].sort((a, b) => a - b),
+        rungWarnings,
+        warningTotal: (result.warnings ?? []).length,
     };
 
     function appendRung(rungNumber: number, msg: string): void {

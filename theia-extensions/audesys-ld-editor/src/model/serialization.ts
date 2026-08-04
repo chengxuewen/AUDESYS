@@ -76,6 +76,8 @@ export interface ValidationResult {
   valid: boolean;
   /** Human-readable error messages (empty when valid) */
   errors: string[];
+  /** Non-blocking warnings (e.g. empty rungs — legal intermediate state) */
+  warnings?: string[];
 }
 
 /**
@@ -118,10 +120,13 @@ export function validateGraph(graph: LdGraph): ValidationResult {
     }
   }
 
-  // 2. Rung connectivity — every rung must have at least one element
+  // 2. Rung connectivity — every rung must have at least one element.
+  //    Empty rungs are a legal intermediate state while editing (CODESYS
+  //    treats them the same), so this is a warning, not an error.
+  const warnings: string[] = [];
   for (const rung of graph.rungs) {
     if (rung.elementIds.length === 0) {
-      errors.push(`Empty rung: "${rung.id}" (rung ${rung.rungNumber}) has no elements`);
+      warnings.push(`Empty rung: "${rung.id}" (rung ${rung.rungNumber}) has no elements`);
     }
   }
 
@@ -172,9 +177,9 @@ export function validateGraph(graph: LdGraph): ValidationResult {
   return {
     valid: errors.length === 0,
     errors,
+    warnings,
   };
 }
-
 /**
  * Check whether a graph passes validation.
  *

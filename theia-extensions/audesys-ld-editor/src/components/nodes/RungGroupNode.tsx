@@ -26,6 +26,9 @@ interface LdRungData extends Record<string, unknown> {
     /** P2 validation: rung-level error count + messages (tooltip). */
     errorCount?: number;
     errorTitle?: string;
+    /** P2 validation: non-blocking warning count + messages (yellow). */
+    warningCount?: number;
+    warningTitle?: string;
 }
 
 export const RungGroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
@@ -35,9 +38,11 @@ export const RungGroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     const comment = str(data.comment);
     const errorCount = num(data.errorCount, 0);
     const errorTitle = str(data.errorTitle);
+    const warningCount = num(data.warningCount, 0);
+    const warningTitle = str(data.warningTitle);
     const hasAnnotation = title.length > 0 || comment.length > 0 || selected;
     const hasErrors = errorCount > 0;
-
+    const hasWarnings = warningCount > 0 && !hasErrors;
     const [editingTitle, setEditingTitle] = React.useState(false);
     const [editingComment, setEditingComment] = React.useState(false);
     const [titleDraft, setTitleDraft] = React.useState(title);
@@ -66,11 +71,14 @@ export const RungGroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
     return (
         <div
-            className={`ld-rung-group${selected ? ' ld-rung-group--selected' : ''}${hasAnnotation ? ' ld-rung-group--annotated' : ''}${hasErrors ? ' ld-rung-group--error' : ''}`}
-            title={errorTitle || undefined}
+            className={`ld-rung-group${selected ? ' ld-rung-group--selected' : ''}${hasAnnotation ? ' ld-rung-group--annotated' : ''}${hasErrors ? ' ld-rung-group--error' : ''}${hasWarnings ? ' ld-rung-group--warning' : ''}`}
+            title={errorTitle || warningTitle || undefined}
         >
             {hasErrors && (
                 <span className="ld-rung-group__error-badge">⚠ {errorCount}</span>
+            )}
+            {hasWarnings && (
+                <span className="ld-rung-group__warning-badge">⚠ {warningCount}</span>
             )}
             {editingTitle ? (
                 <input
