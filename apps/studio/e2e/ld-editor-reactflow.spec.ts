@@ -893,3 +893,255 @@ test('T22 save/reload round-trip preserves branch members and FB nodes', async (
         .toBe(120);
     await expect(page.locator('.react-flow__edge')).toHaveCount(5);
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// P1 特性 E2E — 注释 UI / 元素替换下拉 / Ctrl+F 查找 / 交叉引用 (T23-T26)
+// ══════════════════════════════════════════════════════════════════════════
+// 每个测试在打开文件前重写自己的 fixture (编辑器关闭时保存脏图会污染 fixture)。
+
+/** Three contacts sharing one variable (Ctrl+F / xref target). */
+function findGraph(id: string): FxGraph {
+    return {
+        id,
+        nodes: [
+            ...rails(),
+            contact('f1', 40, 'PUMP1'),
+            contact('f2', 160, 'PUMP1'),
+            contact('f3', 280, 'PUMP1'),
+        ],
+        edges: [
+            wire('w1', 'rail-l', 'f1'),
+            wire('w2', 'f1', 'f2'),
+            wire('w3', 'f2', 'f3'),
+            wire('w4', 'f3', 'rail-r'),
+        ],
+        rungs: [{ id: 'rung-1', rungNumber: 1, comment: 'Main', elementIds: ['f1', 'f2', 'f3'] }],
+    };
+}
+
+/** Mixed variable usage: IN0 ×2, IN1 ×1 (xref rows). */
+function xrefGraph(id: string): FxGraph {
+    return {
+        id,
+        nodes: [
+            ...rails(),
+            contact('x1', 40, 'IN0'),
+            contact('x2', 160, 'IN0'),
+            contact('x3', 280, 'IN1'),
+        ],
+        edges: [
+            wire('w1', 'rail-l', 'x1'),
+            wire('w2', 'x1', 'x2'),
+            wire('w3', 'x2', 'x3'),
+            wire('w4', 'x3', 'rail-r'),
+        ],
+        rungs: [{ id: 'rung-1', rungNumber: 1, comment: 'Main', elementIds: ['x1', 'x2', 'x3'] }],
+    };
+}
+
+/** Select a node and bring the LD property widget into view (bottom panel). */
+async function openPropertyFor(page: Page, node: Locator): Promise<void> {
+    await node.click();
+    const propertyTab = page.locator('.lm-TabBar-tab, .p-TabBar-tab', { hasText: 'LD Properties' }).first();
+    if (!(await propertyTab.isVisible().catch(() => false))) {
+        await page.getByRole('button', { name: 'Toggle Bottom Panel' }).click();
+    }
+    await expect(propertyTab).toBeVisible({ timeout: 10000 });
+    await propertyTab.click();
+    await expect(page.locator('.ld-property')).toBeVisible({ timeout: 10000 });
+}
+
+// ── T23: Annotation UI — rung title/comment inline edit + element comment ───
+
+test('T23 rung title/comment inline edit + element comment via property view persist to JSON', async ({ page }) => {
+    const file = path.join(WORKSPACE, 'annotate23.ld');
+    writeFixture('annotate23.ld', contactGraph('annotate23'));
+    await openLdFile(page, 'annotate23.ld');
+
+    // Rung title: double-click the header line → inline input → Enter commits
+    const label = page.locator('.react-flow__node-rung .ld-rung-group__label');
+    await expect(label).toHaveText('001');
+    await label.dblclick();
+    const titleInput = page.locator('.ld-rung-group__title-input');
+    await expect(titleInput).toBeVisible({ timeout: 10000 });
+    await titleInput.fill('Heater Circuit');
+    await page.keyboard.press('Enter');
+    await expect(label).toHaveText('001 Heater Circuit', { timeout: 10000 });
+
+    // Rung comment: double-click the comment line → inline input → Enter commits
+    const comment = page.locator('.react-flow__node-rung .ld-rung-group__comment');
+    await expect(comment).toHaveText('Main');
+    await comment.dblclick();
+    const commentInput = page.locator('.ld-rung-group__comment-input');
+    await expect(commentInput).toBeVisible({ timeout: 10000 });
+    await commentInput.fill('Pump network');
+    await page.keyboard.press('Enter');
+    await expect(comment).toHaveText('Pump network', { timeout: 10000 });
+
+    // Element comment: select contact → property view Comment field
+    const contactNode = page.locator('.react-flow__node-contact');
+    await expect(contactNode).toHaveCount(1);
+    await openPropertyFor(page, contactNode.first());
+    const commentField = page.locator('.ld-property__field').filter({ hasText: 'Comment' }).locator('.ld-property__input');
+    await expect(commentField).toBeVisible({ timeout: 10000 });
+    await commentField.fill('Pump contact');
+    // Hover tooltip on the contact label carries the comment
+    await expect(contactNode.first().locator('.ld-node-label')).toHaveAttribute('title', /Pump contact/, { timeout: 10000 });
+
+    // Save → JSON carries title + comment + element comment
+    await page.keyboard.press('Meta+s');
+    await expect
+        .poll(() => {
+            try {
+                const saved: unknown = JSON.parse(fs.readFileSync(file, 'utf8'));
+                const graph = saved as {
+                    nodes?: Array<{ id?: string; comment?: string }>;
+                    rungs?: Array<{ title?: string; comment?: string }>;
+                };
+                return (
+                    graph.rungs?.[0]?.title === 'Heater Circuit' &&
+                    graph.rungs?.[0]?.comment === 'Pump network' &&
+                    graph.nodes?.some((n) => n.id === 'c1' && n.comment === 'Pump contact') === true
+                );
+            } catch {
+                return false;
+            }
+        }, { timeout: 15000 })
+        .toBe(true);
+});
+
+// ── T24: Element replacement dropdown (NO↔NC↔P↔N / Normal↔Set) ─────────────
+
+test('T24 type-switch dropdown replaces contact NO→NC and coil Normal→Set preserving variable names', async ({ page }) => {
+    const file = path.join(WORKSPACE, 'replace24.ld');
+    writeFixture('replace24.ld', wiredGraph('replace24'));
+    await openLdFile(page, 'replace24.ld');
+
+    const contactNode = page.locator('.react-flow__node-contact');
+    const coilNode = page.locator('.react-flow__node-coil');
+    await expect(contactNode).toHaveCount(1);
+    await expect(coilNode).toHaveCount(1);
+
+    // Contact: select → NodeToolbar switcher with NO/NC/P/N, NO active
+    await contactNode.first().click();
+    const switchBar = page.locator('.ld-type-switch');
+    await expect(switchBar).toBeVisible({ timeout: 10000 });
+    await expect(switchBar.locator('button')).toHaveText(['NO', 'NC', 'P', 'N']);
+    await expect(switchBar.locator('button.ld-type-switch__active')).toHaveText('NO');
+
+    // Switch to NC → NC color class + variable name preserved
+    await switchBar.locator('button').filter({ hasText: 'NC' }).click();
+    await expect
+        .poll(async () => contactNode.first().locator('svg rect').first().getAttribute('stroke'), { timeout: 10000 })
+        .toContain('nc-fill');
+    await expect(contactNode.first().locator('.ld-node-label')).toHaveText('IN0');
+
+    // Coil: select → switcher shows coil options → Set
+    await coilNode.first().click();
+    await expect(switchBar.locator('button')).toHaveText(['()', '(/)', '(S)', '(R)'], { timeout: 10000 });
+    await switchBar.locator('button').filter({ hasText: '(S)' }).click();
+    await expect(coilNode.locator('svg text')).toHaveText('S', { timeout: 10000 });
+    await expect(coilNode.first().locator('.ld-node-label')).toHaveText('OUT0');
+
+    // Save → JSON keeps the new types + original variable names
+    await page.keyboard.press('Meta+s');
+    await expect
+        .poll(() => {
+            try {
+                const saved: unknown = JSON.parse(fs.readFileSync(file, 'utf8'));
+                const graph = saved as {
+                    nodes?: Array<{ id?: string; contactType?: string; coilType?: string; variableName?: string }>;
+                };
+                const nodes = graph.nodes ?? [];
+                const contact = nodes.find((n) => n.id === 'c1');
+                const coil = nodes.find((n) => n.id === 'k1');
+                return (
+                    contact?.contactType === 'NC' &&
+                    contact?.variableName === 'IN0' &&
+                    coil?.coilType === 'Set' &&
+                    coil?.variableName === 'OUT0'
+                );
+            } catch {
+                return false;
+            }
+        }, { timeout: 15000 })
+        .toBe(true);
+});
+
+// ── T25: Ctrl+F variable find ───────────────────────────────────────────────
+
+test('T25 Ctrl+F finds shared variable, Enter cycles matches, Esc closes', async ({ page }) => {
+    writeFixture('find25.ld', findGraph('find25'));
+    await openLdFile(page, 'find25.ld');
+
+    const found = page.locator('.react-flow__node.ld-node--found');
+    const current = page.locator('.react-flow__node.ld-node--current-match');
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(3);
+
+    // Ctrl+F opens the find input (auto-focused)
+    await page.keyboard.press('Control+f');
+    const findInput = page.locator('.ld-find-input');
+    await expect(findInput).toBeVisible({ timeout: 10000 });
+    await expect(findInput).toBeFocused();
+
+    // Type a substring query → all 3 contacts highlight, status 1/3
+    await page.keyboard.type('pump');
+    await expect(found).toHaveCount(3, { timeout: 10000 });
+    await expect(page.locator('.ld-find-status')).toHaveText('1/3');
+    await expect(current).toHaveCount(1);
+    await expect(page.locator('.react-flow__node[data-id="f1"].ld-node--current-match')).toBeVisible();
+
+    // Enter advances to the next match
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.ld-find-status')).toHaveText('2/3');
+    await expect(page.locator('.react-flow__node[data-id="f2"].ld-node--current-match')).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.ld-find-status')).toHaveText('3/3');
+    await expect(page.locator('.react-flow__node[data-id="f3"].ld-node--current-match')).toBeVisible();
+
+    // No matches → status flips to "No matches", highlights cleared
+    await findInput.fill('zzz');
+    await expect(page.locator('.ld-find-status')).toHaveText('No matches', { timeout: 10000 });
+    await expect(found).toHaveCount(0);
+
+    // Esc closes the input and clears highlights
+    await page.keyboard.press('Escape');
+    await expect(findInput).toHaveCount(0, { timeout: 10000 });
+    await expect(found).toHaveCount(0);
+});
+
+// ── T26: Cross-reference panel ──────────────────────────────────────────────
+
+test('T26 cross-reference panel lists variables and row click highlights usages', async ({ page }) => {
+    writeFixture('xref26.ld', xrefGraph('xref26'));
+    await openLdFile(page, 'xref26.ld');
+
+    // Open via the Cross Ref toolbar button
+    await toolbarButton(page, 'Cross Ref').click();
+    const panel = page.locator('.ld-xref-panel');
+    await expect(panel).toBeVisible({ timeout: 10000 });
+
+    // Rows: IN0 (2 usages), IN1 (1 usage) — alphabetical with rung labels
+    const rows = panel.locator('.ld-xref-row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('IN0');
+    await expect(rows.nth(0)).toContainText('2');
+    await expect(rows.nth(0).locator('.ld-xref-row__usages')).toContainText('R1');
+    await expect(rows.nth(1)).toContainText('IN1');
+    await expect(rows.nth(1)).toContainText('1');
+
+    // Click the IN0 row → both usages highlighted, first is current
+    await rows.nth(0).click();
+    const found = page.locator('.react-flow__node.ld-node--found');
+    await expect(found).toHaveCount(2, { timeout: 10000 });
+    await expect(page.locator('.react-flow__node[data-id="x1"].ld-node--current-match')).toBeVisible();
+
+    // Click the IN1 row → highlight moves to its single usage
+    await rows.nth(1).click();
+    await expect(found).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('.react-flow__node[data-id="x3"].ld-node--current-match')).toBeVisible();
+
+    // Ctrl+Shift+X closes the panel
+    await page.keyboard.press('Control+Shift+x');
+    await expect(panel).toHaveCount(0, { timeout: 10000 });
+});

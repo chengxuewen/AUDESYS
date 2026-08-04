@@ -1392,6 +1392,11 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 nodesConnectable={false}
                 // v12 default is only 'Backspace'; E2E and keyboard users press Delete
                 deleteKeyCode={['Delete', 'Backspace']}
+                // dblclick means EDIT (rung title/comment, node rename), never zoom.
+                // RF only adds `nopan` to DRAGGABLE nodes, so a non-draggable rung
+                // lets d3-zoom's dblclick.zoom handler stopImmediatePropagation and
+                // swallow the dblclick before React sees it (ld-editor P1 pitfall).
+                zoomOnDoubleClick={false}
                 fitView
                 onPaneClick={onPaneClick}
                 onNodeClick={onNodeClick}

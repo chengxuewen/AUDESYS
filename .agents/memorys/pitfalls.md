@@ -891,3 +891,12 @@
 - **方案**: (a) 多行插入用 `pos + end` 范围 replace 或 append（锚定结构边界）；(b) 编辑后立即 `npx tsc --noEmit` 验证；(c) 出现 TS1128 孤儿片段时 grep 原类型名定位残留
 - **验证**: `grep -c 'const CoilForm' file` 应为 1；tsc 0 errors
 - **禁止**: 不要用 pos-only replace 替换单行并期望多行生效 — 多行内容必须用范围 replace
+
+## LD P1 E2E 会话补漏 (2026-08-04)
+
+### 非 draggable 节点 dblclick 被 d3-zoom 吞掉 — rung 标题/注释双击编辑从未生效
+- **问题**: T23 测试发现 rung 标题/注释双击编辑不工作（`.ld-rung-group__title-input` 不出现）；contact 双击改名却正常
+- **原因**: React Flow v12 只给 **draggable** 节点加 `nopan` class（NodeWrapper: `{[noPanClassName]: isDraggable}`）。d3-zoom 的 `dblclick.zoom` 处理器挂在 `.react-flow__renderer` 上，其 filter 对 `.nopan` 内的 dblclick 返回 false（跳过，事件继续传播到 React）；对非 draggable 的 rung（无 nopan）filter 通过 → `noevent()` = `preventDefault + stopImmediatePropagation` → React 的 onDoubleClick 永远收不到事件。contact 有 nopan 所以改名可用，rung 无 nopan 所以标题编辑从未生效（双击只是缩放画布）
+- **方案**: LdCanvas ReactFlow 加 `zoomOnDoubleClick={false}` — 编辑器里 dblclick = 编辑（rung 标题/注释、节点改名），永不缩放。缩放仍可用 Ctrl+滚轮/pinch/Controls
+- **验证**: `page.mouse.dblclick` / `locator.dblclick` 后 `.ld-rung-group__title-input` 可见；E2E T23-T26 27/27 通过
+- **禁止**: 不要假设非 draggable 节点的 dblclick 事件能到达 React — d3-zoom dblclick.zoom 会 stopImmediatePropagation
