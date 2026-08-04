@@ -418,6 +418,8 @@ const FbdCanvasInner: React.FC<FbdCanvasProps> = ({
                 snapToGrid={true}
                 snapGrid={[20, 20]}
                 defaultEdgeOptions={{ zIndex: 1 }}
+                // v12 default is only 'Backspace'; keyboard users press Delete
+                deleteKeyCode={['Delete', 'Backspace']}
                 fitView
                 onPaneClick={onPaneClick}
                 onConnect={onConnect}

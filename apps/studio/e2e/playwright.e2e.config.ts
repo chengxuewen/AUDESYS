@@ -10,6 +10,7 @@ export default defineConfig({
     'ld-editor-reactflow.spec.ts',
     'hmi-designer.spec.ts',
     'codesys-workflow.spec.ts',
+    'fbd-editor-reactflow.spec.ts',
   ],
   timeout: 60_000,
   retries: 1,
