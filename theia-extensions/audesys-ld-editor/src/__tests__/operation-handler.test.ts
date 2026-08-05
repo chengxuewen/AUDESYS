@@ -112,6 +112,23 @@ describe('addCoil', () => {
         expect(next.edges.some((e) => e.sourceId === contactId && e.targetId === coil?.id)).toBe(true);
     });
 
+    it('places a coil without position (UI topology path) - no right-of-contacts error', () => {
+        // Arrange — UI (createWithTool / insert marker) calls addCoil with
+        // only { type, rungId }, no position (D112 topology).
+        const { handler, graph, contactId, rungId } = graphWithContact();
+
+        // Act
+        const next = handler.addCoil(graph, { type: CoilType.Normal, rungId });
+
+        // Assert — coil appended, wired to contact, pinned by layoutRung.
+        const coil = next.nodes.find((n) => n.type === 'node:coil');
+        expect(coil).toBeDefined();
+        expect(next.rungs[0].elementIds).toEqual([contactId, coil?.id]);
+        const pos = layoutRung(next.rungs[0], next).get(coil!.id);
+        expect(pos?.x).toBe(COIL_X_OFFSET);
+        expect(next.edges.some((e) => e.sourceId === contactId && e.targetId === coil?.id)).toBe(true);
+    });
+
     it('rejects a coil when the rung has no contacts', () => {
         // Arrange
         const { handler, graph, rungId } = graphWithRung();

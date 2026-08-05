@@ -24,11 +24,23 @@ const HANDLE_STYLE: React.CSSProperties = {
     minHeight: 0,
     background: 'transparent',
     border: 'none',
+    zIndex: 2,
 };
+
+/**
+ * Per-rung row entry: where to place a handle on the rail so a rung's
+ * wire anchors at the rung's main-row height instead of the rail midpoint.
+ * `y` is absolute within the rail node (which sits at y=0, full height).
+ */
+interface RailRow {
+    rungId: string;
+    y: number;
+}
 
 export const PowerRailNode: React.FC<NodeProps> = ({ data, selected }) => {
     const side = data.side === 'Right' ? 'Right' : 'Left';
     const railHeight = num(data.height, 400);
+    const rows = (data.rows as RailRow[] | undefined) ?? [];
     const stroke = selected
         ? 'var(--ld-selection-color, #2196f3)'
         : 'var(--ld-power-rail-color, #2196f3)';
@@ -42,11 +54,15 @@ export const PowerRailNode: React.FC<NodeProps> = ({ data, selected }) => {
                     stroke={stroke} strokeWidth={RAIL_WIDTH} strokeLinecap="round"
                 />
             </svg>
-            {side === 'Left' ? (
-                <Handle type="source" position={Position.Right} id="out" style={HANDLE_STYLE} />
-            ) : (
-                <Handle type="target" position={Position.Left} id="in" style={HANDLE_STYLE} />
-            )}
+            {side === 'Left'
+                ? rows.map((r) => (
+                    <Handle key={r.rungId} type="source" position={Position.Right}
+                        id={`rail:${r.rungId}`} style={{ ...HANDLE_STYLE, top: r.y }} />
+                ))
+                : rows.map((r) => (
+                    <Handle key={r.rungId} type="target" position={Position.Left}
+                        id={`rail:${r.rungId}`} style={{ ...HANDLE_STYLE, top: r.y }} />
+                ))}
         </div>
     );
 };

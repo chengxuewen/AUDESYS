@@ -397,11 +397,14 @@ export class LdOperationHandler {
 
   /**
    * Add a coil node to a rung.
-   * Validates: at most one coil per rung, position in coil area, contacts exist.
+   * Validates: at least one contact exists. The coil is appended to the
+   * end of the rung and pinned to the coil zone by layoutRung (topology D112).
    */
   addCoil(graph: LdGraph, params: AddCoilParams): LdGraph {
     const rung = findRung(graph, params.rungId);
-    const snapped = params.position ? snapToGrid(params.position) : { x: 0, y: 40 };
+    // Topology (D112): coil is always appended to the end of the rung and
+    // pinned to the coil zone by layoutRung — no free placement, so no
+    // position is expected from the UI and no position validation applies.
 
     // Must have at least one contact before adding a coil
     const contactIds = rung.elementIds.filter((id) => {
@@ -410,14 +413,6 @@ export class LdOperationHandler {
     });
     if (contactIds.length === 0) {
       throw new ValidationError('Add at least one contact before adding a coil');
-    }
-    // Valid position: right of the rightmost contact
-    const rightmostX = contactIds.reduce((maxX, id) => {
-      const n = findNode(graph, id);
-      return n ? Math.max(maxX, n.position.x) : maxX;
-    }, 0);
-    if (snapped.x <= rightmostX) {
-      throw new ValidationError('Coil must be placed to the right of all contacts');
     }
 
     const coilCount = graph.nodes.filter(n => n.type === 'node:coil').length;
@@ -563,9 +558,10 @@ export class LdOperationHandler {
     next.rungs[rungIdx] = { ...rung, elementIds: elements };
 
     const updatedRung = next.rungs[rungIdx];
-    next.edges = next.edges.filter((e) => {
-      return e.sourceId !== params.elementId && e.targetId !== params.elementId;
-    });
+    // Full rewire: rebuild the series chain (rail→elements→coil/rail) and
+    // then branch wires. reorderElement must NOT only drop the moved
+    // element's wires — that strands the element with no connections.
+    rewireRungSeries(next, updatedRung);
     rewireRungBranches(next, updatedRung);
     return next;
   }
@@ -1217,6 +1213,49 @@ function seriesSuccessor(rung: Rung, anchorId: string): string | null {
   return rung.elementIds[idx + 1];
 }
 
+/**
+ * Rebuild the series (main-row) wires of a rung from scratch: left power rail
+ * through every series element to the coil (or right rail), then delegate to
+ * rewireRungBranches to rebuild any branch wiring. Used after reorder/delete
+ * so moved elements keep their connections.
+ */
+function rewireRungSeries(next: LdGraph, rung: Rung): void {
+  const leftRail = findLeftRailOnRung(next, rung);
+  const rightRail = findRightRailOnRung(next, rung);
+  const coilNode = findCoilOnRung(next, rung);
+
+  // Which nodes belong to THIS rung's series. We must NOT drop wires by rail
+  // id — the left/right rails are shared across ALL rungs, so filtering on them
+  // would delete every other rung's rail connections. Filtering by this rung's
+  // element ids is enough: this rung's rail wires touch its own elements and get
+  // rebuilt below; other rungs' rail wires only touch their own elements and survive.
+  const seriesIds = new Set<string>(rung.elementIds);
+
+  // Drop every wire that touches this rung's series nodes (branch wires are
+  // rebuilt by rewireRungBranches below).
+  next.edges = next.edges.filter((e) => {
+    return !seriesIds.has(e.sourceId) && !seriesIds.has(e.targetId);
+  });
+
+  // Rebuild the series chain left-to-right.
+  const elements = rung.elementIds;
+  let prevId: string | null = leftRail?.id ?? null;
+  for (const elemId of elements) {
+    if (prevId && elemId !== prevId) {
+      next.edges.push(createWire(prevId, elemId));
+    }
+    prevId = elemId;
+  }
+  // Connect the last element to the coil or right rail.
+  const lastId = elements[elements.length - 1];
+  if (!lastId) return;
+  const target = coilNode?.id ?? rightRail?.id;
+  if (target && target !== lastId) {
+    next.edges.push(createWire(lastId, target));
+  }
+
+  rewireRungBranches(next, rung);
+}
 /**
  * Rewire all branches of a rung: drops old branch edges (member-touching
  * and anchor-to-successor) and re-creates them from scratch.

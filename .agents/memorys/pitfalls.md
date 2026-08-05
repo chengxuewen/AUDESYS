@@ -975,3 +975,33 @@
 - **方案**: (a) 单测 3 次复跑（--repeat-each=3）确认 flaky；(b) 完整套件最终确认（31/31）；(c) 不要被单次失败误导怀疑新改动
 - **验证**: `npx playwright test -g "T23" --repeat-each=3` 3/3 pass；全量 31/31 pass
 - **禁止**: 单次 E2E 失败不要立即归因新改动 — 先用 repeat-each 区分 flaky 与回归
+
+## LD 编辑器拓扑 bug 修复会话 (2026-08-05)
+
+### 拖动元素后连线消失 — reorderElement 删线不重建串联
+- **问题**: 创建 NO contact 后连线正常，拖动图标后左右连线消失
+- **原因**: D112 拓扑化时 `reorderElement` 只删掉被拖元素的所有连线（`filter` 按 elementId），但只调用 `rewireRungBranches`（无分支时直接 return，且只重建分支线），**从不重建串联线/电源线**
+- **方案**: 新增 `rewireRungSeries`，完整重建 rung 串联链（左轨→各元素→线圈/右轨），再委托 `rewireRungBranches` 重建分支。`reorderElement` 改为调用 `rewireRungSeries`（内部已含 branches rewire）
+- **验证**: vitest 143/143 + tsc 0 errors
+- **禁止**: 不要在 reorder/delete 路径只删线不重建 — 每次删线必须有对应的全链重建
+
+### 拖动干扰其他 rung — filter 含全局 rail id 误删跨 rung 连线
+- **问题**: 拖动任意 rung 的元素后，其他 rung 的 rail→元素连线消失
+- **原因**: `findLeftRailOnRung`/`findRightRailOnRung` 返回的是**全局唯一**的左右 rail（rail 跨所有 rung 共享，非某 rung 私有）。第一版 `rewireRungSeries` 把 rail id 加进 `seriesIds`，filter 删掉所有触及 rail 的线 → 误删其他 rung 的 rail 连线
+- **方案**: `seriesIds` 只含**本 rung 的元素 id**，不加入 rail/coil id。本 rung rail 连线因触及本 rung 元素被删并重建；其他 rung 的 rail 连线只触及它们自己的元素，保留
+- **验证**: vitest 143/143 + tsc 0 errors
+- **禁止**: 不要把全局共享节点（rail）的 id 用于按 rung 过滤 edge — rail/coil 跨 rung 共享，必须只按本 rung 元素 id 过滤
+
+### 线圈放置失败 — addCoil 保留自由放置位置校验
+- **问题**: UI 放置线圈（输出）报 "Coil must be placed to the right of all contacts"，无法放置
+- **原因**: D112 拓扑化后 UI 路径（createWithTool/插入点点击）调用 `addCoil` 只传 `{type, rungId}`，不传 position。但 `addCoil` 仍保留自由放置时代的校验 `snapped.x <= rightmostX`（无 position 时 snapped={x:0}，0 <= 任何 contact x → 必抛错）。测试全传 position 所以没暴露
+- **方案**: 移除 `addCoil` 的位置校验（coil 永远追加到 rung 末尾、由 layoutRung 钉在 COIL_X_OFFSET），保留"至少一个 contact"校验
+- **验证**: vitest 144/144（新增"不传 position 放置线圈"回归测试）+ tsc 0 errors
+- **禁止**: 拓扑化后不要保留自由放置时代的校验 — 位置已由 layout 推导，UI 不再传 position
+
+### JSDoc 注释未闭合吞掉方法签名 — addCoil 'is not a function'
+- **问题**: 移除 addCoil 校验后，tsc 报 `addCoil does not exist`，运行时 `handler.addCoil is not a function`
+- **原因**: 编辑 addCoil 的 JSDoc 注释时，把 `/**` 的闭合 `*/` 弄丢了，`addCoil(...)` 方法签名被注释吞掉，整个方法从类中消失。tsc 只报调用处错误（`addCoil does not exist`），不报定义处，极易误导
+- **方案**: 编辑 JSDoc 注释块时确保 `*/` 闭合；方法"不存在"时报错先检查方法前注释是否把签名吞掉
+- **验证**: 补 `*/` 后 tsc 0 errors + vitest 144/144
+- **禁止**: 编辑 `/** */` 注释块时允许丢失闭合符 — 会无声删除后面的代码

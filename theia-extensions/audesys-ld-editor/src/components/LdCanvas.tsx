@@ -210,6 +210,22 @@ export function graphToFlow(
     // Topology layout (D112): all positions derive from rung structure.
     const layout = layoutGraph(graph);
 
+    // Element → rung map: which rung does each element (series or branch member)
+    // belong to. Used to anchor rail handles to the correct per-rung row.
+    const rungForElement = new Map<string, string>();
+    for (const rung of graph.rungs) {
+        for (const id of rung.elementIds) rungForElement.set(id, rung.id);
+        for (const b of rung.branches ?? []) {
+            for (const id of b.elementIds) rungForElement.set(id, rung.id);
+        }
+    }
+    // Per-rung rail handle rows: absolute y of the main element row's handle
+    // center inside the full-height rail (which sits at y=0).
+    const railRows = graph.rungs.map((rung) => ({
+        rungId: rung.id,
+        y: (layout.rungTops.get(rung.id) ?? 0) + ELEMENT_Y + CONTACT_SIZE / 2,
+    }));
+
     graph.rungs.forEach((rung: Rung) => {
         const rungTop = layout.rungTops.get(rung.id) ?? 0;
         const rungH = layout.rungHeights.get(rung.id) ?? RUNG_GROUP_HEIGHT;
@@ -277,12 +293,22 @@ export function graphToFlow(
             type: RF_TYPE_RAIL,
             position: railPos,
             style: { width: RAIL_WIDTH + 8, height: layout.rails.height },
-            data: { side: rail.side, height: layout.rails.height },
+            data: { side: rail.side, height: layout.rails.height, rows: railRows },
             draggable: false,
             deletable: false,
         });
         nodeIds.add(rail.id);
     }
+
+    // Helpers: resolve the rail-side handle id for an edge whose source or
+    // target is a power rail. The rail has one handle per rung row, so the
+    // wire can anchor at the row's height instead of the rail's midpoint.
+    const isRail = (id: string): boolean => nodeIds.has(id) &&
+        graph.nodes.some((n) => n.id === id && n.type === 'node:powerrail');
+    const railHandle = (elementId: string): string => {
+        const rungId = rungForElement.get(elementId);
+        return rungId ? `rail:${rungId}` : 'out';
+    };
 
     const edges: LdRfEdge[] = graph.edges
         .filter((e) => nodeIds.has(e.sourceId) && nodeIds.has(e.targetId))
@@ -290,11 +316,17 @@ export function graphToFlow(
             const w = e as WireConnection;
             // Pin-anchored handles: FB pins use "out:<pin>/in:<pin>",
             // vertical branch bus wires use literal "bus-out"/"bus-in".
-            const sourceHandle = !w.sourcePin
-                ? 'out'
+            // Power-rail wires use per-row handles "rail:<rungId>" so the
+            // wire anchors at the rung's main-row height (not rail midpoint).
+            const sourceRail = isRail(e.sourceId);
+            const targetRail = isRail(e.targetId);
+            const sourceHandle = sourceRail
+                ? railHandle(e.targetId)
+                : !w.sourcePin ? 'out'
                 : w.sourcePin.startsWith('bus-') ? w.sourcePin : `out:${w.sourcePin}`;
-            const targetHandle = !w.targetPin
-                ? 'in'
+            const targetHandle = targetRail
+                ? railHandle(e.sourceId)
+                : !w.targetPin ? 'in'
                 : w.targetPin.startsWith('bus-') ? w.targetPin : `in:${w.targetPin}`;
             return {
                 id: e.id,
@@ -1180,18 +1212,32 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     // ── Parallel branch flow ──────────────────────────────────
 
     const openBranchAt = React.useCallback((anchorNodeId: string, rungId: string): void => {
+        // RC1 (D112): allow re-opening an EXISTING branch. openBranchAt is the
+        // only entry into branch mode, and handler.openBranch throws when the
+        // anchor already has a branch — so a closed branch was permanently frozen
+        // (no way to add members or delete the branch). Look up the existing
+        // branch first and re-enter it directly instead of calling openBranch.
+        const rung = graph.rungs.find((r) => r.id === rungId);
+        const existing = rung?.branches?.find((b) => b.anchorId === anchorNodeId);
+        if (existing) {
+            // Re-enter the existing branch (skip handler.openBranch — it throws).
+            setBranchMode({ branchId: existing.id, rungId });
+            setPendingTool(null);
+            setStatus('Branch reopened — click a green marker below a contact, then Close/Cancel');
+            return;
+        }
         const next = tryApply((g) => handler.openBranch(g, { rungId, anchorId: anchorNodeId }));
         if (!next) {
             return;
         }
-        const rung = next.rungs.find((r) => r.id === rungId);
-        const branch = rung?.branches?.find((b) => b.anchorId === anchorNodeId);
+        const updatedRung = next.rungs.find((r) => r.id === rungId);
+        const branch = updatedRung?.branches?.find((b) => b.anchorId === anchorNodeId);
         if (branch) {
             setBranchMode({ branchId: branch.id, rungId });
             setPendingTool(null);
-            setStatus('Branch open — click in the rung to add contacts, then Close Branch');
+            setStatus('Branch open — click a green marker below a contact, then Close Branch');
         }
-    }, [tryApply, handler]);
+    }, [graph.rungs, tryApply, handler]);
 
     const addBranchMember = React.useCallback((position: { x: number; y: number }): void => {
         if (!branchMode) {
@@ -1341,6 +1387,11 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         if (pendingTool === 'branch') {
             if (node.type !== RF_TYPE_CONTACT || !node.parentId) {
                 setStatus('Open Branch: click a contact on the rung');
+                return;
+            }
+            // RC2: don't silently abandon an open branch by switching anchors.
+            if (branchMode) {
+                setStatus('A branch is already open — Close or Cancel it before opening another');
                 return;
             }
             openBranchAt(node.id, node.parentId);
