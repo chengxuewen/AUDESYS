@@ -48,6 +48,7 @@ import { CoilNode } from './nodes/CoilNode';
 import { FbNode } from './nodes/FbNode';
 import { RungGroupNode } from './nodes/RungGroupNode';
 import { PowerRailNode } from './nodes/PowerRailNode';
+import { InsertPointNode, InsertPointData } from './nodes/InsertPointNode';
 import { WireEdge } from './edges/WireEdge';
 
 // ============================================================================
@@ -88,6 +89,7 @@ export const RF_TYPE_COIL = 'coil';
 export const RF_TYPE_FB = 'fb';
 export const RF_TYPE_RAIL = 'powerrail';
 export const RF_TYPE_WIRE = 'wire';
+export const RF_TYPE_INSERT = 'insert-point';
 
 /**
  * Vertical placement of contact/coil symbols inside a rung.
@@ -762,6 +764,7 @@ const nodeTypes: NodeTypes = {
     [RF_TYPE_FB]: FbNode,
     [RF_TYPE_RUNG]: RungGroupNode,
     [RF_TYPE_RAIL]: PowerRailNode,
+    [RF_TYPE_INSERT]: InsertPointNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -1049,7 +1052,45 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             }
             return { ...n, className, data };
         });
-        setNodes(nodes);
+        // Insertion points (D112 T2.2): while a series tool is pending, show
+        // a diamond on every legal series slot of every rung. Absolute flow
+        // coords (not rung children) so extent:'parent' cannot clamp them.
+        // Built from the SAME `nodes` array so a concurrent placement never
+        // loses the just-created element (atomic setNodes below).
+        const baseNodes = nodes;
+        const finalNodes = baseNodes.filter((n) => n.type !== RF_TYPE_INSERT);
+        if (pendingTool && pendingTool !== 'branch') {
+            const slotNodes: LdRfNode[] = [];
+            const lay = layoutGraph(graph);
+            graph.rungs.forEach((rung, ri) => {
+                const rungTop = lay.rungTops.get(rung.id) ?? 0;
+                // Series slots: before each non-coil element, plus one tail.
+                const series = rung.elementIds.filter((id) => {
+                    const n = graph.nodes.find((nn) => nn.id === id);
+                    return n && n.type !== 'node:coil';
+                });
+                const positions = lay.positions;
+                const xs = series.map((id) => positions.get(id)?.x ?? 40);
+                const rungH = lay.rungHeights.get(rung.id) ?? 76;
+                const slotY = rungTop + Math.min(40, rungH - 20);
+                // slot 0..n: left of first element, between elements, tail
+                for (let i = 0; i <= series.length; i++) {
+                    const x = i === 0 ? (xs[0] ?? 40) - 30 : (xs[i] ?? (xs[xs.length - 1] ?? 40) + 80) - 30;
+                    slotNodes.push({
+                        id: `insert-${ri}-${i}`,
+                        type: RF_TYPE_INSERT,
+                        position: { x, y: slotY },
+                        data: { rungId: rung.id, insertIndex: i } as InsertPointData,
+                        draggable: false,
+                        selectable: true,
+                    });
+                }
+            });
+            // Replace, not append: clear stale insert nodes first so the
+            // marker set always matches the current graph/rungs.
+            finalNodes.push(...slotNodes);
+        }
+        setNodes(finalNodes);
 
         // Flow highlighting: wire is active when its source carries a truthy
         // value; with no runtime values injected yet, alternate for the demo.
@@ -1062,7 +1103,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             return { ...e, data: { ...e.data, active: true } };
         });
         setEdges(edges);
-    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId, monitoring, monitorValues, validation]);
+    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId, monitoring, monitorValues, validation, pendingTool]);
 
 
     // ── Toolbar actions ───────────────────────────────────────
@@ -1250,6 +1291,27 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             openBranchAt(node.id, node.parentId);
             return;
         }
+        // Insertion point (CODESYS diamond): place at the exact topology slot.
+        if (node.type === RF_TYPE_INSERT) {
+            const d = node.data as unknown as InsertPointData;
+            const insertIndex = typeof d.insertIndex === 'number' ? d.insertIndex : 0;
+            const rungId = typeof d.rungId === 'string' ? d.rungId : '';
+            if (rungId) {
+                tryApply((g) => {
+                    let next = g;
+                    if (next.rungs.length === 0) next = handler.addRung(next);
+                    if (CONTACT_TYPE_BY_TOOL[pendingTool]) {
+                        return handler.addContact(next, { insertIndex, type: CONTACT_TYPE_BY_TOOL[pendingTool], rungId });
+                    }
+                    if (pendingTool.startsWith('fb-')) {
+                        return handler.addFb(next, { insertIndex, fbType: pendingTool.slice(3), rungId });
+                    }
+                    return handler.addCoil(next, { type: COIL_TYPE_BY_TOOL[pendingTool], rungId });
+                });
+            }
+            setPendingTool(null);
+            return;
+        }
         // Any other tool (contact/coil/FB/rail): clicking a rung container
         // is equivalent to clicking the canvas — place the element there.
         // (CODESYS/OpenPLC place elements by clicking inside the network row.)
@@ -1259,7 +1321,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
         createWithTool(pendingTool, flowPos);
         setPendingTool(null);
-    }, [pendingTool, openBranchAt, screenToFlowPosition, createWithTool]);
+    }, [pendingTool, openBranchAt, screenToFlowPosition, createWithTool, tryApply, handler]);
 
     const onDelete = React.useCallback((params: { nodes: LdRfNode[]; edges: LdRfEdge[] }): void => {
         tryApply((g) => {
