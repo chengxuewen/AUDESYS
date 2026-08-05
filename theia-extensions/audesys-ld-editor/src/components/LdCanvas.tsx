@@ -153,6 +153,7 @@ function contactFlowNode(
         parentId: rungId,
         extent: 'parent',
         position,
+        draggable: true,
         data: {
             contactType: contact.contactType,
             variableName: contact.variableName,
@@ -175,6 +176,7 @@ function coilFlowNode(
         parentId: rungId,
         extent: 'parent',
         position,
+        draggable: true,
         data: {
             coilType: coil.coilType,
             variableName: coil.variableName,
@@ -192,6 +194,7 @@ function fbFlowNode(fb: FbPlaceholderNode, rungId: string, position: Point): LdR
         parentId: rungId,
         extent: 'parent',
         position,
+        draggable: true,
         style: { width: fb.size.width, height: fb.size.height },
         data: { fbType: fb.fbType, inputPins: fb.inputPins, outputPins: fb.outputPins },
     };
@@ -1325,6 +1328,25 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         setStatus('Click a diamond marker to place the element');
     }, [pendingTool, branchMode, openBranchAt, tryApply, handler]);
 
+    // Drag-migration (D112 T2.5): on drop, snap the element to the nearest
+    // insertion slot of the rung it landed in (reorder, not free placement).
+    const onNodeDragStop = React.useCallback((_: unknown, node: LdRfNode): void => {
+        if (node.type !== RF_TYPE_CONTACT && node.type !== RF_TYPE_FB && node.type !== RF_TYPE_COIL) {
+            return;
+        }
+        const parentId = typeof node.parentId === 'string' ? node.parentId : '';
+        if (!parentId) return;
+        // node.position is rung-relative (extent:'parent' child); the rung
+        // container sits at x=0, so it is also the slot x for findInsertIndex.
+        const slotX = node.position.x;
+        tryApply((g) => {
+            const rung = g.rungs.find((r) => r.id === parentId);
+            if (!rung) return g;
+            const slot = findInsertIndex(g, rung, slotX);
+            return handler.reorderElement(g, { elementId: node.id, insertIndex: slot });
+        });
+    }, [tryApply, handler]);
+
     const onDelete = React.useCallback((params: { nodes: LdRfNode[]; edges: LdRfEdge[] }): void => {
         tryApply((g) => {
             let next = g;
@@ -1623,6 +1645,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 fitView
                 onPaneClick={onPaneClick}
                 onNodeClick={onNodeClick}
+                onNodeDragStop={onNodeDragStop}
                 onDelete={onDelete}
                 onSelectionChange={onSelectionChange}
                 className={pendingTool || branchMode ? 'ld-canvas--placing' : undefined}

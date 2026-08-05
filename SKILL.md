@@ -39,16 +39,12 @@ Rules 中通过 `See skill: <name>` 引用 Skills，形成 "规则约束 → 技
 
 | 技能 | 文件 | 内容 |
 |------|------|------|
-| 技能 | 文件 | 内容 |
-|------|------|------|
 | `book-to-skill` | `book-to-skill/SKILL.md` | 将书籍/文档转换为 agent 技能，提取框架、原则、技术、反模式 |
 | `design-system` | `design-system/SKILL.md` | AUDESYS 工业控制平台 UI 设计系统：颜色、排版、组件、布局规范 |
 | `doc-audit` | `doc-audit/SKILL.md` | 文档架构审计：并行检查架构/设计/决策/参考之间的自洽性、完整性和缺口，交互式确认每项发现 |
 | `test-harness` | `test-harness/SKILL.md` | 多语言自动化测试工具架：SDD→测试生成 (Rust/TS/Python/C++/C)、AAA 模式、反向追溯、覆盖率报告、Phase 感知 |
 | `openspec-propose` | `openspec-propose/SKILL.md` | 一步生成完整变更提案：设计、规格、任务 |
-| `openspec-apply-change` | `openspec-apply-change/SKILL.md` | 实施变更中的任务（OAI 工作流） |
 | `openspec-apply` | `openspec-apply/SKILL.md` | AUDESYS 变更实施（Rust + HAL + amw_inproc）<!-- openspec-apply-change is the experimental workflow variant; both maintained --> |
-| `openspec-archive-change` | `openspec-archive-change/SKILL.md` | 归档已完成变更（OAI 工作流） |
 | `openspec-archive` | `openspec-archive/SKILL.md` | AUDESYS 变更归档 |
 | `openspec-verify` | `openspec-verify/SKILL.md` | 验证 AUDESYS 变更实现的正确性 |
 | `openspec-explore` | `openspec-explore/SKILL.md` | 探索模式：思考伙伴，用于探索想法、调查问题、澄清需求 |
@@ -61,6 +57,10 @@ Rules 中通过 `See skill: <name>` 引用 Skills，形成 "规则约束 → 技
 | `ref-intouch` | `ref-intouch/SKILL.md` | InTouch HMI 参考文档技能 |
 | `ref-labview` | `ref-labview/SKILL.md` | LabVIEW 参考文档技能 |
 | `ref-qtouch` | `ref-qtouch/SKILL.md` | Qtouch 参考文档技能 |
+| `ecosystem-scan` | `ecosystem-scan/SKILL.md` | 审计 .agents/ 体系并扫描社区生态寻找可引入的技能/规则/MCP，双层（Quick/Full）+ 质量评分 + 安全门禁 |
+| `lesson-review` | `lesson-review/SKILL.md` | 批量会话回顾：系统性提取经验教训，写入项目记忆 |
+| `skill-router` | `skill-router/SKILL.md` | 分析用户意图，推荐最合适的技能组合与执行顺序 |
+| `think-before-act` | `think-before-act/SKILL.md` | 先调研→列方案→用户审批→执行，任何非平凡操作前触发 |
 
 ## 代理（Agents）
 

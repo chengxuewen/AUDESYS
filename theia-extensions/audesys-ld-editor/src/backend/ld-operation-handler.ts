@@ -529,9 +529,48 @@ export class LdOperationHandler {
   }
 
   /**
-   * Move an element to a new position.
    */
   // ── Wiring ────────────────────────────────────────────────
+  /**
+   * Reorder a series element to a new slot within its rung (drag-migration,
+   * D112 T2.5). The element stays in the same rung; only its position in
+   * elementIds changes, which layoutRung then turns into a new x.
+   * Coils are always pinned to the end and cannot be reordered.
+   */
+  reorderElement(graph: LdGraph, params: { elementId: string; insertIndex: number }): LdGraph {
+    const rung = graph.rungs.find((r) => r.elementIds.includes(params.elementId));
+    if (!rung) {
+      throw new ValidationError(`Element not on any rung: ${params.elementId}`);
+    }
+    const node = findNode(graph, params.elementId);
+    if (!node) {
+      throw new ValidationError(`Element not found: ${params.elementId}`);
+    }
+    const coilNode = findCoilOnRung(graph, rung);
+    if (coilNode && coilNode.id === params.elementId) {
+      throw new ValidationError('A coil cannot be reordered — it is pinned to the coil zone');
+    }
+
+    const next = cloneGraph(graph);
+    const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
+    const elements = [...rung.elementIds];
+    const fromIdx = elements.indexOf(params.elementId);
+    if (fromIdx < 0) return graph;
+    elements.splice(fromIdx, 1);
+    let toIdx = Math.min(Math.max(params.insertIndex, 0), elements.length);
+    if (fromIdx < toIdx) toIdx -= 1;
+    elements.splice(toIdx, 0, params.elementId);
+    next.rungs[rungIdx] = { ...rung, elementIds: elements };
+
+    const updatedRung = next.rungs[rungIdx];
+    next.edges = next.edges.filter((e) => {
+      return e.sourceId !== params.elementId && e.targetId !== params.elementId;
+    });
+    rewireRungBranches(next, updatedRung);
+    return next;
+  }
+
+
 
   /**
    * Create a wire connection between two elements.

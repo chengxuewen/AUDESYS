@@ -17,7 +17,7 @@ AUDESYS/
 │   └── init-mcp-*.mjs  # 7 个 MCP 自动安装脚本（codegraph/playwright/shadcn/tailwind/lucide/postgres）
 ├── .agents/
 │   ├── rules/          # 89 个编码规则文件（16 语言 × common + 中文副本）
-│   ├── skills/         # 6 个技能（design-system + 5 openspec-*）
+│   ├── skills/         # 22 个技能（design-system + 11 openspec-* + 4 ref-* + book-to-skill + doc-audit + ecosystem-scan + lesson-review + skill-router + skill-creator + test-harness + think-before-act）
 │   └── memorys/        # 4 个项目记忆文件（status/conventions/decisions/pitfalls）
 ├── docs/
 │   ├── architecture.md           # ~1,700 行 — 系统架构概览（6 主章）

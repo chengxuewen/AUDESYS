@@ -1297,3 +1297,46 @@ test('T35 diamond-only: rung body click does NOT place, diamond click does', asy
     await expect(page.locator('.react-flow__node-contact')).toHaveCount(1, { timeout: 10000 });
     await expect(page.locator('.ld-insert-point')).toHaveCount(0, { timeout: 5000 });
 });
+
+// ── T36: Drag-migration — dropping an element reorders it to the nearest slot ─
+
+test('T36 drag contact to a new slot reorders it (D112 T2.5)', async ({ page }) => {
+    // Two contacts + coil fixture
+    const g = {
+        id: 't36',
+        nodes: [
+            { id: 'rail-l', type: 'node:powerrail', side: 'Left', position: { x: 0, y: 0 }, size: { width: 4, height: 600 } },
+            { id: 'rail-r', type: 'node:powerrail', side: 'Right', position: { x: 640, y: 0 }, size: { width: 4, height: 600 } },
+            contact('c1', 40, 'IN0'),
+            contact('c2', 120, 'IN1'),
+            coil('k1', 'OUT0'),
+        ],
+        edges: [
+            wire('w1', 'rail-l', 'c1'), wire('w2', 'c1', 'c2'), wire('w3', 'c2', 'k1'), wire('w4', 'k1', 'rail-r'),
+        ],
+        rungs: [{ id: 'rung-1', rungNumber: 1, comment: 'Main', elementIds: ['c1', 'c2', 'k1'] }],
+    };
+    writeFixture('t36.ld', g as unknown as FxGraph);
+    await openLdFile(page, 't36.ld');
+
+    // c1 (x=40) and c2 (x=120) rendered; drag c1 right past c2 → c1 becomes slot 2
+    const c1 = page.locator('.react-flow__node-contact[data-id="c1"]');
+    const c2 = page.locator('.react-flow__node-contact[data-id="c2"]');
+    await expect(c1).toBeVisible({ timeout: 10000 });
+
+    // Drag c1 to the right of c2 (roughly x=200 target)
+    const box = await c1.boundingBox();
+    const c2box = await c2.boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(c2box!.x + c2box!.width + 30, box!.y + box!.height / 2, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(1500);
+
+    // c1 should now render to the RIGHT of c2 (reordered)
+    const c1After = await c1.evaluate((el) => (el as HTMLElement).style.transform);
+    const c2After = await c2.evaluate((el) => (el as HTMLElement).style.transform);
+    const x1 = Number(/translate\((-?[\d.]+)px/.exec(c1After)?.[1] ?? -1);
+    const x2 = Number(/translate\((-?[\d.]+)px/.exec(c2After)?.[1] ?? -1);
+    expect(x1).toBeGreaterThan(x2); // c1 moved right of c2
+});

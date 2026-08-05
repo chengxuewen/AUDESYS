@@ -182,6 +182,34 @@ describe('deleteElement', () => {
     });
 });
 
+describe('reorderElement', () => {
+    it('reorders a series element to a new slot', () => {
+        // Arrange — contact + contact + coil
+        const { handler, graph, rungId } = graphWithRung();
+        let g = handler.addContact(graph, { position: { x: 40, y: 40 }, type: ContactType.NO, rungId });
+        g = handler.addContact(g, { position: { x: 120, y: 40 }, type: ContactType.NO, rungId });
+        g = handler.addCoil(g, { position: { x: COIL_X_OFFSET, y: 40 }, type: CoilType.Normal, rungId });
+        const ids = g.rungs[0].elementIds;
+        const first = ids[0], second = ids[1];
+
+        // Act — move first contact to slot 2 (after second, before coil)
+        const next = handler.reorderElement(g, { elementId: first, insertIndex: 2 });
+
+        // Assert — order becomes [second, first, coil]
+        const newIds = next.rungs[0].elementIds;
+        expect(newIds).toEqual([second, first, ids[2]]);
+    });
+
+    it('rejects reordering a coil (pinned to coil zone)', () => {
+        const { handler, graph, rungId } = graphWithRung();
+        let g = handler.addContact(graph, { position: { x: 40, y: 40 }, type: ContactType.NO, rungId });
+        g = handler.addCoil(g, { position: { x: COIL_X_OFFSET, y: 40 }, type: CoilType.Normal, rungId });
+        const coilId = g.rungs[0].elementIds[1];
+
+        expect(() => handler.reorderElement(g, { elementId: coilId, insertIndex: 0 })).toThrow(/coil/);
+    });
+});
+
 describe('connectWire', () => {
     it('creates a wire between two nodes', () => {
         // Arrange — two standalone contacts, no pre-existing wire
