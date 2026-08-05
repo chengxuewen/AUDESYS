@@ -14,8 +14,10 @@ import { NodeProps } from '@xyflow/react';
 export interface InsertPointData extends Record<string, unknown> {
     /** Rung id the slot belongs to. */
     rungId: string;
-    /** Insertion slot index in the rung's elementIds. */
-    insertIndex: number;
+    /** Insertion slot index in the rung's elementIds (series placement). */
+    insertIndex?: number;
+    /** Anchor contact id (branch placement — marker below the anchor). */
+    branchAnchorId?: string;
 }
 
 const DIAMOND = 14;

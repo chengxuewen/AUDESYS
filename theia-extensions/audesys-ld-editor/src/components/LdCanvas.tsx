@@ -1103,7 +1103,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             return { ...e, data: { ...e.data, active: true } };
         });
         setEdges(edges);
-    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId, monitoring, monitorValues, validation, pendingTool]);
+    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId, monitoring, monitorValues, validation, pendingTool, branchMode]);
 
 
     // ── Toolbar actions ───────────────────────────────────────
@@ -1265,19 +1265,18 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         });
     }, [tryApply, handler]);
 
-    const onPaneClick = React.useCallback((event: React.MouseEvent): void => {
+    const onPaneClick = React.useCallback((): void => {
         if (branchMode) {
-            const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-            addBranchMember(flowPos);
+            setStatus('Branch members are added via the green markers below the anchor');
             return;
         }
-        if (!pendingTool) {
-            return;
+        // Topology (D112): free-form pane placement is gone — elements are
+        // placed ONLY by clicking the diamond insertion markers.
+        if (pendingTool) {
+            setPendingTool(null);
+            setStatus('');
         }
-        const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-        createWithTool(pendingTool, flowPos);
-        setPendingTool(null);
-    }, [branchMode, pendingTool, screenToFlowPosition, createWithTool, addBranchMember]);
+    }, [branchMode, pendingTool]);
 
     const onNodeClick = React.useCallback((event: React.MouseEvent, node: LdRfNode): void => {
         if (!pendingTool) {
@@ -1294,8 +1293,16 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         // Insertion point (CODESYS diamond): place at the exact topology slot.
         if (node.type === RF_TYPE_INSERT) {
             const d = node.data as unknown as InsertPointData;
-            const insertIndex = typeof d.insertIndex === 'number' ? d.insertIndex : 0;
             const rungId = typeof d.rungId === 'string' ? d.rungId : '';
+            // Branch marker (T2.4): adds a member under the anchor.
+            if (typeof d.branchAnchorId === 'string' && d.branchAnchorId) {
+                if (branchMode && rungId === branchMode.rungId) {
+                    const next = tryApply((g) => handler.addBranchContact(g, { branchId: branchMode.branchId }));
+                    if (next) setStatus('Contact added to branch — add more or Close Branch');
+                }
+                return;
+            }
+            const insertIndex = typeof d.insertIndex === 'number' ? d.insertIndex : 0;
             if (rungId) {
                 tryApply((g) => {
                     let next = g;
@@ -1312,16 +1319,11 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             setPendingTool(null);
             return;
         }
-        // Any other tool (contact/coil/FB/rail): clicking a rung container
-        // is equivalent to clicking the canvas — place the element there.
-        // (CODESYS/OpenPLC place elements by clicking inside the network row.)
-        if (node.type !== RF_TYPE_RUNG) {
-            return;
-        }
-        const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-        createWithTool(pendingTool, flowPos);
-        setPendingTool(null);
-    }, [pendingTool, openBranchAt, screenToFlowPosition, createWithTool, tryApply, handler]);
+        // Topology (D112): only diamond markers place elements. Clicking a
+        // rung/contact body with a series tool pending is a no-op — the
+        // diamond markers are the only insertion targets (CODESYS-style).
+        setStatus('Click a diamond marker to place the element');
+    }, [pendingTool, branchMode, openBranchAt, tryApply, handler]);
 
     const onDelete = React.useCallback((params: { nodes: LdRfNode[]; edges: LdRfEdge[] }): void => {
         tryApply((g) => {

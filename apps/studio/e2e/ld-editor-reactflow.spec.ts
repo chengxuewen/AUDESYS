@@ -1263,3 +1263,37 @@ test('T30 NO Contact places when clicking inside the rung container (not only pa
     const x = Number(/translate\((-?[\d.]+)px/.exec(transform)?.[1] ?? -1);
     expect(x).toBeGreaterThan(0); // placed at the click x (right of left rail), not clamped to 0
 });
+
+// ── T35: Diamond-only placement (D112) — rung click is a no-op ──────────────
+
+test('T35 diamond-only: rung body click does NOT place, diamond click does', async ({ page }) => {
+    const graph = {
+        id: 't35',
+        nodes: [
+            { id: 'rail-l', type: 'node:powerrail', side: 'Left', position: { x: 0, y: 0 }, size: { width: 4, height: 600 } },
+            { id: 'rail-r', type: 'node:powerrail', side: 'Right', position: { x: 640, y: 0 }, size: { width: 4, height: 600 } },
+        ],
+        edges: [],
+        rungs: [{ id: 'rung-1', rungNumber: 1, comment: 'Main', elementIds: [] }],
+    };
+    writeFixture('t35.ld', graph);
+    await openLdFile(page, 't35.ld');
+
+    // Arm NO Contact → diamond appears
+    await toolbarButton(page, 'NO Contact').click();
+    const diamond = page.locator('.ld-insert-point').first();
+    await expect(diamond).toBeVisible({ timeout: 10000 });
+
+    // Click rung body (NOT the diamond) → nothing placed, tool stays armed
+    const rung = page.locator('.react-flow__node-rung').first();
+    const rb = await rung.boundingBox();
+    await page.mouse.click(rb!.x + rb!.width * 0.6, rb!.y + 30);
+    await page.waitForTimeout(1200);
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(0);
+    await expect(diamond).toBeVisible({ timeout: 5000 });
+
+    // Click the diamond → contact placed, markers cleared
+    await diamond.click({ force: true });
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('.ld-insert-point')).toHaveCount(0, { timeout: 5000 });
+});
