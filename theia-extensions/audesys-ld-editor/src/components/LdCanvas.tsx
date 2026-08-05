@@ -1074,7 +1074,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 });
                 const positions = lay.positions;
                 const xs = series.map((id) => positions.get(id)?.x ?? 40);
-                const rungH = lay.rungHeights.get(rung.id) ?? 76;
+                const rungH = rung ? (lay.rungHeights.get(rung.id) ?? 76) : 76;
                 const slotY = rungTop + Math.min(40, rungH - 20);
                 // slot 0..n: left of first element, between elements, tail
                 for (let i = 0; i <= series.length; i++) {
@@ -1092,6 +1092,30 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             // Replace, not append: clear stale insert nodes first so the
             // marker set always matches the current graph/rungs.
             finalNodes.push(...slotNodes);
+        } else if (branchMode) {
+            // Branch mode (D112 T2.4): green markers under each series contact
+            // of the branch's rung — clicking adds a branch member.
+            const lay = layoutGraph(graph);
+            const rung = graph.rungs.find((r) => r.id === branchMode.rungId);
+            const rungTop = rung ? (lay.rungTops.get(rung.id) ?? 0) : 0;
+            const contacts = (rung?.elementIds ?? []).filter((id) => {
+                const n = graph.nodes.find((nn) => nn.id === id);
+                return n?.type === 'node:contact';
+            });
+            contacts.forEach((cid, idx) => {
+                const p = lay.positions.get(cid);
+                if (!p) return;
+                // Marker below the anchor at the branch-member row (rungHeight
+                // reserves this row for an open branch, so it is visible).
+                finalNodes.push({
+                    id: `branch-insert-${idx}`,
+                    type: RF_TYPE_INSERT,
+                    position: { x: p.x - 7, y: p.y + 40 },
+                    data: { rungId: branchMode.rungId, branchAnchorId: cid } as InsertPointData,
+                    draggable: false,
+                    selectable: true,
+                });
+            });
         }
         setNodes(finalNodes);
 
@@ -1282,31 +1306,20 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     }, [branchMode, pendingTool]);
 
     const onNodeClick = React.useCallback((event: React.MouseEvent, node: LdRfNode): void => {
-        if (!pendingTool) {
-            return;
-        }
-        if (pendingTool === 'branch') {
-            if (node.type !== RF_TYPE_CONTACT || !node.parentId) {
-                setStatus('Open Branch: click a contact on the rung');
-                return;
-            }
-            openBranchAt(node.id, node.parentId);
-            return;
-        }
-        // Insertion point (CODESYS diamond): place at the exact topology slot.
+        // Insertion markers place regardless of pendingTool (branch markers
+        // work in branchMode, which cleared pendingTool via openBranchAt).
         if (node.type === RF_TYPE_INSERT) {
             const d = node.data as unknown as InsertPointData;
-            const rungId = typeof d.rungId === 'string' ? d.rungId : '';
-            // Branch marker (T2.4): adds a member under the anchor.
             if (typeof d.branchAnchorId === 'string' && d.branchAnchorId) {
-                if (branchMode && rungId === branchMode.rungId) {
+                if (branchMode && d.rungId === branchMode.rungId) {
                     const next = tryApply((g) => handler.addBranchContact(g, { branchId: branchMode.branchId }));
                     if (next) setStatus('Contact added to branch — add more or Close Branch');
                 }
                 return;
             }
+            const rungId = typeof d.rungId === 'string' ? d.rungId : '';
             const insertIndex = typeof d.insertIndex === 'number' ? d.insertIndex : 0;
-            if (rungId) {
+            if (pendingTool && rungId) {
                 tryApply((g) => {
                     let next = g;
                     if (next.rungs.length === 0) next = handler.addRung(next);
@@ -1320,6 +1333,17 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 });
             }
             setPendingTool(null);
+            return;
+        }
+        if (!pendingTool) {
+            return;
+        }
+        if (pendingTool === 'branch') {
+            if (node.type !== RF_TYPE_CONTACT || !node.parentId) {
+                setStatus('Open Branch: click a contact on the rung');
+                return;
+            }
+            openBranchAt(node.id, node.parentId);
             return;
         }
         // Topology (D112): only diamond markers place elements. Clicking a

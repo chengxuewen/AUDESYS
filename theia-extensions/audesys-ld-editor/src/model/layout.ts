@@ -90,9 +90,12 @@ export function layoutRung(rung: Rung, graph: LdGraph): Map<string, Point> {
 
 /** Height of one rung: main row (40..76) or deepest branch row + padding. */
 export function rungHeight(rung: Rung): number {
-    const branchCount = Math.max(0, ...(rung.branches ?? []).map((b) => b.elementIds.length));
+    const branches = rung.branches ?? [];
+    const branchCount = Math.max(0, ...branches.map((b) => b.elementIds.length));
+    // An open branch (array present, even empty) reserves one member row so its
+    // green insertion marker is visible below the anchor (D112 T2.4).
     if (branchCount === 0) {
-        return 76; // RUNG_GROUP_HEIGHT: main row 40 + node 36
+        return branches.length > 0 ? BRANCH_FIRST_Y + 36 : 76;
     }
     return BRANCH_FIRST_Y + branchCount * LD_GRID.y + 36; // deepest member row + node + padding
 }
