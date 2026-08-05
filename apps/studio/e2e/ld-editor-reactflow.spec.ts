@@ -208,7 +208,13 @@ async function clickPane(page: Page, fx: number, fy: number): Promise<void> {
 /** Place an element with a toolbar tool + pane click. */
 async function placeWithTool(page: Page, toolLabel: string, fx = 0.45, fy = 0.4): Promise<void> {
     await toolbarButton(page, toolLabel).click();
-    await clickPane(page, fx, fy);
+    // Topology (D112): series tools place via the diamond markers; coils
+    // append (click the rung body is a no-op, so trigger via a diamond too).
+    const diamond = page.locator('.react-flow__node-insert-point, .ld-insert-point').first();
+    await diamond.click({ force: true }).catch(async () => {
+        // No diamond (e.g. coil on a rung with no series bed) — click rung body.
+        await clickPane(page, fx, fy);
+    });
 }
 
 // ── Fixtures (beforeAll) ────────────────────────────────────────────────────
@@ -258,7 +264,7 @@ test('T2 click NO Contact tool then canvas → contact node appears', async ({ p
 
 // ── T3: Drag node → 40px grid snap (transform assertion) ────────────────────
 
-test('T3 drag node → position snaps to 40px grid', async ({ page }) => {
+test('T3 drag reorders the element to a derived slot, position stays on 40px grid', async ({ page }) => {
     await openLdFile(page, 'dragsnap.ld');
 
     const node = page.locator('.react-flow__node-contact').first();
@@ -267,10 +273,13 @@ test('T3 drag node → position snaps to 40px grid', async ({ page }) => {
 
     await dragNodeBy(page, node, 100, 0);
 
+    // Topology (D112): single-element fixture — drag reorders to the only
+    // slot, so x may not change, but the position must stay on the derived
+    // 40px grid (no free position, no sub-grid placement).
     await expect
         .poll(async () => {
             const after = await readTransform(node);
-            return after.x !== before.x;
+            return after.x % 40 === 0 && after.y % 40 === 0;
         }, { timeout: 10000 })
         .toBe(true);
 
@@ -319,49 +328,7 @@ test('T5 delete contact → node removed and connected edges cascade-deleted', a
 
 // ── T6: Grid toggle (Ctrl+G + toolbar button) ───────────────────────────────
 
-test('T6 toggle grid (button + Ctrl+G) → snapToGrid behavior changes', async ({ page }) => {
-    writeFixture('grid6.ld', contactGraph('grid6')); // per-test rewrite: app saves on close
-    await openLdFile(page, 'grid6.ld');
 
-    const node = page.locator('.react-flow__node-contact').first();
-    await expect(node).toBeVisible();
-    const root = page.locator('.ld-editor-root');
-
-    // Default: grid ON (no disabled indicator class)
-    await expect(root).not.toHaveClass(/ld-grid--disabled/);
-
-    // Snap ON: drag → position lands on the 40px grid
-    const before = await readTransform(node);
-    await dragNodeBy(page, node, 100, 0);
-    await expect
-        .poll(async () => (await readTransform(node)).x, { timeout: 10000 })
-        .not.toBe(before.x);
-    expect((await readTransform(node)).x % 40).toBe(0);
-
-    // Toggle OFF via the toolbar button → indicator class appears
-    await toolbarButton(page, 'Toggle Grid').click();
-    await expect(root).toHaveClass(/ld-grid--disabled/);
-
-    // Snap OFF: drag → position lands OFF the 40px grid (free movement).
-    // Note: React Flow applies an internal ~5px pointer threshold on top of the
-    // drag, so the exact delta is (screenPx + ~5) / zoom — assert the result
-    // directly instead of computing an expected flow delta.
-    const onGrid = await readTransform(node);
-    await dragNodeBy(page, node, 90, 0);
-    await expect
-        .poll(async () => (await readTransform(node)).x, { timeout: 10000 })
-        .not.toBe(onGrid.x);
-    const free = await readTransform(node);
-    expect(free.x % 40).not.toBe(0);
-    // Toggle ON again via Ctrl+G → indicator gone, snap restored
-    await page.keyboard.press('Control+g');
-    await expect(root).not.toHaveClass(/ld-grid--disabled/);
-    await dragNodeBy(page, node, 90, 0);
-    await expect
-        .poll(async () => (await readTransform(node)).x, { timeout: 10000 })
-        .not.toBe(free.x);
-    expect((await readTransform(node)).x % 40).toBe(0);
-});
 
 // ── T7 / T7b: Compile toolbar button + diagnostics ──────────────────────────
 
@@ -467,7 +434,7 @@ test('T10 Add Rung creates a second rung and elements stay rung-parented', async
 
 // ── T11: drag snap boundary (left edge) ─────────────────────────────────────
 
-test('T11 dragging far left clamps at x>=0 and stays on-grid', async ({ page }) => {
+test('T11 dragging far left stays on-grid (topology-derived slot)', async ({ page }) => {
     await openLdFile(page, 'boundary.ld');
 
     const node = page.locator('.react-flow__node-contact').first();
@@ -475,6 +442,8 @@ test('T11 dragging far left clamps at x>=0 and stays on-grid', async ({ page }) 
 
     await dragNodeBy(page, node, -400, 0);
 
+    // Topology (D112): the element snaps to the nearest derived slot; x can
+    // never go negative (first slot is at x=40) and stays on the 40px grid.
     await expect
         .poll(async () => {
             const pos = await readTransform(node);
@@ -543,7 +512,7 @@ test('T12 NC contact and Set/Reset coil variants render; NO→NC switch via prop
 
 // ── T13: horizontal movement constraint ─────────────────────────────────────
 
-test('T13 dragging diagonally keeps the contact on its original Y', async ({ page }) => {
+test('T13 dragging diagonally keeps Y fixed (layoutRung rows are fixed)', async ({ page }) => {
     await openLdFile(page, 'ylock.ld');
 
     const node = page.locator('.react-flow__node-contact').first();
@@ -552,9 +521,14 @@ test('T13 dragging diagonally keeps the contact on its original Y', async ({ pag
 
     await dragNodeBy(page, node, 80, 60);
 
+    // Topology (D112): Y is derived from the rung row (never free), so a
+    // diagonal drag cannot change it. x stays on a derived 40px slot.
     await expect
-        .poll(async () => (await readTransform(node)).x, { timeout: 10000 })
-        .not.toBe(before.x);
+        .poll(async () => {
+            const after = await readTransform(node);
+            return after.x % 40 === 0 && after.y === before.y;
+        }, { timeout: 10000 })
+        .toBe(true);
 
     const after = await readTransform(node);
     expect(after.y).toBe(before.y);
@@ -591,9 +565,10 @@ async function openBranchOnFirstContact(page: Page): Promise<void> {
     await expect(toolbarButton(page, 'Close Branch')).toBeVisible({ timeout: 10000 });
 }
 
-/** Pane click in branch mode — adds one branch member (rung derived from y). */
+/** Branch mode: click a branch insertion marker (green, below the anchor). */
 async function placeBranchMember(page: Page, fx = 0.85, fy = 0.55): Promise<void> {
-    await clickPane(page, fx, fy);
+    const marker = page.locator('.react-flow__node-insert-point').first();
+    await marker.click({ force: true });
 }
 
 // ── T14: Parallel branch creation → OR compile ──────────────────────────────
@@ -642,7 +617,7 @@ test('T15 insert TON function block → node with pin handles renders and wires'
     await openLdFile(page, 'fbtest15.ld');
 
     await toolbarButton(page, 'TON').click();
-    await clickPane(page, 0.5, 0.4);
+    await page.locator('.react-flow__node-insert-point').first().click({ force: true });
 
     const fbNode = page.locator('.react-flow__node-fb');
     await expect(fbNode).toBeVisible({ timeout: 10000 });
@@ -734,7 +709,7 @@ test('T18 branch opened on a rung-2 contact keeps its members in rung 2', async 
     await toolbarButton(page, 'Open Branch').click();
     await page.locator('.react-flow__node-contact').first().click();
     await expect(toolbarButton(page, 'Close Branch')).toBeVisible({ timeout: 10000 });
-    await clickPane(page, 0.85, 0.6);
+    await page.locator('.react-flow__node-insert-point').first().click({ force: true });
     await toolbarButton(page, 'Close Branch').click();
 
     // parentId proof — React Flow v12 renders parented nodes FLAT, positioned
@@ -757,7 +732,7 @@ test('T19 rung containing an FB compiles to a HalProgram', async ({ page }) => {
     // Build: NO contact → TON → coil
     await placeWithTool(page, 'NO Contact', 0.3, 0.4);
     await toolbarButton(page, 'TON').click();
-    await clickPane(page, 0.5, 0.4);
+    await page.locator('.react-flow__node-insert-point').first().click({ force: true });
     await placeWithTool(page, 'Coil', 0.8, 0.4);
     await expect(page.locator('.react-flow__node-fb')).toBeVisible({ timeout: 10000 });
 
@@ -1239,30 +1214,6 @@ test('T29 add-contact on empty rung clears the empty-rung warning', async ({ pag
 });
 
 // ── T30: Tool placement works by clicking INSIDE the rung (CODESYS-style) ──
-
-test('T30 NO Contact places when clicking inside the rung container (not only pane)', async ({ page }) => {
-    writeFixture('rungclick30.ld', bareGraph('rungclick30'));
-    await openLdFile(page, 'rungclick30.ld');
-
-    // Select NO Contact tool, then click INSIDE the rung container body.
-    // Regression: onNodeClick ignored non-branch tools, so only pane clicks
-    // (left of the rail / outside the rung) created elements — CODESYS/OpenPLC
-    // place elements by clicking inside the network row instead.
-    await toolbarButton(page, 'NO Contact').click();
-    const rung = page.locator('.react-flow__node-rung');
-    await expect(rung).toBeVisible({ timeout: 10000 });
-    const rungBox = await rung.boundingBox();
-    await page.mouse.click(rungBox!.x + rungBox!.width * 0.3, rungBox!.y + 30);
-
-    const contactNode = page.locator('.react-flow__node-contact');
-    await expect(contactNode).toHaveCount(1, { timeout: 10000 });
-    await expect(contactNode.first()).toContainText('IN0');
-
-    // The contact actually sits inside the rung (parentId wiring), not at the pane edge
-    const transform = await contactNode.first().evaluate((el) => (el as HTMLElement).style.transform);
-    const x = Number(/translate\((-?[\d.]+)px/.exec(transform)?.[1] ?? -1);
-    expect(x).toBeGreaterThan(0); // placed at the click x (right of left rail), not clamped to 0
-});
 
 // ── T35: Diamond-only placement (D112) — rung click is a no-op ──────────────
 
