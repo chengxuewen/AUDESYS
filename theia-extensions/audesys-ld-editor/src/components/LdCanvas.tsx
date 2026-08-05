@@ -31,8 +31,8 @@ import {
 } from '@xyflow/react';
 
 import { LdGraph, Rung } from '../model/model';
-import { layoutRung } from '../model/layout';
-import { ContactNode as ContactModelNode, ContactType, CoilNode as CoilModelNode, CoilType, PowerRailNode as RailModelNode, PowerRailSide, BaseNode, FbPlaceholderNode, Pin } from '../model/nodes';
+import { layoutRung, layoutGraph } from '../model/layout';
+import { ContactNode as ContactModelNode, ContactType, CoilNode as CoilModelNode, CoilType, PowerRailNode as RailModelNode, PowerRailSide, BaseNode, FbPlaceholderNode, Pin, Point } from '../model/nodes';
 import { toJSON } from '../model/serialization';
 import { LD_GRID, CONTACT_SIZE, RUNG_HEIGHT, RUNG_GROUP_HEIGHT, RUNG_GROUP_WIDTH, COIL_X_OFFSET, RAIL_WIDTH, BRANCH_FIRST_Y } from '../model/grid';
 import { FbType, fbPaletteEntries } from '../model/fb-catalog';
@@ -128,27 +128,7 @@ function findInsertIndex(graph: LdGraph, rung: Rung, clickX: number): number {
 // LdGraph → React Flow mapping
 // ============================================================================
 
-/**
- * Container height that fits the main row + the deepest branch member row.
- * Computed from the actual member positions (a member's node is 36px svg +
- * 12px label — extent:'parent' clamps members taller than the container).
- */
-    function rungContainerHeight(rung: Rung, graph: LdGraph): number {
-    let deepestY = 0;
-    for (const branch of rung.branches ?? []) {
-        for (const memberId of branch.elementIds) {
-            const member = graph.nodes.find((n) => n.id === memberId);
-            if (member) deepestY = Math.max(deepestY, member.position.y);
-        }
-    }
-    if (deepestY === 0) {
-        return RUNG_GROUP_HEIGHT;
-    }
-    return Math.max(
-        RUNG_GROUP_HEIGHT,
-        deepestY + CONTACT_SIZE + 8, // member row + node height + padding
-    );
-}
+
 /** Mutation callbacks passed through to node components (stable identities). */
 export interface LdFlowCallbacks {
     renameVar?: (id: string, name: string) => void;
@@ -163,13 +143,14 @@ function contactFlowNode(
     contact: ContactModelNode,
     rungId: string,
     cb: LdFlowCallbacks,
+    position: Point,
 ): LdRfNode {
     return {
         id: contact.id,
         type: RF_TYPE_CONTACT,
         parentId: rungId,
         extent: 'parent',
-        position: contact.position,
+        position,
         data: {
             contactType: contact.contactType,
             variableName: contact.variableName,
@@ -184,13 +165,14 @@ function coilFlowNode(
     coil: CoilModelNode,
     rungId: string,
     cb: LdFlowCallbacks,
+    position: Point,
 ): LdRfNode {
     return {
         id: coil.id,
         type: RF_TYPE_COIL,
         parentId: rungId,
         extent: 'parent',
-        position: coil.position,
+        position,
         data: {
             coilType: coil.coilType,
             variableName: coil.variableName,
@@ -201,13 +183,13 @@ function coilFlowNode(
     };
 }
 
-function fbFlowNode(fb: FbPlaceholderNode, rungId: string): LdRfNode {
+function fbFlowNode(fb: FbPlaceholderNode, rungId: string, position: Point): LdRfNode {
     return {
         id: fb.id,
         type: RF_TYPE_FB,
         parentId: rungId,
         extent: 'parent',
-        position: fb.position,
+        position,
         style: { width: fb.size.width, height: fb.size.height },
         data: { fbType: fb.fbType, inputPins: fb.inputPins, outputPins: fb.outputPins },
     };
@@ -220,26 +202,17 @@ export function graphToFlow(
     const nodes: LdRfNode[] = [];
     const nodeIds = new Set<string>();
 
-    // Cumulative rung placement: non-branch rungs keep the old 80px pitch.
-    const rungHeights = new Map<string, number>();
-    let cursor = 0;
-    for (const rung of graph.rungs) {
-        rungHeights.set(rung.id, rungContainerHeight(rung, graph));
-        cursor += rungContainerHeight(rung, graph) + 4;
-    }
+    // Topology layout (D112): all positions derive from rung structure.
+    const layout = layoutGraph(graph);
 
-    const railHeight = Math.max(
-        ...graph.nodes.filter((n) => n.type === 'node:powerrail').map((n) => n.size.height),
-        cursor,
-    );
-
-    let rungTop = 0;
-    graph.rungs.forEach((rung: Rung, index: number) => {
+    graph.rungs.forEach((rung: Rung) => {
+        const rungTop = layout.rungTops.get(rung.id) ?? 0;
+        const rungH = layout.rungHeights.get(rung.id) ?? RUNG_GROUP_HEIGHT;
         nodes.push({
             id: rung.id,
             type: RF_TYPE_RUNG,
             position: { x: 0, y: rungTop },
-            style: { width: RUNG_GROUP_WIDTH, height: rungHeights.get(rung.id) ?? RUNG_GROUP_HEIGHT },
+            style: { width: RUNG_GROUP_WIDTH, height: rungH },
             data: {
                 rungNumber: rung.rungNumber,
                 comment: rung.comment ?? '',
@@ -252,19 +225,25 @@ export function graphToFlow(
         });
         nodeIds.add(rung.id);
 
+        // Children are positioned relative to their rung container.
+        const toLocal = (id: string): Point => {
+            const abs = layout.positions.get(id) ?? { x: 0, y: 40 };
+            return { x: abs.x, y: abs.y - rungTop };
+        };
+
         for (const elementId of rung.elementIds) {
             const modelNode = graph.nodes.find((n) => n.id === elementId);
             if (!modelNode) {
                 continue;
             }
             if (modelNode.type === 'node:contact') {
-                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb));
+                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb, toLocal(modelNode.id)));
                 nodeIds.add(modelNode.id);
             } else if (modelNode.type === 'node:coil') {
-                nodes.push(coilFlowNode(modelNode as CoilModelNode, rung.id, cb));
+                nodes.push(coilFlowNode(modelNode as CoilModelNode, rung.id, cb, toLocal(modelNode.id)));
                 nodeIds.add(modelNode.id);
             } else if (modelNode.type === 'node:fb') {
-                nodes.push(fbFlowNode(modelNode as FbPlaceholderNode, rung.id));
+                nodes.push(fbFlowNode(modelNode as FbPlaceholderNode, rung.id, toLocal(modelNode.id)));
                 nodeIds.add(modelNode.id);
             }
         }
@@ -276,12 +255,10 @@ export function graphToFlow(
                 if (!modelNode || modelNode.type !== 'node:contact') {
                     continue;
                 }
-                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb));
+                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb, toLocal(modelNode.id)));
                 nodeIds.add(modelNode.id);
             }
         }
-
-        rungTop += (rungHeights.get(rung.id) ?? RUNG_GROUP_HEIGHT) + 4;
     });
 
     for (const modelNode of graph.nodes) {
@@ -289,12 +266,13 @@ export function graphToFlow(
             continue;
         }
         const rail = modelNode as RailModelNode;
+        const railPos = rail.side === 'Left' ? layout.rails.left : layout.rails.right;
         nodes.push({
             id: rail.id,
             type: RF_TYPE_RAIL,
-            position: rail.position,
-            style: { width: RAIL_WIDTH + 8, height: railHeight },
-            data: { side: rail.side, height: railHeight },
+            position: railPos,
+            style: { width: RAIL_WIDTH + 8, height: layout.rails.height },
+            data: { side: rail.side, height: layout.rails.height },
             draggable: false,
             deletable: false,
         });
