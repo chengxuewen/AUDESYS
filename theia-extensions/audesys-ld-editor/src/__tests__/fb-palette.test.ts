@@ -78,8 +78,8 @@ describe('fb palette catalog', () => {
         const { handler, graph, rungId } = graphWithContact();
         const withCoil = handler.addCoil(graph, { position: { x: COIL_X_OFFSET, y: 40 }, type: CoilType.Normal, rungId });
 
-        // Act
-        const next = handler.addFb(withCoil, { position: { x: 200, y: 40 }, fbType: 'ADD', rungId });
+        // Act — topology slot 1 = between the contact and the coil
+        const next = handler.addFb(withCoil, { insertIndex: 1, fbType: 'ADD', rungId });
 
         // Assert
         const ids = next.rungs[0].elementIds;

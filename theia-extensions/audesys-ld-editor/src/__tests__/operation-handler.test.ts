@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 
 import { LdOperationHandler } from '../backend/ld-operation-handler';
 import { createLdGraph, createContact, createRung, LdGraph } from '../model/model';
+import { layoutRung } from '../model/layout';
 import { ContactType, CoilType, PowerRailSide } from '../model/nodes';
 import { COIL_X_OFFSET, RAIL_X_RIGHT } from '../model/grid';
 
@@ -41,11 +42,12 @@ describe('addContact', () => {
             rungId,
         });
 
-        // Assert
+        // Assert — topology (D112): position is derived by layoutRung, not stored.
         const contact = next.nodes.find((n) => n.type === 'node:contact');
         expect(contact).toBeDefined();
-        expect(contact?.position).toEqual({ x: 40, y: 40 });
         expect(next.rungs[0].elementIds).toContain(contact?.id);
+        const pos = layoutRung(next.rungs[0], next).get(contact!.id);
+        expect(pos).toEqual({ x: 40, y: 40 });
     });
 
     it('auto-connects the first contact to both power rails', () => {
@@ -99,10 +101,11 @@ describe('addCoil', () => {
             rungId,
         });
 
-        // Assert
+        // Assert — topology: coil pinned to the coil zone by layoutRung.
         const coil = next.nodes.find((n) => n.type === 'node:coil');
         expect(coil).toBeDefined();
-        expect(coil?.position.x).toBe(COIL_X_OFFSET);
+        const pos = layoutRung(next.rungs[0], next).get(coil!.id);
+        expect(pos?.x).toBe(COIL_X_OFFSET);
         expect(next.rungs[0].elementIds).toEqual([contactId, coil?.id]);
         // two new wires: contact→coil and coil→right rail
         expect(next.edges.length).toBe(edgesBefore + 2);

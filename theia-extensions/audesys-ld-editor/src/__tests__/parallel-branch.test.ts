@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 
 import { LdOperationHandler } from '../backend/ld-operation-handler';
 import { createLdGraph, LdGraph } from '../model/model';
+import { layoutRung } from '../model/layout';
 import { ContactType, CoilType } from '../model/nodes';
 import { COIL_X_OFFSET, BRANCH_FIRST_Y } from '../model/grid';
 
@@ -63,7 +64,7 @@ describe('openBranch', () => {
         const branch = rung.branches![0];
         expect(branch.id).toBe(branchId);
         expect(branch.anchorId).toBe(anchorId);
-        expect(branch.x).toBe(40);
+        expect(branch.x).toBe(40); // derived from anchor slot (layoutRung)
         expect(branch.elementIds).toEqual([]);
     });
 
@@ -96,8 +97,9 @@ describe('addBranchContact', () => {
         const branch = graph.rungs[0].branches![0];
         expect(branch.elementIds).toHaveLength(2);
         const [m1, m2] = branch.elementIds.map((id) => graph.nodes.find((n) => n.id === id));
-        expect(m1?.position).toEqual({ x: 40, y: BRANCH_FIRST_Y });
-        expect(m2?.position).toEqual({ x: 40, y: BRANCH_FIRST_Y + 40 });
+        const pos = layoutRung(graph.rungs[0], graph);
+        expect(pos.get(m1!.id)).toEqual({ x: 40, y: BRANCH_FIRST_Y });
+        expect(pos.get(m2!.id)).toEqual({ x: 40, y: BRANCH_FIRST_Y + 40 });
         // members are contacts but NOT in the series elementIds
         expect(graph.rungs[0].elementIds).not.toContain(m1?.id);
         expect(graph.rungs[0].elementIds).not.toContain(m2?.id);

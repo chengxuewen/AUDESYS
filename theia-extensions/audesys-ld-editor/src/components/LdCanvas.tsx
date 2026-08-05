@@ -31,6 +31,7 @@ import {
 } from '@xyflow/react';
 
 import { LdGraph, Rung } from '../model/model';
+import { layoutRung } from '../model/layout';
 import { ContactNode as ContactModelNode, ContactType, CoilNode as CoilModelNode, CoilType, PowerRailNode as RailModelNode, PowerRailSide, BaseNode, FbPlaceholderNode, Pin } from '../model/nodes';
 import { toJSON } from '../model/serialization';
 import { LD_GRID, CONTACT_SIZE, RUNG_HEIGHT, RUNG_GROUP_HEIGHT, RUNG_GROUP_WIDTH, COIL_X_OFFSET, RAIL_WIDTH, BRANCH_FIRST_Y } from '../model/grid';
@@ -97,6 +98,32 @@ const ELEMENT_Y = LD_GRID.y;
 
 const snap40 = (v: number): number => Math.round(v / LD_GRID.x) * LD_GRID.x;
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(v, hi));
+
+/**
+ * Map a click x (flow coords) to the nearest insertion slot in a rung.
+ * Slots are the gaps between series elements (derived via layoutRung):
+ * slot 0 = left of the first element, slot i = between element i-1 and i,
+ * slot n = after the last element. Used by createWithTool (topology, D112).
+ */
+function findInsertIndex(graph: LdGraph, rung: Rung, clickX: number): number {
+    const positions = layoutRung(rung, graph);
+    const series = rung.elementIds.filter((id) => {
+        const n = graph.nodes.find((nn) => nn.id === id);
+        return n && n.type !== 'node:coil'; // coil is pinned, not a slot boundary
+    });
+    if (series.length === 0) return 0;
+    const edges = series.map((id, i) => {
+        const p = positions.get(id)!;
+        const n = graph.nodes.find((nn) => nn.id === id)!;
+        return { left: p.x, right: p.x + n.size.width, idx: i };
+    });
+    for (let i = 0; i < edges.length; i++) {
+        const e = edges[i];
+        const boundary = i === 0 ? e.left - 20 : (edges[i - 1].right + e.left) / 2;
+        if (clickX < boundary) return i;
+    }
+    return edges.length;
+}
 
 // ============================================================================
 // LdGraph → React Flow mapping
@@ -1195,23 +1222,26 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             }
             const rungIndex = clamp(Math.floor(flowPos.y / RUNG_HEIGHT), 0, next.rungs.length - 1);
             const rungId = next.rungs[rungIndex].id;
+            const targetRung = next.rungs[rungIndex];
+            // Topology (D112): derive the insertion slot from the click x,
+            // not a free position.
+            const insertIndex = findInsertIndex(next, targetRung, flowPos.x);
             if (CONTACT_TYPE_BY_TOOL[tool]) {
                 return handler.addContact(next, {
-                    position: { x: flowPos.x, y: ELEMENT_Y },
+                    insertIndex,
                     type: CONTACT_TYPE_BY_TOOL[tool],
                     rungId,
                 });
             }
             if (tool.startsWith('fb-')) {
                 return handler.addFb(next, {
-                    position: { x: snap40(flowPos.x), y: ELEMENT_Y },
+                    insertIndex,
                     fbType: tool.slice(3),
                     rungId,
                 });
             }
-            // Coil: keep it in the coil zone so addCoil validation holds.
+            // Coil: pinned to the coil zone (append — addCoil enforces order).
             return handler.addCoil(next, {
-                position: { x: Math.max(snap40(flowPos.x), COIL_X_OFFSET), y: ELEMENT_Y },
                 type: COIL_TYPE_BY_TOOL[tool],
                 rungId,
             });

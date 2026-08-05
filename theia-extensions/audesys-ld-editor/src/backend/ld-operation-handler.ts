@@ -42,6 +42,7 @@ import {
 import { BaseEdge, WireConnection } from '../model/edges';
 import { validateGraph, ValidationResult } from '../model/serialization';
 import { getFbPins, getFbHeight, FB_WIDTH } from '../model/fb-catalog';
+import { layoutRung } from '../model/layout';
 
 
 // ============================================================================
@@ -49,13 +50,19 @@ import { getFbPins, getFbHeight, FB_WIDTH } from '../model/fb-catalog';
 // ============================================================================
 
 export interface AddContactParams {
-  position: Point;
+  /** @deprecated topology layout derives position; kept for test compat */
+  position?: Point;
+  /** Insertion slot in the rung's elementIds (topology). 0 = leftmost. */
+  insertIndex?: number;
   type: ContactType;
   rungId: string;
 }
 
 export interface AddCoilParams {
-  position: Point;
+  /** @deprecated topology layout derives position; kept for test compat */
+  position?: Point;
+  /** Insertion slot; coils are pinned to the coil zone regardless. */
+  insertIndex?: number;
   type: CoilType;
   rungId: string;
 }
@@ -119,7 +126,10 @@ export interface AddPowerRailParams {
   side: PowerRailSide;
 }
 export interface AddFbParams {
-  position: Point;
+  /** @deprecated topology layout derives position; kept for test compat */
+  position?: Point;
+  /** Insertion slot in the rung's elementIds (topology). */
+  insertIndex?: number;
   fbType: string;
   rungId: string;
 }
@@ -144,8 +154,8 @@ export interface DeleteBranchParams {
 
 export interface AddBranchContactParams {
   branchId: string;
-  /** Click position — only the rung is used; x is forced to the branch column */
-  position: Point;
+  /** @deprecated topology layout derives position; kept for test compat */
+  position?: Point;
 }
 
 
@@ -315,32 +325,44 @@ export class LdOperationHandler {
    */
   addContact(graph: LdGraph, params: AddContactParams): LdGraph {
     const rung = findRung(graph, params.rungId);
-    const snapped = snapToGrid(params.position);
 
-    // Validate: contact must be left of any existing coil
+    // Validate: contact must be left of any existing coil (topology slot
+    // must not land at/after the coil's slot; legacy position fallback
+    // keeps the old x-order check).
     const coilNode = findCoilOnRung(graph, rung);
-    if (coilNode && snapped.x >= coilNode.position.x) {
-      throw new ValidationError('Contact must be left of the coil');
+    if (coilNode && params.insertIndex !== undefined) {
+      const coilIdx = rung.elementIds.indexOf(coilNode.id);
+      if (coilIdx >= 0 && params.insertIndex > coilIdx) {
+        throw new ValidationError('Contact must be left of the coil');
+      }
+    } else if (coilNode && params.position) {
+      const snapped = snapToGrid(params.position);
+      if (snapped.x >= coilNode.position.x) {
+        throw new ValidationError('Contact must be left of the coil');
+      }
     }
 
     // Create the contact with auto-generated variable name
     const contactCount = graph.nodes.filter(n => n.type === 'node:contact').length;
-    const contact = createContact(params.type, `IN${contactCount}`, {
-      x: snapped.x,
-      y: snapped.y,
-    });
+    const contact = createContact(params.type, `IN${contactCount}`);
     // Build updated graph
     const next = cloneGraph(graph);
     next.nodes.push(contact);
 
-    // Add to rung element list (maintain left-to-right order by x)
+    // Insertion slot: explicit insertIndex wins (topology); fallback to
+    // the legacy position.x ordering (deprecated compat for old tests).
     const elements = [...rung.elementIds];
     let insertIdx = elements.length;
-    for (let i = 0; i < elements.length; i++) {
-      const n = findNode(graph, elements[i]);
-      if (n && n.position.x > snapped.x) {
-        insertIdx = i;
-        break;
+    if (params.insertIndex !== undefined) {
+      insertIdx = Math.min(Math.max(params.insertIndex, 0), elements.length);
+    } else if (params.position) {
+      const snapped = snapToGrid(params.position);
+      for (let i = 0; i < elements.length; i++) {
+        const n = findNode(graph, elements[i]);
+        if (n && n.position.x > snapped.x) {
+          insertIdx = i;
+          break;
+        }
       }
     }
     elements.splice(insertIdx, 0, contact.id);
@@ -386,7 +408,7 @@ export class LdOperationHandler {
    */
   addCoil(graph: LdGraph, params: AddCoilParams): LdGraph {
     const rung = findRung(graph, params.rungId);
-    const snapped = snapToGrid(params.position);
+    const snapped = params.position ? snapToGrid(params.position) : { x: 0, y: 40 };
 
     // Must have at least one contact before adding a coil
     const contactIds = rung.elementIds.filter((id) => {
@@ -406,7 +428,7 @@ export class LdOperationHandler {
     }
 
     const coilCount = graph.nodes.filter(n => n.type === 'node:coil').length;
-    const coil = createCoil(params.type, `OUT${coilCount}`, { x: snapped.x, y: snapped.y });
+    const coil = createCoil(params.type, `OUT${coilCount}`);
 
     const next = cloneGraph(graph);
     next.nodes.push(coil);
@@ -812,7 +834,6 @@ export class LdOperationHandler {
   }
   addFb(graph: LdGraph, params: AddFbParams): LdGraph {
     const rung = findRung(graph, params.rungId);
-    const snapped = snapToGrid(params.position);
 
     // Pins come from the FB catalog (IEC 61131-3 pin sets per type)
     const pins = getFbPins(params.fbType);
@@ -820,20 +841,26 @@ export class LdOperationHandler {
       throw new ValidationError(`Unknown FB type: ${params.fbType}`);
     }
 
-    const fb = createFb(params.fbType, pins.inputPins, pins.outputPins, snapped);
+    const fb = createFb(params.fbType, pins.inputPins, pins.outputPins);
     fb.size = { width: FB_WIDTH, height: getFbHeight(params.fbType) };
 
     const next = cloneGraph(graph);
     next.nodes.push(fb);
 
-    // Add to rung element list (maintain left-to-right order by x)
+    // Insertion slot: explicit insertIndex wins (topology); fallback to
+    // the legacy position.x ordering (deprecated compat for old tests).
     const elements = [...rung.elementIds];
     let insertIdx = elements.length;
-    for (let i = 0; i < elements.length; i++) {
-      const n = findNode(graph, elements[i]);
-      if (n && n.position.x > snapped.x) {
-        insertIdx = i;
-        break;
+    if (params.insertIndex !== undefined) {
+      insertIdx = Math.min(Math.max(params.insertIndex, 0), elements.length);
+    } else if (params.position) {
+      const snapped = snapToGrid(params.position);
+      for (let i = 0; i < elements.length; i++) {
+        const n = findNode(graph, elements[i]);
+        if (n && n.position.x > snapped.x) {
+          insertIdx = i;
+          break;
+        }
       }
     }
     elements.splice(insertIdx, 0, fb.id);
@@ -915,7 +942,9 @@ export class LdOperationHandler {
     }
 
     const next = cloneGraph(graph);
-    const branch = createBranch(rung.id, params.anchorId, anchor.position.x);
+    // Topology (D112): branch column derives from the anchor's layout slot.
+    const anchorX = layoutRung(rung, graph).get(params.anchorId)?.x ?? 40;
+    const branch = createBranch(rung.id, params.anchorId, anchorX);
     const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
     next.rungs[rungIdx] = { ...rung, branches: [...branches, branch] };
     return next;
@@ -930,8 +959,11 @@ export class LdOperationHandler {
     const rung = findRung(graph, branch.rungId);
 
     const contactCount = graph.nodes.filter((n) => n.type === 'node:contact').length;
+    // Topology: member x derives from the anchor's layout slot (branch.x may
+    // be stale after anchor migration); y stacks below the anchor.
+    const anchorX = layoutRung(rung, graph).get(branch.anchorId)?.x ?? branch.x;
     const contact = createContact(ContactType.NO, `IN${contactCount}`, {
-      x: branch.x,
+      x: anchorX,
       y: BRANCH_FIRST_Y + branch.elementIds.length * GRID_Y,
     });
 
@@ -1025,12 +1057,15 @@ export class LdOperationHandler {
         );
       }
 
-      // Check: coils must be rightmost
-      const contacts = rungNodes.filter((n) => n.type === 'node:contact');
-      if (coils.length > 0 && contacts.length > 0) {
-        const rightmostContactX = Math.max(...contacts.map((c) => c.position.x));
-        const leftmostCoilX = Math.min(...coils.map((c) => c.position.x));
-        if (leftmostCoilX <= rightmostContactX) {
+      // Check: coils must be rightmost (topology — coil must be the last
+      // series element in elementIds; positions are derived, not stored).
+      if (coils.length > 0) {
+        const coilIdx = rung.elementIds.findIndex((id) => coils.some((c) => c.id === id));
+        const anyAfter = rung.elementIds.slice(coilIdx + 1).some((id) => {
+          const n = findNode(graph, id);
+          return n && n.type !== 'node:coil';
+        });
+        if (coilIdx >= 0 && anyAfter) {
           ldErrors.push(
             `Rung ${rung.rungNumber}: coil must be to the right of all contacts`,
           );
@@ -1039,6 +1074,7 @@ export class LdOperationHandler {
 
       // Check: at least one contact if there's a coil (FB-only rungs allowed
       // - FB nodes provide the condition but do not compile to LD text)
+      const contacts = rungNodes.filter((n) => n.type === 'node:contact');
       const fbNodes = rungNodes.filter((n) => n.type === 'node:fb');
       if (coils.length > 0 && contacts.length === 0 && fbNodes.length === 0) {
         ldErrors.push(
