@@ -959,3 +959,19 @@
 - **方案**: 追加 LD-RF-034..037 React Flow 现行规范章节，GLSP 章节标注历史参考；测试映射指向 vitest/E2E
 - **验证**: `grep -c 'LD-RF' openspec/specs/ld-glsp-editor-spec.md` = 5
 - **教训**: 架构变更（D110）必须同步更新 SDD spec，否则测试映射指向已删除代码
+
+## LD 编辑器 CODESYS 交互修复会话 (2026-08-04 晚)
+
+### 点击 rung 容器内部无反应 — onNodeClick 只处理 branch
+- **问题**: 工具激活后点击画布左侧蓝色竖线（左轨）右侧的 rung 范围无反应，只有点击左轨左侧区域才创建触点
+- **原因**: rung 容器是 React Flow 节点（RF_TYPE_RUNG），点击命中节点 → onNodeClick 只处理 branch 工具，其他工具（contact/coil/FB/rail）静默忽略。只有点击 rung 外（pane 空白）才落到 onPaneClick
+- **方案**: onNodeClick 中非 branch 工具 + rung 容器按 onPaneClick 路径处理（screenToFlowPosition + createWithTool + 清除 pendingTool）— CODESYS/OpenPLC 标准交互（点击网络行放置）
+- **验证**: E2E T30（点击 rung 内部创建触点且 x>0）；31/31 全过
+- **禁止**: 不要假设工具放置只支持 pane 点击 — rung 容器节点必须转发到创建逻辑
+
+### E2E 单测 flaky 排查 — 先复跑确认再怀疑改动
+- **问题**: 全量 E2E 中 T23（双击编辑）failed + T25（Ctrl+F）flaky，怀疑是新改动引入
+- **原因**: 时序敏感（property view / find 面板打开竞态），与改动无关 — stash 对比 + repeat-each=3 复跑全部通过
+- **方案**: (a) 单测 3 次复跑（--repeat-each=3）确认 flaky；(b) 完整套件最终确认（31/31）；(c) 不要被单次失败误导怀疑新改动
+- **验证**: `npx playwright test -g "T23" --repeat-each=3` 3/3 pass；全量 31/31 pass
+- **禁止**: 单次 E2E 失败不要立即归因新改动 — 先用 repeat-each 区分 flaky 与回归

@@ -689,3 +689,11 @@
 - **保留决策**: D95, D96, D98, D105, D106, D108（非 GLSP 或通用）
 - **部分处理**: D94（worker_thread 技术仍有效但动机过时）、D100、D102、D109（40×40 网格决策延续到 React Flow）
 - **参考**: .sisyphus/plans/glsp-removal-react-flow-migration/
+
+## D111: 工具放置支持点击 rung 容器内部（CODESYS/OpenPLC 风格）
+- **日期**: 2026-08-04
+- **决定**: LD 编辑器工具激活后，点击 rung 容器内部（网络行内空白处）等效于点击画布 — 在点击位置放置元素。onNodeClick 对非 branch 工具 + rung 容器按 onPaneClick 路径处理（screenToFlowPosition + createWithTool）
+- **理由**: rung 容器是 React Flow 节点，onNodeClick 原本只处理 branch 工具，其他工具静默忽略 → 用户点击 rung 内部（左轨右侧）无反应，只有点击左轨左侧 pane 空白才创建。CODESYS/OpenPLC 标准交互 = 选元素工具后点击网络行放置
+- **边界**: 点击 rung 内已有触点/线圈（子节点）保持原行为（选择/重命名）；branch 工具仍点击触点开启
+- **验证**: E2E T30（点击 rung 内部创建触点且 x>0）+ 全量 31/31
+- **参考**: 提交 c53a046, apps/studio/e2e/ld-editor-reactflow.spec.ts T30

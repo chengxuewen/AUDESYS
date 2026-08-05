@@ -1,7 +1,7 @@
 # AUDESYS 项目状态
 
 ## 当前阶段
-- **LD 编辑器 P1 功能完成（注释/替换/查找/交叉引用）** — 2026-08-04，注释 UI（Rung 标题/注释 inline + 元素 tooltip）、元素替换 NodeToolbar、Ctrl+F 变量查找（高亮+导航）、Ctrl+Shift+X 交叉引用面板。handler 新增 setRungTitle/setRungComment/setElementComment/changeCoilType + variable-utils。vitest 121/121 + LD E2E 27/27（含 P1 专属 T23-T26）+ FBD E2E 10/10。详见 .sisyphus/plans/ld-editor-complete/
+- **LD 编辑器验证修复完成（2026-08-04 晚）** — 空 rung 降级为 warning（不阻塞编译）、右轨贴容器右边缘（RUNG_GROUP_WIDTH=644）、warning 高亮仅选中 rung、工具放置支持点击 rung 内部（CODESYS/OpenPLC 风格）。vitest 134/134 + LD E2E 31/31（T1-T30）+ SDD LD-RF-034..037。提交 c53a046/3756158/f83d107/6533dbc/99bb2b4。详见 .sisyphus/plans/ld-editor-complete/
 - **LD/IL 编辑器改进完成** — 2026-07-31，Phase 1-2 完成：IL 编译器新增 S/R/NOT/MOD/定时器/计数器/边沿/双稳态 (33 助记符)、LD 并联分支 (| NO/NC→OR/ORN)、多输出、P/N 跳变触点、rung:group 视图、3 个 GLSP 操作 Handler。63 测试通过 (31 LD + 32 IL)。详见计划 .sisyphus/plans/ld-editor-improvements/
 - **FBD GLSP 迁移完成** — 2026-07-31，FBD 编辑器从 React+SVG 迁移到完整 Eclipse GLSP 架构。14 新文件、GPort 端口系统、5 种逻辑门 IView、36 测试全通过。详见 D107。
 - **Yarn Workspaces 迁移完成** — 2026-07-31，Studio 从 npm + file: link + 两步构建迁移到 Theia 官方 Yarn Workspaces monorepo。消除 `build-glsp.sh` 两步构建 workaround，Symbol 重复问题永久解决。构建流程：`yarn install && npx theia build`。
@@ -17,10 +17,10 @@
 - **HMI 设计器就绪** — 2026-07-19，可视化拖拽编辑器（react-rnd 自由布局画布）、7 种工业 widget（Gauge/Trend/Tank/Indicator/Button/Display/Text）、信号绑定对话框（controller_signal_snapshot 集成）、属性面板（位置/尺寸/标签/信号/类型专属配置）、Edit/Preview 模式切换、YAML 持久化（save_hmi_layout/load_hmi_layout）
 
 ## 仓库状态
-- **最新提交**: `d772ded` — `docs(memory): lesson-review 补漏 5 条 (2026-08-04)`（LD 编辑器 P0 功能 + E2E T14-T22 + GLSP 移除，26 commits ahead of origin/main 未 push）
+- **最新提交**: `c53a046` — `fix(ld-editor): tool placement works when clicking inside the rung (CODESYS-style)`（5 commits ahead of origin/main 未 push）
 - **提交历史**: 210+ commits on main (2026-07-08 至 2026-08-04)
 - **源代码**: 24 crates（crates/）+ 1 Tauri 应用（3rdparty/AUDEDeck/）。apps/studio/ 已弃用（D71 Theia 迁移）
-- **测试**: 799 `#[test]` 标注 + vitest 121 tests (LD React Flow) + 26 tests (FBD React Flow) + Rust (40 LD + 39 IL) + Playwright E2E 27 场景 (LD) + 10 场景 (FBD) |
+- **测试**: 799 `#[test]` 标注 + vitest 134 tests (LD React Flow) + 26 tests (FBD React Flow) + Rust (40 LD + 39 IL) + Playwright E2E 31 场景 (LD) + 10 场景 (FBD) |
 - **SDD 规范**: 239 项（openspec/specs/7 份）：类型系统(30) + HalQoS(30) + Config Barrier(24) + 协议(37) + CNC(41) + HMI(22) + Studio Theia(55)
 - **CI**: qa-fast 5 门禁（test/clippy/fmt/deny/unwrap）+ GitHub Actions macOS+Linux 矩阵
 - **依赖**: `@colbymchenry/codegraph` (devDependency) + Rust toolchain stable

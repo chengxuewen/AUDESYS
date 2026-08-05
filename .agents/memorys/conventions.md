@@ -229,3 +229,9 @@ done
 - **节点**: 自定义 JSX 组件（SVG），rung 容器用 `parentId` + `extent: 'parent'`
 - **测试**: vitest 单元（model/operation-handler/gmodel-state）+ Playwright E2E（`.react-flow__node` 选择器）
 - **E2E 异步**: React re-render 异步，用 `expect.poll`/`toBeVisible({timeout})`，禁止 sleep()
+
+## React Flow 编辑器开发约定 (2026-08-04 补充)
+
+- **工具放置交互**: 工具激活后点击 rung 容器内部等效于点击画布（CODESYS/OpenPLC 风格，D111）。onNodeClick 对非 branch 工具 + rung 容器必须转发到创建逻辑（screenToFlowPosition + createWithTool）
+- **E2E 断言**: 禁止 `.nth()` 定位可能排序变化的节点（React Flow 按位置排序渲染子节点）— 用属性/文本值匹配（如 stroke 含 `nc-fill`）
+- **flaky 排查**: 单次 E2E 失败先 `--repeat-each=3` 复跑区分 flaky 与回归，再用 stash 对比确认，不要立即归因新改动
