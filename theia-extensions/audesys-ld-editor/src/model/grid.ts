@@ -23,6 +23,12 @@ export const RUNG_GROUP_HEIGHT = RUNG_HEIGHT - 4;
 /** Power rail stroke width. */
 export const RAIL_WIDTH = 4;
 
+/** Function block node width (IEC 61131-3 box form). */
+export const FB_WIDTH = 140;
+
+/** Comparison box node width (EQ/GT/LT/GE/LE). */
+export const COMPARISON_WIDTH = 80;
+
 /** Fixed horizontal offset of the coil area (left rail to coil zone). */
 export const COIL_X_OFFSET = 600;
 
@@ -37,3 +43,6 @@ export const RUNG_GROUP_WIDTH = RAIL_X_RIGHT + RAIL_WIDTH;
  * Main row sits at ELEMENT_Y = 40; members stack 120, 160, 200...
  */
 export const BRANCH_FIRST_Y = 120;
+
+/** Main element row y (one grid cell below the rung top). */
+export const ELEMENT_Y = LD_GRID.y;
