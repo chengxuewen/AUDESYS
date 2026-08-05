@@ -182,28 +182,6 @@ describe('deleteElement', () => {
     });
 });
 
-describe('moveElement', () => {
-    it('moves a node and snaps the new position to the grid', () => {
-        // Arrange
-        const { handler, graph, contactId } = graphWithContact();
-
-        // Act — 50/10 snaps to 40/0
-        const next = handler.moveElement(graph, { elementId: contactId, newPosition: { x: 50, y: 10 } });
-
-        // Assert
-        const moved = next.nodes.find((n) => n.id === contactId);
-        expect(moved?.position).toEqual({ x: 40, y: 0 });
-    });
-
-    it('throws for an unknown node', () => {
-        // Arrange
-        const { handler, graph } = graphWithRung();
-
-        // Act / Assert
-        expect(() => handler.moveElement(graph, { elementId: 'nope', newPosition: { x: 0, y: 0 } })).toThrow(/not found/);
-    });
-});
-
 describe('connectWire', () => {
     it('creates a wire between two nodes', () => {
         // Arrange — two standalone contacts, no pre-existing wire

@@ -71,13 +71,6 @@ export interface DeleteElementParams {
   elementId: string;
 }
 
-export interface MoveElementParams {
-  elementId: string;
-  newPosition: Point;
-  /** ponytail: grid toggle (T6) — snap:false keeps the free drag position. */
-  snap?: boolean;
-}
-
 export interface ConnectWireParams {
   sourceId: string;
   targetId: string;
@@ -294,7 +287,7 @@ export function parseCompileOutput(raw: string): CompileResult {
 
 // Grid constants — unified 40×40 with client GridSnapper (T2.2).
 // Contact column spacing (120 = 3 cells) is enforced by addContact,
-// moveElement snaps to the same 40px grid as the client drag.
+// Legacy fallback for add* position params (topology insertIndex is primary).
 import { LD_GRID, CONTACT_SIZE, RAIL_WIDTH, COIL_X_OFFSET, RUNG_HEIGHT, BRANCH_FIRST_Y } from '../model/grid';
 const GRID_X = LD_GRID.x; // 40 — client drag snap grid
 const GRID_Y = LD_GRID.y; // 40 — matches rung 2-cell spacing
@@ -538,23 +531,6 @@ export class LdOperationHandler {
   /**
    * Move an element to a new position.
    */
-  moveElement(graph: LdGraph, params: MoveElementParams): LdGraph {
-    const node = findNode(graph, params.elementId);
-    if (!node) {
-      throw new ValidationError(`Node not found: ${params.elementId}`);
-    }
-
-    const snapped = params.snap === false ? params.newPosition : snapToGrid(params.newPosition);
-    const next = cloneGraph(graph);
-
-    const idx = next.nodes.findIndex((n) => n.id === params.elementId);
-    if (idx >= 0) {
-      next.nodes[idx] = { ...next.nodes[idx], position: snapped };
-    }
-
-    return next;
-  }
-
   // ── Wiring ────────────────────────────────────────────────
 
   /**

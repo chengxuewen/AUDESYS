@@ -96,7 +96,6 @@ export const RF_TYPE_WIRE = 'wire';
  */
 const ELEMENT_Y = LD_GRID.y;
 
-const snap40 = (v: number): number => Math.round(v / LD_GRID.x) * LD_GRID.x;
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(v, hi));
 
 /**
@@ -830,7 +829,6 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     const [xrefFocus, setXrefFocus] = React.useState<{ ids: string[]; currentId: string } | null>(null);
     const findInputRef = React.useRef<HTMLInputElement | null>(null);
     /** Horizontal-drag constraint: original y per dragged node. */
-    const dragStartY = React.useRef<Map<string, number>>(new Map());
     // ── P2 real-time validation + monitoring ─────────────────
     /** SmartCoding-style markup: which rungs/nodes carry which errors. */
     const [validation, setValidation] = React.useState<ValidationMarkup>({
@@ -1285,40 +1283,6 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         setPendingTool(null);
     }, [pendingTool, openBranchAt, screenToFlowPosition, createWithTool]);
 
-    // ── Node dragging: horizontal constraint + commit ────────
-
-    const onNodeDragStart = React.useCallback((_: unknown, node: LdRfNode): void => {
-        dragStartY.current.set(node.id, node.position.y);
-    }, []);
-
-    const onNodeDrag = React.useCallback((_: unknown, node: LdRfNode): void => {
-        // LD contacts/coils only move horizontally within their rung.
-        if (node.type !== RF_TYPE_CONTACT && node.type !== RF_TYPE_COIL) {
-            return;
-        }
-        const lockedY = dragStartY.current.get(node.id);
-        if (lockedY === undefined || node.position.y === lockedY) {
-            return;
-        }
-        setNodes((current) => current.map((n) =>
-            n.id === node.id ? { ...n, position: { x: n.position.x, y: lockedY } } : n,
-        ));
-    }, [setNodes]);
-
-    const onNodeDragStop = React.useCallback((_: unknown, node: LdRfNode): void => {
-        dragStartY.current.delete(node.id);
-        if (node.type !== RF_TYPE_CONTACT && node.type !== RF_TYPE_COIL) {
-            return;
-        }
-        tryApply((g) => handler.moveElement(g, {
-            elementId: node.id,
-            newPosition: { x: node.position.x, y: node.position.y },
-            snap: gridEnabled,
-        }));
-    }, [tryApply, handler, gridEnabled]);
-
-    // ── Deletion (nodes cascade-remove their edges in the handler) ──
-
     const onDelete = React.useCallback((params: { nodes: LdRfNode[]; edges: LdRfEdge[] }): void => {
         tryApply((g) => {
             let next = g;
@@ -1605,8 +1569,6 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 defaultEdges={initialFlow.edges}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
-                snapToGrid={gridEnabled}
-                snapGrid={[LD_GRID.x, LD_GRID.y]}
                 defaultEdgeOptions={{ zIndex: 1 }}
                 nodesConnectable={false}
                 // v12 default is only 'Backspace'; E2E and keyboard users press Delete
@@ -1619,9 +1581,6 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 fitView
                 onPaneClick={onPaneClick}
                 onNodeClick={onNodeClick}
-                onNodeDragStart={onNodeDragStart}
-                onNodeDrag={onNodeDrag}
-                onNodeDragStop={onNodeDragStop}
                 onDelete={onDelete}
                 onSelectionChange={onSelectionChange}
                 className={pendingTool || branchMode ? 'ld-canvas--placing' : undefined}
