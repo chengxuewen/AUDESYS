@@ -6,9 +6,7 @@
  * (browser mode), so compilation is routed to the Theia backend where
  * the .node binary lives. Mirrors the LD editor's ld-compile protocol.
  */
-
-export const StCompileServicePath = '/services/st-compile';
-
+export declare const StCompileServicePath = "/services/st-compile";
 /** One POU source file to compile (path + full source text). */
 export interface CompileInput {
     /** Full URI string of the file — used to route .il vs .st and to report results. */
@@ -16,7 +14,6 @@ export interface CompileInput {
     /** Full source text. */
     source: string;
 }
-
 /** Per-file outcome of a project compile. */
 export interface FileCompileResult {
     /** Matches the CompileInput.path. */
@@ -26,15 +23,14 @@ export interface FileCompileResult {
     /** Empty on success; compiler error text on failure (may carry 'at line N, col M'). */
     message: string;
 }
-
 /** Aggregate outcome of compiling every POU file in the project. */
 export interface ProjectCompileResult {
     results: FileCompileResult[];
 }
-
 /** Backend surface — mirrors `bridge.compileSt` / `bridge.compileIl`. */
 export interface StCompileServer {
     compileSt(source: string): string;
     /** Compile every POU file; each file is compiled independently (per-file try/catch). */
     compileProject(programs: CompileInput[]): ProjectCompileResult;
 }
+//# sourceMappingURL=st-compile-protocol.d.ts.map

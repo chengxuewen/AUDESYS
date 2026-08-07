@@ -13,7 +13,8 @@ import { ContainerModule } from '@theia/core/shared/inversify';
 import { ConnectionHandler, JsonRpcConnectionHandler } from '@theia/core/lib/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { StCompileServer, StCompileServicePath } from '../common/st-compile-protocol';
+import { compileKindForPath } from '../browser/st-project-compile';
+import { CompileInput, ProjectCompileResult, StCompileServer, StCompileServicePath } from '../common/st-compile-protocol';
 
 /** Load the napi-rs bridge from the build's copied native dir. */
 function loadBridge(): Record<string, Function> {
@@ -44,8 +45,20 @@ export default new ContainerModule((bind) => {
     bind(ConnectionHandler).toDynamicValue(() =>
         new JsonRpcConnectionHandler<StCompileServer>(StCompileServicePath, () => {
             const bridge = loadBridge();
+            const compileProgram = (input: CompileInput): { path: string; ok: boolean; message: string } => {
+                try {
+                    const fn = compileKindForPath(input.path) === 'il' ? bridge.compileIl : bridge.compileSt;
+                    fn(input.source);
+                    return { path: input.path, ok: true, message: '' };
+                } catch (e) {
+                    return { path: input.path, ok: false, message: e instanceof Error ? e.message : String(e) };
+                }
+            };
             return {
                 compileSt: (source: string): string => bridge.compileSt(source),
+                compileProject: (programs: CompileInput[]): ProjectCompileResult => ({
+                    results: programs.map(compileProgram),
+                }),
             };
         }),
     ).inSingletonScope();
