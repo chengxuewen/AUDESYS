@@ -9,13 +9,20 @@ export declare namespace IecNewFileCommands {
     const NEW_LD: Command;
     const NEW_FBD: Command;
     const NEW_SFC: Command;
+    const NEW_GVL: Command;
     const NEW_HMI: Command;
     const NEW_GCODE: Command;
+}
+export interface IecFileTemplate {
+    command: Command;
+    ext: string;
+    template: string;
 }
 /**
  * IEC New File Contribution.
  * Adds New File wizard entries for all IEC 61131-3 languages, HMI, and CNC
- * in the File > New menu of Theia.
+ * in the File > New menu of Theia, writing each into its directory-convention
+ * subdirectory (Programs/GVL/Hmi/Cnc).
  */
 export declare class IecNewFileContribution implements CommandContribution, MenuContribution {
     protected readonly fileService: FileService;

@@ -1,0 +1,1 @@
+{"version":3,"file":"window-title-contribution.d.ts","sourceRoot":"","sources":["../../src/browser/window-title-contribution.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,+BAA+B,EAAE,mBAAmB,EAAE,MAAM,yBAAyB,CAAC;AAEpG;;;GAGG;AACH,qBACa,uBAAwB,YAAW,+BAA+B;IACrE,OAAO,CAAC,IAAI,EAAE,mBAAmB,GAAG,OAAO,CAAC,IAAI,CAAC;CAe1D"}

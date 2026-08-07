@@ -8,6 +8,7 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { MessageService } from '@theia/core/lib/common/message-service';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { IEC_LANG_DIR, nextFileName } from './iec-conventions';
 
 export namespace IecNewFileCommands {
     export const CATEGORY = 'IEC 61131-3';
@@ -37,6 +38,11 @@ export namespace IecNewFileCommands {
         label: 'New Sequential Function Chart (SFC) File',
         category: CATEGORY,
     };
+    export const NEW_GVL: Command = {
+        id: 'audesys.new.gvl',
+        label: 'New Global Variable List (GVL) File',
+        category: CATEGORY,
+    };
     export const NEW_HMI: Command = {
         id: 'audesys.new.hmi',
         label: 'New HMI Layout File',
@@ -49,12 +55,19 @@ export namespace IecNewFileCommands {
     };
 }
 
-const IEC_TEMPLATES: Array<{ command: Command; ext: string; template: string }> = [
+export interface IecFileTemplate {
+    command: Command;
+    ext: string;
+    template: string;
+}
+
+const IEC_TEMPLATES: IecFileTemplate[] = [
     { command: IecNewFileCommands.NEW_ST, ext: '.st', template: '(* Structured Text Program *)\n\nPROGRAM Main\nVAR\n    (* variables *)\nEND_VAR\n\n(* code *)\n\nEND_PROGRAM\n' },
     { command: IecNewFileCommands.NEW_IL, ext: '.il', template: '(* Instruction List Program *)\n\nLD TRUE\nST result\n' },
     { command: IecNewFileCommands.NEW_LD, ext: '.ld', template: '{"id":"untitled","nodes":[],"edges":[],"rungs":[]}' },
     { command: IecNewFileCommands.NEW_FBD, ext: '.fbd', template: '{"id":"untitled","nodes":[],"edges":[]}' },
     { command: IecNewFileCommands.NEW_SFC, ext: '.sfc', template: '(* Sequential Function Chart — placeholder *)\n' },
+    { command: IecNewFileCommands.NEW_GVL, ext: '.gvl', template: '(* Global Variable List *)\n\nVAR_GLOBAL\n    (* global variables *)\nEND_VAR\n' },
     { command: IecNewFileCommands.NEW_HMI, ext: '.hmi', template: '# HMI Layout\nwidgets: []\n' },
     { command: IecNewFileCommands.NEW_GCODE, ext: '.gcode', template: '; G-code CNC Program\nG21 ; mm units\nG90 ; absolute positioning\nG0 X0 Y0 Z0\nM30\n' },
 ];
@@ -62,7 +75,8 @@ const IEC_TEMPLATES: Array<{ command: Command; ext: string; template: string }> 
 /**
  * IEC New File Contribution.
  * Adds New File wizard entries for all IEC 61131-3 languages, HMI, and CNC
- * in the File > New menu of Theia.
+ * in the File > New menu of Theia, writing each into its directory-convention
+ * subdirectory (Programs/GVL/Hmi/Cnc).
  */
 @injectable()
 export class IecNewFileContribution implements CommandContribution, MenuContribution {
@@ -80,19 +94,25 @@ export class IecNewFileContribution implements CommandContribution, MenuContribu
                         return;
                     }
                     try {
-                        // Auto-increment: untitled.ld → untitled-1.ld → untitled-2.ld ...
+                        const dirName = IEC_LANG_DIR[entry.ext];
+                        const dirUri = dirName
+                            ? workspaceRoot.resource.resolve(dirName)
+                            : workspaceRoot.resource;
+                        if (!(await this.fileService.exists(dirUri))) {
+                            await this.fileService.createFolder(dirUri);
+                        }
+                        // Auto-increment within the subdirectory: untitled.ld → untitled-1.ld → ...
+                        let target = dirUri.resolve(`untitled${entry.ext}`);
                         let counter = 0;
-                        let fileUri;
-                        do {
-                            const name = counter === 0 ? `untitled${entry.ext}` : `untitled-${counter}${entry.ext}`;
-                            fileUri = workspaceRoot.resource.resolve(name);
+                        while (await this.fileService.exists(target) && counter < 100) {
                             counter++;
-                        } while (await this.fileService.exists(fileUri) && counter < 100);
+                            target = dirUri.resolve(`untitled-${counter}${entry.ext}`);
+                        }
                         await this.fileService.writeFile(
-                            fileUri,
+                            target,
                             BinaryBuffer.fromString(entry.template)
                         );
-                        this.messageService.info(`Created: ${fileUri.displayName}`);
+                        this.messageService.info(`Created: ${target.displayName}`);
                     } catch (e) {
                         this.messageService.error(`Failed to create file: ${String(e)}`);
                     }
@@ -104,40 +124,23 @@ export class IecNewFileContribution implements CommandContribution, MenuContribu
     registerMenus(menus: MenuModelRegistry): void {
         // IEC 61131-3 submenu under File > New
         menus.registerSubmenu(CommonMenus.FILE_NEW, 'IEC 61131-3');
-        menus.registerMenuAction([...CommonMenus.FILE_NEW, 'IEC 61131-3'], {
-            commandId: IecNewFileCommands.NEW_ST.id,
-            label: 'Structured Text (.st)',
-            order: 'a',
-        });
-        menus.registerMenuAction([...CommonMenus.FILE_NEW, 'IEC 61131-3'], {
-            commandId: IecNewFileCommands.NEW_IL.id,
-            label: 'Instruction List (.il)',
-            order: 'b',
-        });
-        menus.registerMenuAction([...CommonMenus.FILE_NEW, 'IEC 61131-3'], {
-            commandId: IecNewFileCommands.NEW_LD.id,
-            label: 'Ladder Diagram (.ld)',
-            order: 'c',
-        });
-        menus.registerMenuAction([...CommonMenus.FILE_NEW, 'IEC 61131-3'], {
-            commandId: IecNewFileCommands.NEW_FBD.id,
-            label: 'Function Block Diagram (.fbd)',
-            order: 'd',
-        });
-        menus.registerMenuAction([...CommonMenus.FILE_NEW, 'IEC 61131-3'], {
-            commandId: IecNewFileCommands.NEW_SFC.id,
-            label: 'Sequential Function Chart (.sfc)',
-            order: 'e',
-        });
-        menus.registerMenuAction([...CommonMenus.FILE_NEW, 'IEC 61131-3'], {
-            commandId: IecNewFileCommands.NEW_HMI.id,
-            label: 'HMI Layout (.hmi)',
-            order: 'f',
-        });
-        menus.registerMenuAction([...CommonMenus.FILE_NEW, 'IEC 61131-3'], {
-            commandId: IecNewFileCommands.NEW_GCODE.id,
-            label: 'G-code CNC (.gcode)',
-            order: 'g',
-        });
+        const menu = [...CommonMenus.FILE_NEW, 'IEC 61131-3'];
+        const actions: Array<{ command: Command; label: string; order: string }> = [
+            { command: IecNewFileCommands.NEW_ST, label: 'Structured Text (.st)', order: 'a' },
+            { command: IecNewFileCommands.NEW_IL, label: 'Instruction List (.il)', order: 'b' },
+            { command: IecNewFileCommands.NEW_LD, label: 'Ladder Diagram (.ld)', order: 'c' },
+            { command: IecNewFileCommands.NEW_FBD, label: 'Function Block Diagram (.fbd)', order: 'd' },
+            { command: IecNewFileCommands.NEW_SFC, label: 'Sequential Function Chart (.sfc)', order: 'e' },
+            { command: IecNewFileCommands.NEW_GVL, label: 'Global Variable List (.gvl)', order: 'f' },
+            { command: IecNewFileCommands.NEW_HMI, label: 'HMI Layout (.hmi)', order: 'g' },
+            { command: IecNewFileCommands.NEW_GCODE, label: 'G-code CNC (.gcode)', order: 'h' },
+        ];
+        for (const action of actions) {
+            menus.registerMenuAction(menu, {
+                commandId: action.command.id,
+                label: action.label,
+                order: action.order,
+            });
+        }
     }
 }
