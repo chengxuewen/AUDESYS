@@ -11,4 +11,8 @@ export { PouTreeWidget } from './pou-view/pou-tree-widget';
 export { PouTreeContribution } from './pou-view/pou-tree-contribution';
 export { classifyToGroups, parentDirName, extOf, POU_GROUP_ORDER } from './pou-tree-model';
 export type { PouFileEntry, PouGroupEntry } from './pou-tree-model';
+export { GvlViewWidget } from './gvl-view/gvl-view-widget';
+export { GvlViewContribution } from './gvl-view/gvl-view-contribution';
+export { parseGvl, serializeGvl, GVL_TYPES } from './gvl-model';
+export type { GvlVariable } from './gvl-model';
 //# sourceMappingURL=index.d.ts.map

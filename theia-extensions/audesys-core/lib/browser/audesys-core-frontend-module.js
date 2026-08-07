@@ -15,6 +15,7 @@ const window_title_contribution_1 = require("./window-title-contribution");
 const signal_browser_contribution_1 = require("./signal-browser/signal-browser-contribution");
 const scope_view_contribution_1 = require("./scope-view/scope-view-contribution");
 const pou_tree_contribution_1 = require("./pou-view/pou-tree-contribution");
+const gvl_view_contribution_1 = require("./gvl-view/gvl-view-contribution");
 const signal_bridge_protocol_1 = require("../common/signal-bridge-protocol");
 exports.default = new inversify_1.ContainerModule((bind) => {
     // IEC 61131-3 navigator decorator — appends [Program]/[HMI]/[CNC] labels
@@ -45,6 +46,10 @@ exports.default = new inversify_1.ContainerModule((bind) => {
     bind(pou_tree_contribution_1.PouTreeContribution).toSelf().inSingletonScope();
     bind(browser_1.WidgetFactory).toService(pou_tree_contribution_1.PouTreeContribution);
     bind(browser_1.FrontendApplicationContribution).toService(pou_tree_contribution_1.PouTreeContribution);
+    // GVL Variables panel — table editor for the active .gvl file (left area, rank 240)
+    bind(gvl_view_contribution_1.GvlViewContribution).toSelf().inSingletonScope();
+    bind(browser_1.WidgetFactory).toService(gvl_view_contribution_1.GvlViewContribution);
+    bind(browser_1.FrontendApplicationContribution).toService(gvl_view_contribution_1.GvlViewContribution);
     // Window title — always show "AUDESYS Studio" regardless of workspace folder
     bind(window_title_contribution_1.WindowTitleContribution).toSelf().inSingletonScope();
     bind(browser_1.FrontendApplicationContribution).toService(window_title_contribution_1.WindowTitleContribution);

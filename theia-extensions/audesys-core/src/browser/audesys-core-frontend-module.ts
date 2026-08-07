@@ -13,6 +13,7 @@ import { WindowTitleContribution } from './window-title-contribution';
 import { SignalBrowserContribution } from './signal-browser/signal-browser-contribution';
 import { ScopeViewContribution } from './scope-view/scope-view-contribution';
 import { PouTreeContribution } from './pou-view/pou-tree-contribution';
+import { GvlViewContribution } from './gvl-view/gvl-view-contribution';
 import { SignalBridgeService, SignalBridgeServicePath } from '../common/signal-bridge-protocol';
 
 export default new ContainerModule((bind) => {
@@ -51,6 +52,11 @@ export default new ContainerModule((bind) => {
     bind(PouTreeContribution).toSelf().inSingletonScope();
     bind(WidgetFactory).toService(PouTreeContribution);
     bind(FrontendApplicationContribution).toService(PouTreeContribution);
+
+    // GVL Variables panel — table editor for the active .gvl file (left area, rank 240)
+    bind(GvlViewContribution).toSelf().inSingletonScope();
+    bind(WidgetFactory).toService(GvlViewContribution);
+    bind(FrontendApplicationContribution).toService(GvlViewContribution);
     // Window title — always show "AUDESYS Studio" regardless of workspace folder
     bind(WindowTitleContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(WindowTitleContribution);

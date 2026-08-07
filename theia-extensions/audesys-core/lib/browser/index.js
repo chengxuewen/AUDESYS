@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.POU_GROUP_ORDER = exports.extOf = exports.parentDirName = exports.classifyToGroups = exports.PouTreeContribution = exports.PouTreeWidget = exports.ScopeCanvas = exports.TimeSeriesBuffer = exports.ScopeViewContribution = exports.ScopeViewWidget = exports.SignalTreeModel = exports.SignalBrowserContribution = exports.SignalBrowserWidget = void 0;
+exports.GVL_TYPES = exports.serializeGvl = exports.parseGvl = exports.GvlViewContribution = exports.GvlViewWidget = exports.POU_GROUP_ORDER = exports.extOf = exports.parentDirName = exports.classifyToGroups = exports.PouTreeContribution = exports.PouTreeWidget = exports.ScopeCanvas = exports.TimeSeriesBuffer = exports.ScopeViewContribution = exports.ScopeViewWidget = exports.SignalTreeModel = exports.SignalBrowserContribution = exports.SignalBrowserWidget = void 0;
 const audesys_core_frontend_module_1 = __importDefault(require("./audesys-core-frontend-module"));
 exports.default = audesys_core_frontend_module_1.default;
 var signal_browser_widget_1 = require("./signal-browser/signal-browser-widget");
@@ -29,4 +29,12 @@ Object.defineProperty(exports, "classifyToGroups", { enumerable: true, get: func
 Object.defineProperty(exports, "parentDirName", { enumerable: true, get: function () { return pou_tree_model_1.parentDirName; } });
 Object.defineProperty(exports, "extOf", { enumerable: true, get: function () { return pou_tree_model_1.extOf; } });
 Object.defineProperty(exports, "POU_GROUP_ORDER", { enumerable: true, get: function () { return pou_tree_model_1.POU_GROUP_ORDER; } });
+var gvl_view_widget_1 = require("./gvl-view/gvl-view-widget");
+Object.defineProperty(exports, "GvlViewWidget", { enumerable: true, get: function () { return gvl_view_widget_1.GvlViewWidget; } });
+var gvl_view_contribution_1 = require("./gvl-view/gvl-view-contribution");
+Object.defineProperty(exports, "GvlViewContribution", { enumerable: true, get: function () { return gvl_view_contribution_1.GvlViewContribution; } });
+var gvl_model_1 = require("./gvl-model");
+Object.defineProperty(exports, "parseGvl", { enumerable: true, get: function () { return gvl_model_1.parseGvl; } });
+Object.defineProperty(exports, "serializeGvl", { enumerable: true, get: function () { return gvl_model_1.serializeGvl; } });
+Object.defineProperty(exports, "GVL_TYPES", { enumerable: true, get: function () { return gvl_model_1.GVL_TYPES; } });
 //# sourceMappingURL=index.js.map
