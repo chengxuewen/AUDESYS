@@ -6,6 +6,7 @@ import { WebSocketConnectionProvider, WidgetFactory, FrontendApplicationContribu
 import { IecNavigatorDecorator } from './iec-navigator-decorator';
 import { IecFileIconTheme } from './iec-icons';
 import { IecNewFileContribution } from './iec-new-file-contribution';
+import { PouWizardContribution } from './pou-wizard-contribution';
 import { IecContextMenuContribution } from './iec-context-menu';
 import { OpenFolderMenuContribution } from './open-folder-menu';
 import { WindowTitleContribution } from './window-title-contribution';
@@ -24,6 +25,10 @@ export default new ContainerModule((bind) => {
     // New File wizard entries for IEC languages + HMI + CNC
     bind(CommandContribution).to(IecNewFileContribution).inSingletonScope();
     bind(MenuContribution).to(IecNewFileContribution).inSingletonScope();
+
+    // New POU wizard (A1-4) — type + language → templated file in right dir
+    bind(CommandContribution).to(PouWizardContribution).inSingletonScope();
+    bind(MenuContribution).to(PouWizardContribution).inSingletonScope();
 
     // Context menu: Compile / Deploy / Validate (right-click in navigator)
     bind(CommandContribution).to(IecContextMenuContribution).inSingletonScope();
