@@ -9,3 +9,7 @@ export { ScopeViewWidget } from './scope-view/scope-panel-widget';
 export { ScopeViewContribution } from './scope-view/scope-view-contribution';
 export { TimeSeriesBuffer } from './scope-view/time-series-buffer';
 export { ScopeCanvas } from './scope-view/scope-canvas';
+export { PouTreeWidget } from './pou-view/pou-tree-widget';
+export { PouTreeContribution } from './pou-view/pou-tree-contribution';
+export { classifyToGroups, parentDirName, extOf, POU_GROUP_ORDER } from './pou-tree-model';
+export type { PouFileEntry, PouGroupEntry } from './pou-tree-model';

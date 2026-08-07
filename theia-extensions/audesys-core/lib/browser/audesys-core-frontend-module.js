@@ -13,6 +13,7 @@ const open_folder_menu_1 = require("./open-folder-menu");
 const window_title_contribution_1 = require("./window-title-contribution");
 const signal_browser_contribution_1 = require("./signal-browser/signal-browser-contribution");
 const scope_view_contribution_1 = require("./scope-view/scope-view-contribution");
+const pou_tree_contribution_1 = require("./pou-view/pou-tree-contribution");
 const signal_bridge_protocol_1 = require("../common/signal-bridge-protocol");
 exports.default = new inversify_1.ContainerModule((bind) => {
     // IEC 61131-3 navigator decorator — appends [Program]/[HMI]/[CNC] labels
@@ -36,6 +37,10 @@ exports.default = new inversify_1.ContainerModule((bind) => {
     bind(scope_view_contribution_1.ScopeViewContribution).toSelf().inSingletonScope();
     bind(browser_1.WidgetFactory).toService(scope_view_contribution_1.ScopeViewContribution);
     bind(browser_1.FrontendApplicationContribution).toService(scope_view_contribution_1.ScopeViewContribution);
+    // POU tree widget — IEC 61131-3 grouping in left sidebar at rank 250
+    bind(pou_tree_contribution_1.PouTreeContribution).toSelf().inSingletonScope();
+    bind(browser_1.WidgetFactory).toService(pou_tree_contribution_1.PouTreeContribution);
+    bind(browser_1.FrontendApplicationContribution).toService(pou_tree_contribution_1.PouTreeContribution);
     // Window title — always show "AUDESYS Studio" regardless of workspace folder
     bind(window_title_contribution_1.WindowTitleContribution).toSelf().inSingletonScope();
     bind(browser_1.FrontendApplicationContribution).toService(window_title_contribution_1.WindowTitleContribution);

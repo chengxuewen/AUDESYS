@@ -11,6 +11,7 @@ import { OpenFolderMenuContribution } from './open-folder-menu';
 import { WindowTitleContribution } from './window-title-contribution';
 import { SignalBrowserContribution } from './signal-browser/signal-browser-contribution';
 import { ScopeViewContribution } from './scope-view/scope-view-contribution';
+import { PouTreeContribution } from './pou-view/pou-tree-contribution';
 import { SignalBridgeService, SignalBridgeServicePath } from '../common/signal-bridge-protocol';
 
 export default new ContainerModule((bind) => {
@@ -40,6 +41,11 @@ export default new ContainerModule((bind) => {
     bind(ScopeViewContribution).toSelf().inSingletonScope();
     bind(WidgetFactory).toService(ScopeViewContribution);
     bind(FrontendApplicationContribution).toService(ScopeViewContribution);
+
+    // POU tree widget — IEC 61131-3 grouping in left sidebar at rank 250
+    bind(PouTreeContribution).toSelf().inSingletonScope();
+    bind(WidgetFactory).toService(PouTreeContribution);
+    bind(FrontendApplicationContribution).toService(PouTreeContribution);
     // Window title — always show "AUDESYS Studio" regardless of workspace folder
     bind(WindowTitleContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(WindowTitleContribution);
