@@ -7,6 +7,7 @@ import { EditorManager, EditorWidget } from '@theia/editor/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { LOCAL_TYPES, LocalVariable, parseLocalVars, serializeLocalVars } from '../local-var-model';
+import { extractProgramBody, findUndeclaredRefs } from '../var-reference-model';
 
 /** File extensions that expose a local-variable table. */
 const LOCAL_VAR_EXTS = ['.st', '.il'];
@@ -78,6 +79,7 @@ export class LocalVarViewWidget extends ReactWidget {
                 {this.renderToolbar(fileName, vars.length, dirty, loading)}
                 {this.renderError(error)}
                 {this.renderBody(uri, vars)}
+                {this.renderUndeclaredRefs(uri)}
             </div>
         );
     }
@@ -155,6 +157,37 @@ export class LocalVarViewWidget extends ReactWidget {
                         {vars.map((v, i) => this.renderRow(v, i))}
                     </tbody>
                 </table>
+            </div>
+        );
+    }
+
+    /** Code-referenced-but-undeclared names (A2-4 hint). Non-blocking. */
+    private renderUndeclaredRefs(uri: string | null): React.ReactNode {
+        if (!uri || this.state.originalText === '') {
+            return null;
+        }
+        const declared = this.state.vars.map((v) => v.name.trim()).filter((n) => n !== '');
+        const code = extractProgramBody(this.state.originalText);
+        const undeclared = findUndeclaredRefs(code, declared);
+        if (undeclared.length === 0) {
+            return null;
+        }
+        return (
+            <div style={{
+                padding: '6px 8px',
+                borderTop: '1px solid var(--theia-sideBar-sectionHeader-border, #383838)',
+            }}>
+                <div style={{ fontSize: 10, color: 'var(--theia-warningForeground)', fontWeight: 600 }}>
+                    Code references but not declared:
+                </div>
+                <div style={{
+                    maxHeight: 120, overflow: 'auto', marginTop: 2,
+                    fontSize: 11,
+                    color: 'var(--theia-descriptionForeground)',
+                    fontFamily: 'var(--theia-editor-font-family, monospace)',
+                }}>
+                    {undeclared.join('  ')}
+                </div>
             </div>
         );
     }

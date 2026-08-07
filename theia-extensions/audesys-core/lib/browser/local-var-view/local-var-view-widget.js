@@ -55,6 +55,7 @@ const browser_1 = require("@theia/editor/lib/browser");
 const file_service_1 = require("@theia/filesystem/lib/browser/file-service");
 const buffer_1 = require("@theia/core/lib/common/buffer");
 const local_var_model_1 = require("../local-var-model");
+const var_reference_model_1 = require("../var-reference-model");
 /** File extensions that expose a local-variable table. */
 const LOCAL_VAR_EXTS = ['.st', '.il'];
 const EMPTY_STATE = {
@@ -96,7 +97,8 @@ let LocalVarViewWidget = LocalVarViewWidget_1 = class LocalVarViewWidget extends
         return (React.createElement("div", { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
             this.renderToolbar(fileName, vars.length, dirty, loading),
             this.renderError(error),
-            this.renderBody(uri, vars)));
+            this.renderBody(uri, vars),
+            this.renderUndeclaredRefs(uri)));
     }
     renderToolbar(fileName, count, dirty, loading) {
         return (React.createElement("div", { style: {
@@ -134,6 +136,29 @@ let LocalVarViewWidget = LocalVarViewWidget_1 = class LocalVarViewWidget extends
                         React.createElement("th", { style: thStyle }, "Comment"),
                         React.createElement("th", { style: { ...thStyle, width: 24 } }))),
                 React.createElement("tbody", null, vars.map((v, i) => this.renderRow(v, i))))));
+    }
+    /** Code-referenced-but-undeclared names (A2-4 hint). Non-blocking. */
+    renderUndeclaredRefs(uri) {
+        if (!uri || this.state.originalText === '') {
+            return null;
+        }
+        const declared = this.state.vars.map((v) => v.name.trim()).filter((n) => n !== '');
+        const code = (0, var_reference_model_1.extractProgramBody)(this.state.originalText);
+        const undeclared = (0, var_reference_model_1.findUndeclaredRefs)(code, declared);
+        if (undeclared.length === 0) {
+            return null;
+        }
+        return (React.createElement("div", { style: {
+                padding: '6px 8px',
+                borderTop: '1px solid var(--theia-sideBar-sectionHeader-border, #383838)',
+            } },
+            React.createElement("div", { style: { fontSize: 10, color: 'var(--theia-warningForeground)', fontWeight: 600 } }, "Code references but not declared:"),
+            React.createElement("div", { style: {
+                    maxHeight: 120, overflow: 'auto', marginTop: 2,
+                    fontSize: 11,
+                    color: 'var(--theia-descriptionForeground)',
+                    fontFamily: 'var(--theia-editor-font-family, monospace)',
+                } }, undeclared.join('  '))));
     }
     renderRow(v, index) {
         // Keep the current type visible in the dropdown even if it is not in

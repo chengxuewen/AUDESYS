@@ -22,6 +22,8 @@ export declare class LocalVarViewWidget extends ReactWidget {
     private renderToolbar;
     private renderError;
     private renderBody;
+    /** Code-referenced-but-undeclared names (A2-4 hint). Non-blocking. */
+    private renderUndeclaredRefs;
     private renderRow;
     private handleActiveEditor;
     private loadVars;
