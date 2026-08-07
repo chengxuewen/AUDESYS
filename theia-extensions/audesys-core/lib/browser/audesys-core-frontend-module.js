@@ -16,6 +16,7 @@ const signal_browser_contribution_1 = require("./signal-browser/signal-browser-c
 const scope_view_contribution_1 = require("./scope-view/scope-view-contribution");
 const pou_tree_contribution_1 = require("./pou-view/pou-tree-contribution");
 const gvl_view_contribution_1 = require("./gvl-view/gvl-view-contribution");
+const local_var_view_contribution_1 = require("./local-var-view/local-var-view-contribution");
 const signal_bridge_protocol_1 = require("../common/signal-bridge-protocol");
 exports.default = new inversify_1.ContainerModule((bind) => {
     // IEC 61131-3 navigator decorator — appends [Program]/[HMI]/[CNC] labels
@@ -50,6 +51,10 @@ exports.default = new inversify_1.ContainerModule((bind) => {
     bind(gvl_view_contribution_1.GvlViewContribution).toSelf().inSingletonScope();
     bind(browser_1.WidgetFactory).toService(gvl_view_contribution_1.GvlViewContribution);
     bind(browser_1.FrontendApplicationContribution).toService(gvl_view_contribution_1.GvlViewContribution);
+    // Local Variables panel — table editor for the active .st/.il VAR block (left area, rank 230)
+    bind(local_var_view_contribution_1.LocalVarViewContribution).toSelf().inSingletonScope();
+    bind(browser_1.WidgetFactory).toService(local_var_view_contribution_1.LocalVarViewContribution);
+    bind(browser_1.FrontendApplicationContribution).toService(local_var_view_contribution_1.LocalVarViewContribution);
     // Window title — always show "AUDESYS Studio" regardless of workspace folder
     bind(window_title_contribution_1.WindowTitleContribution).toSelf().inSingletonScope();
     bind(browser_1.FrontendApplicationContribution).toService(window_title_contribution_1.WindowTitleContribution);

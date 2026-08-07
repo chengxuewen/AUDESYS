@@ -12,6 +12,12 @@ export interface GvlVariable {
 /** A2-3 type subset — the dropdown offered by the GVL table editor. */
 export declare const GVL_TYPES: Readonly<string[]>;
 /**
+ * One GVL declaration line:
+ *   name : TYPE := initialValue; (* comment *)
+ * Init and comment are optional.
+ */
+export declare const GVL_VAR_LINE: RegExp;
+/**
  * Extract the variables declared in a GVL file's `VAR_GLOBAL ... END_VAR`
  * block. Lines outside the block, blank lines, and whole-line comments are
  * ignored. Malformed declaration lines are skipped (lenient parse).

@@ -14,6 +14,7 @@ import { SignalBrowserContribution } from './signal-browser/signal-browser-contr
 import { ScopeViewContribution } from './scope-view/scope-view-contribution';
 import { PouTreeContribution } from './pou-view/pou-tree-contribution';
 import { GvlViewContribution } from './gvl-view/gvl-view-contribution';
+import { LocalVarViewContribution } from './local-var-view/local-var-view-contribution';
 import { SignalBridgeService, SignalBridgeServicePath } from '../common/signal-bridge-protocol';
 
 export default new ContainerModule((bind) => {
@@ -57,6 +58,11 @@ export default new ContainerModule((bind) => {
     bind(GvlViewContribution).toSelf().inSingletonScope();
     bind(WidgetFactory).toService(GvlViewContribution);
     bind(FrontendApplicationContribution).toService(GvlViewContribution);
+
+    // Local Variables panel — table editor for the active .st/.il VAR block (left area, rank 230)
+    bind(LocalVarViewContribution).toSelf().inSingletonScope();
+    bind(WidgetFactory).toService(LocalVarViewContribution);
+    bind(FrontendApplicationContribution).toService(LocalVarViewContribution);
     // Window title — always show "AUDESYS Studio" regardless of workspace folder
     bind(WindowTitleContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(WindowTitleContribution);

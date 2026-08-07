@@ -5,7 +5,7 @@
  * Zero @theia dependency so it can be unit-tested without a DOM.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GVL_TYPES = void 0;
+exports.GVL_VAR_LINE = exports.GVL_TYPES = void 0;
 exports.parseGvl = parseGvl;
 exports.serializeGvl = serializeGvl;
 /** A2-3 type subset — the dropdown offered by the GVL table editor. */
@@ -15,7 +15,7 @@ exports.GVL_TYPES = ['BOOL', 'INT', 'REAL', 'TIME', 'STRING'];
  *   name : TYPE := initialValue; (* comment *)
  * Init and comment are optional.
  */
-const GVL_VAR_LINE = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::=\s*([^;]*?))?\s*;\s*(?:\(\*\s*([\s\S]*?)\s*\*\))?\s*$/;
+exports.GVL_VAR_LINE = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::=\s*([^;]*?))?\s*;\s*(?:\(\*\s*([\s\S]*?)\s*\*\))?\s*$/;
 /**
  * Extract the variables declared in a GVL file's `VAR_GLOBAL ... END_VAR`
  * block. Lines outside the block, blank lines, and whole-line comments are
@@ -37,7 +37,7 @@ function parseGvl(text) {
         if (!inBlock || line === '' || line.startsWith('(*')) {
             continue;
         }
-        const m = GVL_VAR_LINE.exec(line);
+        const m = exports.GVL_VAR_LINE.exec(line);
         if (m) {
             vars.push({
                 name: m[1],

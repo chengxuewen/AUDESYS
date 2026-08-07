@@ -19,7 +19,7 @@ export const GVL_TYPES: Readonly<string[]> = ['BOOL', 'INT', 'REAL', 'TIME', 'ST
  *   name : TYPE := initialValue; (* comment *)
  * Init and comment are optional.
  */
-const GVL_VAR_LINE =
+export const GVL_VAR_LINE =
     /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::=\s*([^;]*?))?\s*;\s*(?:\(\*\s*([\s\S]*?)\s*\*\))?\s*$/;
 
 /**
