@@ -15,6 +15,7 @@ import { CommandContribution, Command, CommandRegistry } from '@theia/core/lib/c
 import { FrontendApplication, FrontendApplicationContribution, KeybindingContribution, KeybindingRegistry } from '@theia/core/lib/browser';
 export declare const ST_COMPILE_COMMAND: Command;
 export declare const ST_COMPILE_PROJECT_COMMAND: Command;
+export declare const ST_DEPLOY_COMMAND: Command;
 export declare class StCompileCommandContribution implements CommandContribution, KeybindingContribution, FrontendApplicationContribution {
     private readonly editorManager;
     private readonly connectionProvider;
@@ -36,5 +37,6 @@ export declare class StCompileCommandContribution implements CommandContribution
     private clearOkMarkers;
     /** Set Monaco markers on a widget's underlying ITextModel. */
     private setMarkers;
+    private deployProject;
 }
 //# sourceMappingURL=st-compile-command.d.ts.map

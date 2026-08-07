@@ -45,7 +45,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StCompileCommandContribution = exports.ST_COMPILE_PROJECT_COMMAND = exports.ST_COMPILE_COMMAND = void 0;
+exports.StCompileCommandContribution = exports.ST_DEPLOY_COMMAND = exports.ST_COMPILE_PROJECT_COMMAND = exports.ST_COMPILE_COMMAND = void 0;
 const inversify_1 = require("@theia/core/shared/inversify");
 const browser_1 = require("@theia/editor/lib/browser");
 const browser_2 = require("@theia/core/lib/browser");
@@ -64,6 +64,11 @@ exports.ST_COMPILE_COMMAND = {
 exports.ST_COMPILE_PROJECT_COMMAND = {
     id: 'audesys-st.compile-project',
     label: 'Compile Project (All POU files)',
+    category: 'ST',
+};
+exports.ST_DEPLOY_COMMAND = {
+    id: 'audesys-st.deploy',
+    label: 'Deploy Project to Runtime',
     category: 'ST',
 };
 const SEVERITY = {
@@ -87,10 +92,14 @@ let StCompileCommandContribution = class StCompileCommandContribution {
         commands.registerCommand(exports.ST_COMPILE_PROJECT_COMMAND, {
             execute: () => this.compileProject(),
         });
+        commands.registerCommand(exports.ST_DEPLOY_COMMAND, {
+            execute: () => this.deployProject(),
+        });
     }
     registerKeybindings(bindings) {
         bindings.registerKeybinding({ command: exports.ST_COMPILE_COMMAND.id, keybinding: 'f7' });
         bindings.registerKeybinding({ command: exports.ST_COMPILE_PROJECT_COMMAND.id, keybinding: 'f6' });
+        bindings.registerKeybinding({ command: exports.ST_DEPLOY_COMMAND.id, keybinding: 'f9' });
     }
     isActiveStEditor() {
         const w = this.editorManager.currentEditor;
@@ -208,6 +217,29 @@ let StCompileCommandContribution = class StCompileCommandContribution {
             message: mk.message,
             severity: SEVERITY[mk.severity],
         })));
+    }
+    async deployProject() {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!this.compileServer) {
+            return;
+        }
+        if (!root) {
+            await this.messageService.warn('Open a workspace first to deploy the project.');
+            return;
+        }
+        const programs = await this.collectPouSources(root);
+        if (programs.length === 0) {
+            await this.messageService.info('No .st/.il files found in the workspace.');
+            return;
+        }
+        try {
+            const result = await this.compileServer.deployProject(programs);
+            await this.messageService.info(`Deploy OK: ${result}`);
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            await this.messageService.error(`Deploy failed: ${msg}`);
+        }
     }
 };
 exports.StCompileCommandContribution = StCompileCommandContribution;

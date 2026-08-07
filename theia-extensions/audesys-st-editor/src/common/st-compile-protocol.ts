@@ -37,4 +37,8 @@ export interface StCompileServer {
     compileSt(source: string): string;
     /** Compile every POU file; each file is compiled independently (per-file try/catch). */
     compileProject(programs: CompileInput[]): ProjectCompileResult;
+    /** A5: compile every POU file, merge into one HalProgram, deploy to the Runtime.
+     * Returns a result message (e.g. "Deploy OK generation 3") or throws on failure.
+     */
+    deployProject(programs: CompileInput[]): string;
 }

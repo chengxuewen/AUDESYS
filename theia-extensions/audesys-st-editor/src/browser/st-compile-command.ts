@@ -37,6 +37,12 @@ export const ST_COMPILE_PROJECT_COMMAND: Command = {
     category: 'ST',
 };
 
+export const ST_DEPLOY_COMMAND: Command = {
+    id: 'audesys-st.deploy',
+    label: 'Deploy Project to Runtime',
+    category: 'ST',
+};
+
 const SEVERITY: Record<MarkerSeverityName, monaco.MarkerSeverity> = {
     Error: monaco.MarkerSeverity.Error,
     Warning: monaco.MarkerSeverity.Warning,
@@ -75,11 +81,15 @@ export class StCompileCommandContribution implements CommandContribution, Keybin
         commands.registerCommand(ST_COMPILE_PROJECT_COMMAND, {
             execute: () => this.compileProject(),
         });
+        commands.registerCommand(ST_DEPLOY_COMMAND, {
+            execute: () => this.deployProject(),
+        });
     }
 
     registerKeybindings(bindings: KeybindingRegistry): void {
         bindings.registerKeybinding({ command: ST_COMPILE_COMMAND.id, keybinding: 'f7' });
         bindings.registerKeybinding({ command: ST_COMPILE_PROJECT_COMMAND.id, keybinding: 'f6' });
+        bindings.registerKeybinding({ command: ST_DEPLOY_COMMAND.id, keybinding: 'f9' });
     }
 
     private isActiveStEditor(): boolean {
@@ -200,5 +210,28 @@ export class StCompileCommandContribution implements CommandContribution, Keybin
             message: mk.message,
             severity: SEVERITY[mk.severity],
         })));
+    }
+
+    private async deployProject(): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!this.compileServer) {
+            return;
+        }
+        if (!root) {
+            await this.messageService.warn('Open a workspace first to deploy the project.');
+            return;
+        }
+        const programs = await this.collectPouSources(root);
+        if (programs.length === 0) {
+            await this.messageService.info('No .st/.il files found in the workspace.');
+            return;
+        }
+        try {
+            const result = await this.compileServer.deployProject(programs);
+            await this.messageService.info(`Deploy OK: ${result}`);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            await this.messageService.error(`Deploy failed: ${msg}`);
+        }
     }
 }

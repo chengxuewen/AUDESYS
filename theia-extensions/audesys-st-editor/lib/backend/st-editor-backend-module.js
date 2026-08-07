@@ -49,6 +49,7 @@ const common_1 = require("@theia/core/lib/common");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const st_project_compile_1 = require("../browser/st-project-compile");
+const deploy_model_1 = require("../browser/deploy-model");
 const st_compile_protocol_1 = require("../common/st-compile-protocol");
 /** Load the napi-rs bridge from the build's copied native dir. */
 function loadBridge() {
@@ -77,21 +78,39 @@ function loadBridge() {
 exports.default = new inversify_1.ContainerModule((bind) => {
     bind(common_1.ConnectionHandler).toDynamicValue(() => new common_1.JsonRpcConnectionHandler(st_compile_protocol_1.StCompileServicePath, () => {
         const bridge = loadBridge();
+        const compile = (input) => {
+            const fn = (0, st_project_compile_1.compileKindForPath)(input.path) === 'il' ? bridge.compileIl : bridge.compileSt;
+            return fn(input.source); // HalProgram JSON; throws on compile error
+        };
         const compileProgram = (input) => {
             try {
-                const fn = (0, st_project_compile_1.compileKindForPath)(input.path) === 'il' ? bridge.compileIl : bridge.compileSt;
-                fn(input.source);
+                compile(input);
                 return { path: input.path, ok: true, message: '' };
             }
             catch (e) {
                 return { path: input.path, ok: false, message: e instanceof Error ? e.message : String(e) };
             }
         };
+        const deployProject = (programs) => {
+            const jsons = programs.map((input) => {
+                try {
+                    return compile(input);
+                }
+                catch (e) {
+                    throw new Error(`compile failed for ${input.path}: ${e instanceof Error ? e.message : String(e)}`);
+                }
+            });
+            const merged = (0, deploy_model_1.mergeHalPrograms)(jsons);
+            const socket = process.env.AUDESYS_SOCKET ?? '/tmp/audesys-runtime.sock';
+            const secret = process.env.AUDESYS_SECRET ?? '';
+            return bridge.deploy_program(socket, secret, merged);
+        };
         return {
             compileSt: (source) => bridge.compileSt(source),
             compileProject: (programs) => ({
                 results: programs.map(compileProgram),
             }),
+            deployProject,
         };
     })).inSingletonScope();
 });
