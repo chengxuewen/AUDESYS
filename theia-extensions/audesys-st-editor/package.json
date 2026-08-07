@@ -10,7 +10,8 @@
   "main": "lib/browser/index.js",
   "theiaExtensions": [
     {
-      "frontend": "lib/browser/index"
+      "frontend": "lib/browser/index",
+      "backend": "lib/backend/st-editor-backend-module"
     }
   ],
   "scripts": {
