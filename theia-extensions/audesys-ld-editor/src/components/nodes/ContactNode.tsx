@@ -53,6 +53,10 @@ interface LdContactData extends Record<string, unknown> {
     comment?: string;
     onRename?: (id: string, name: string) => void;
     onChangeType?: (id: string, type: string) => void;
+    /** A1a: open a parallel branch at this contact (▲▼ marker click). */
+    onOpenBranch?: (id: string) => void;
+    /** A1a: whether this contact already anchors a parallel branch. */
+    hasBranch?: boolean;
     /** P2 monitoring: live value badge. */
     monitoring?: boolean;
     value?: number;
@@ -91,6 +95,19 @@ export const ContactNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         }
     };
     const cancel = (): void => setEditing(false);
+
+    // A3: external edit request (keyboard Tab/Enter) — open the variable
+    // editor when the request targets this node and the seq bumps.
+    const editReq = d.editRequest as { field: string; seq: number } | undefined;
+    const lastEditSeq = React.useRef(0);
+    React.useEffect(() => {
+        if (editReq && editReq.seq !== lastEditSeq.current) {
+            lastEditSeq.current = editReq.seq;
+            if (editReq.field === 'variableName') {
+                startEdit();
+            }
+        }
+    }, [editReq?.seq]);
 
     const labelTitle = comment
         ? `${comment} — double-click to rename`
@@ -158,6 +175,24 @@ export const ContactNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                     </text>
                 )}
             </svg>
+            {d.onOpenBranch && (
+                <>
+                    <button
+                        type="button"
+                        className={`ld-branch-marker ld-branch-marker--up${d.hasBranch ? ' ld-branch-marker--active' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); d.onOpenBranch?.(id); }}
+                        title={d.hasBranch ? 'Branch exists — click to open' : 'Open parallel branch above'}
+                        aria-label="open branch above"
+                    />
+                    <button
+                        type="button"
+                        className={`ld-branch-marker ld-branch-marker--down${d.hasBranch ? ' ld-branch-marker--active' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); d.onOpenBranch?.(id); }}
+                        title={d.hasBranch ? 'Branch exists — click to open' : 'Open parallel branch below'}
+                        aria-label="open branch below"
+                    />
+                </>
+            )}
             {editing ? (
                 <input
                     className="ld-node-rename"

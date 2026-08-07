@@ -50,6 +50,7 @@ import { RungGroupNode } from './nodes/RungGroupNode';
 import { PowerRailNode } from './nodes/PowerRailNode';
 import { InsertPointNode, InsertPointData } from './nodes/InsertPointNode';
 import { WireEdge } from './edges/WireEdge';
+import { LdContextMenu, CtxMenuState, LdContextMenuActions } from './LdContextMenu';
 
 // ============================================================================
 // React Flow element types
@@ -77,9 +78,31 @@ export interface LdNodeData extends Record<string, unknown> {
     /** P2 monitoring: live value + mode flag for contact/coil badges. */
     monitoring?: boolean;
     value?: number;
+    /** A3: external edit request (keyboard Tab/Enter navigation) —
+     *  { field, seq } consumed by node components; seq bumps each request
+     *  so repeated requests for the same field still re-trigger. */
+    editRequest?: { field: string; seq: number };
 }
 
 export type LdRfNode = Node<LdNodeData>;
+
+/**
+ * A3: editable-field sequence for keyboard navigation (§7.1).
+ * Order matters: Tab advances, Shift+Tab goes back, Enter opens the
+ * current field's editor. Contact/coil rename their variable; a rung
+ * edits its title then comment.
+ */
+export function editableFieldsFor(node: Pick<LdRfNode, 'type'>): string[] {
+    switch (node.type) {
+        case RF_TYPE_CONTACT:
+        case RF_TYPE_COIL:
+            return ['variableName'];
+        case RF_TYPE_RUNG:
+            return ['title', 'comment'];
+        default:
+            return [];
+    }
+}
 export type LdRfEdge = Edge<Record<string, unknown>>;
 
 /** RF type strings double as CSS selectors: .react-flow__node-contact etc. */
@@ -139,6 +162,8 @@ export interface LdFlowCallbacks {
     setRungTitle?: (id: string, title: string) => void;
     setRungComment?: (id: string, comment: string) => void;
     setElementComment?: (id: string, comment: string) => void;
+    /** A1a: open a parallel branch at a series contact (▲▼ marker click). */
+    openBranchFromContact?: (contactId: string, rungId: string) => void;
 }
 
 function contactFlowNode(
@@ -146,6 +171,7 @@ function contactFlowNode(
     rungId: string,
     cb: LdFlowCallbacks,
     position: Point,
+    hasBranch = false,
 ): LdRfNode {
     return {
         id: contact.id,
@@ -160,6 +186,10 @@ function contactFlowNode(
             comment: contact.comment ?? '',
             onRename: cb.renameVar,
             onChangeType: cb.changeContactType,
+            onOpenBranch: cb.openBranchFromContact
+                ? (contactId: string) => cb.openBranchFromContact!(contactId, rungId)
+                : undefined,
+            hasBranch,
         },
     };
 }
@@ -258,7 +288,8 @@ export function graphToFlow(
                 continue;
             }
             if (modelNode.type === 'node:contact') {
-                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb, toLocal(modelNode.id)));
+                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb, toLocal(modelNode.id),
+                    rung.branches?.some((b) => b.anchorId === modelNode.id) ?? false));
                 nodeIds.add(modelNode.id);
             } else if (modelNode.type === 'node:coil') {
                 nodes.push(coilFlowNode(modelNode as CoilModelNode, rung.id, cb, toLocal(modelNode.id)));
@@ -276,7 +307,7 @@ export function graphToFlow(
                 if (!modelNode || modelNode.type !== 'node:contact') {
                     continue;
                 }
-                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb, toLocal(modelNode.id)));
+                nodes.push(contactFlowNode(modelNode as ContactModelNode, rung.id, cb, toLocal(modelNode.id), false));
                 nodeIds.add(modelNode.id);
             }
         }
@@ -335,7 +366,11 @@ export function graphToFlow(
                 type: RF_TYPE_WIRE,
                 sourceHandle,
                 targetHandle,
-                zIndex: 1, // LD wires render above nodes (glsp-expert requirement)
+                // Edges keep the default z-index (nodes paint above edges in
+                // React Flow's DOM order) so node bodies always win the
+                // hit-test — wires are interactive only in the open space
+                // between nodes (A2b edge context menu). Wires that pass under
+                // a node are decoration and must not swallow clicks on it.
                 // Edge interaction is disabled in WireEdge (interactionWidth 0);
                 // branch bus edges run through member columns and must not
                 // swallow clicks on the members.
@@ -569,7 +604,10 @@ const LD_CANVAS_CSS = `
 .ld-node-label {
   position: absolute; /* keep the node box at 36px — a taller node gets clamped
                         inside the rung container (extent:'parent') */
-  top: 38px;
+  top: 38px; /* just below the node box; the A1a ▲▼ markers now hug the
+                node edges (tip pokes out 1px), so the label keeps its own
+                hit area for dblclick rename (A3/T16) and branch
+                insert-points (y+40) stay clickable above it (T14b). */
   left: 0;
   width: 100%;
   font-size: 10px;
@@ -580,7 +618,10 @@ const LD_CANVAS_CSS = `
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* NOTE: no pointer-events:none — the label must receive dblclick for rename */
+  /* A3 fix: label must stay clickable for dblclick rename (T16). The branch
+     insert-point (y+40) renders as a later DOM sibling of the contact node,
+     so it paints above the label — the label no longer needs to be inert.
+     Regression from A2 (pointer-events:none) broke dblclick rename. */
 }
 .ld-node-rename {
   position: absolute;
@@ -646,6 +687,13 @@ const LD_CANVAS_CSS = `
   outline: 2px solid var(--ld-find-color, #ffb74d);
   outline-offset: 2px;
   border-radius: 4px;
+}
+/* A4 drag-replace: green highlight on the drop target while hovered. */
+.react-flow__node.ld-node--replace-target {
+  outline: 2px solid var(--ld-replace-color, #4caf50);
+  outline-offset: 2px;
+  border-radius: 4px;
+  box-shadow: 0 0 8px var(--ld-replace-glow, rgba(76, 175, 80, 0.6));
 }
 /* P2 real-time validation (SmartCoding-style): red markers + badges */
 .react-flow__node.ld-node--error {
@@ -777,6 +825,102 @@ const LD_CANVAS_CSS = `
 .ld-xref-row__usages {
   color: var(--theia-descriptionForeground, #bbb);
 }
+/* A1a: ▲▼ parallel-branch markers on contacts */
+.ld-branch-marker {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 3;
+}
+.ld-branch-marker:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+.ld-branch-marker--active {
+  opacity: 1;
+}
+.ld-branch-marker--up {
+  top: -1px; /* triangle hugs the node's top edge; tip pokes out 1px. Kept
+                clear of the .ld-node-label (top:38px) so dblclick rename
+                keeps its own hit area (A3/T16). */
+  transform: translateX(-50%);
+  border-bottom: 8px solid var(--ld-branch-marker, #ff9800);
+}
+.ld-branch-marker--up:hover {
+  transform: translateX(-50%) scale(1.2);
+}
+.ld-branch-marker--down {
+  bottom: -1px; /* same inset rationale as --up; must not overlap the
+                   variable label below the node (A3/T16). */
+  transform: translateX(-50%);
+  border-top: 8px solid var(--ld-branch-marker, #ff9800);
+}
+.ld-branch-marker--down:hover {
+  transform: translateX(-50%) scale(1.2);
+}
+/* Right-click context menu (A2). */
+.ld-ctx-menu {
+  position: fixed;
+  z-index: 1000;
+}
+.ld-ctx-menu__panel {
+  min-width: 160px;
+  padding: 4px 0;
+  background: var(--theia-menu-background, #252526);
+  border: 1px solid var(--theia-menu-border, #454545);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  font-family: var(--theia-ui-font-family);
+  font-size: 12px;
+  color: var(--theia-menu-foreground, #ccc);
+}
+.ld-ctx-menu__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 18px 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ld-ctx-menu__item:hover,
+.ld-ctx-menu__item.is-open {
+  background: var(--theia-list-hoverBackground, #2a2d2e);
+}
+.ld-ctx-menu__item.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ld-ctx-menu__item.is-disabled:hover {
+  background: transparent;
+}
+.ld-ctx-menu__label {
+  flex: 1;
+}
+.ld-ctx-menu__caret {
+  margin-left: 12px;
+}
+.ld-ctx-menu__sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--theia-menu-separatorBackground, #454545);
+}
+/* A2b: wire interaction surface. The transparent .ld-edge-interaction path
+   is always pointer-events:auto (set inline in WireEdge) and renders in the
+   edges layer, which React Flow draws BELOW the nodes layer. So a wire is
+   right-clickable in open space between nodes, but nodes always win the
+   hit-test where a wire passes through them. */
+  .ld-edge-interaction {
+  cursor: context-menu;
+}
 `;
 
 function injectCanvasStyles(): void {
@@ -788,6 +932,75 @@ function injectCanvasStyles(): void {
     style.textContent = LD_CANVAS_CSS;
     document.head.appendChild(style);
 }
+
+// ============================================================================
+// Drag-drop target detection (A1b branch-marker drop + A4 drag-replace).
+// React Flow has no native drop-target hit-testing; the shared pattern is:
+// during onNodeDrag, hit-test the dragged node's center via
+// document.elementsFromPoint() against a target's DOM element, cache the
+// hit in a ref, and dispatch on onNodeDragStop. A4 extends DragTarget with a
+// replace target (a square marker on a contact).
+// ============================================================================
+
+/**
+ * Resolve a branch-marker element to its owning contact + rung.
+ * The ▲▼ marker lives inside a .react-flow__node-contact[data-id=...];
+ * data-id is the contact id; the rung is found from the graph.
+ */
+function markerToTarget(el: Element, graph: LdGraph): { contactId: string; rungId: string } | null {
+    const contactEl = el.closest('.react-flow__node-contact');
+    const contactId = contactEl?.getAttribute('data-id');
+    if (!contactId) return null;
+    const rung = graph.rungs.find((r) => r.elementIds.includes(contactId)
+        || r.branches?.some((b) => b.anchorId === contactId));
+    if (!rung) return null;
+    return { contactId, rungId: rung.id };
+}
+
+interface DragTarget {
+    kind: 'branch-marker' | 'replace';
+    /** branch-marker: contact id under the ▲▼ marker; replace: target id. */
+    targetId?: string;
+    contactId?: string;
+    rungId?: string;
+}
+
+/* A4: drop within this many flow-px of the hovered target's rendered slot
+ *  counts as a replace; beyond it the drop is a reorder to a different slot.
+ *  ~ half a slot width (slots are 40px). */
+const DRAG_REPLACE_SLOT_RANGE = 20;
+
+/**
+ * Hit-test a screen point for a drag target. Returns the branch-marker target
+ * if the point is over a ▲▼ marker (A1b), else a replace target if the point
+ * is over another element node (A4 drag-replace), else null.
+ */
+function findDragTarget(cx: number, cy: number, graph: LdGraph, ignoreId?: string): DragTarget | null {
+    const under = document.elementsFromPoint(cx, cy);
+    const marker = under.find((el) => el.classList?.contains('ld-branch-marker'));
+    if (marker) {
+        const target = markerToTarget(marker, graph);
+        return target ? { kind: 'branch-marker', ...target } : null;
+    }
+    // A4: drag-replace target — the point is over another element node.
+    // Skip the node being dragged: when it lands dead-center on the target,
+    // the topmost element at the hit point is the dragged node itself, which
+    // would resolve the replace target to the source and no-op the drop.
+    const nodeEl = under.find((el) => {
+        if (ignoreId && el.getAttribute?.('data-id') === ignoreId) return false;
+        return el.classList?.contains('react-flow__node-contact') ||
+            el.classList?.contains('react-flow__node-coil') ||
+            el.classList?.contains('react-flow__node-fb');
+    });
+    if (!nodeEl) return null;
+    const targetId = nodeEl.getAttribute('data-id');
+    if (!targetId) return null;
+    return { kind: 'replace', targetId };
+}
+
+// ============================================================================
+// Node / edge type registries (module scope: stable identity across renders)
+// ============================================================================
 
 // ============================================================================
 // Node / edge type registries (module scope: stable identity across renders)
@@ -836,6 +1049,14 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     const [compileBusy, setCompileBusy] = React.useState(false);
     /** Active parallel branch being edited (open → add members → close). */
     const [branchMode, setBranchMode] = React.useState<{ branchId: string; rungId: string } | null>(null);
+    /** A1b/A4 shared: drag-target hit during onNodeDrag (ref, not state —
+     *  avoids re-render on every mousemove). Dispatched on onNodeDragStop. */
+    const dragTargetRef = React.useRef<DragTarget | null>(null);
+    /** Last non-null drag target hovered during the drag. The node snaps to
+     *  slot positions on drop, so the final drag frame often misses the target
+     *  even though the node landed on its slot. This keeps the last hovered
+     *  target (replace OR branch-marker) so the drop still dispatches it. */
+    const lastDragTargetRef = React.useRef<DragTarget | null>(null);
     // ── Find (Ctrl+F) + Cross Reference (Ctrl+Shift+X) ──────
     const [findOpen, setFindOpen] = React.useState(false);
     const [findQuery, setFindQuery] = React.useState('');
@@ -855,6 +1076,21 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     const [monitoring, setMonitoring] = React.useState(false);
     /** Skeleton signal source (future: Runtime IPC). id → live value. */
     const [monitorValues, setMonitorValues] = React.useState<Record<string, number>>({});
+    /** Right-click context menu (A2): null when closed. */
+    const [ctxMenu, setCtxMenu] = React.useState<CtxMenuState | null>(null);
+    /** A3: keyboard edit navigation (Tab/Enter) — { nodeId, field } target
+     *  with a bumping seq so the same field re-opens on repeat keys. */
+    const [editReq, setEditReq] = React.useState<{ nodeId: string; field: string; seq: number } | null>(null);
+    const editSeqRef = React.useRef(0);
+    /** A3: currently selected element (single selection) for Tab/Enter nav. */
+    const selectedNodeRef = React.useRef<LdRfNode | null>(null);
+    /** A4 drag-replace: target node id while a dragged element hovers it
+     *  (green highlight). Cleared on drop/drag-start. */
+    const [replaceTargetId, setReplaceTargetId] = React.useState<string | null>(null);
+    /** A4: clipboard — copied element ids (main-chain only; branch members
+     *  degrade to series copies on paste). */
+    const clipboardRef = React.useRef<string[]>([]);
+    const [clipboardStatus, setClipboardStatus] = React.useState('');
 
     React.useEffect(injectCanvasStyles, []);
 
@@ -876,10 +1112,18 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     // Ctrl+G grid toggle, Ctrl+F find, Ctrl+Shift+X cross-ref, Esc closes
     // find (capture phase: wins over Theia's document-level keybindings
     // while the LD widget is open).
+    // A3: + Ctrl+Z/Y undo/redo (input-guarded) + Tab/Shift+Tab/Enter
+    // editable-field navigation (§7.1: Tab = next field, Shift+Tab = prev,
+    // Enter = open the selected field's editor).
     React.useEffect(() => {
         const onKeyDown = (e: KeyboardEvent): void => {
             const mod = e.ctrlKey || e.metaKey;
             const key = e.key.toLowerCase();
+            const target = e.target as HTMLElement | null;
+            // A3 input guard: never hijack keys while an input/textarea has
+            // focus (Ctrl+Z inside an editor undoes the typing, not the
+            // diagram; Tab/Enter belong to the field being edited).
+            const inField = !!target && !!target.closest('input,textarea');
             if (mod && key === 'g') {
                 e.preventDefault();
                 setGridEnabled((v) => !v);
@@ -891,11 +1135,51 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 setFindOpen(true);
             } else if (e.key === 'Escape') {
                 setFindOpen(false);
+                setEditReq(null);
+            } else if (mod && !e.shiftKey && key === 'z' && !inField) {
+                e.preventDefault();
+                undo();
+            } else if (mod && !e.shiftKey && key === 'y' && !inField) {
+                e.preventDefault();
+                redo();
+            } else if (mod && !e.shiftKey && key === 'c' && !inField) {
+                // A4: copy selected elements (main chain only).
+                e.preventDefault();
+                doCopy();
+            } else if (mod && !e.shiftKey && key === 'v' && !inField) {
+                // A4: paste into the selected rung (or first rung) at the
+                // cursor slot of the copied element's rung.
+                e.preventDefault();
+                doPaste();
+            } else if (mod && !e.shiftKey && key === 'x' && !inField) {
+                // A4: cut = copy + delete.
+                e.preventDefault();
+                doCut();
+            } else if (!inField && (e.key === 'Tab' || e.key === 'Enter')) {
+                // A3: field navigation on the currently selected element
+                const sel = selectedNodeRef.current;
+                if (sel) {
+                    const fields = editableFieldsFor(sel);
+                    if (fields.length > 0) {
+                        e.preventDefault();
+                        const cur = editReq?.nodeId === sel.id ? fields.indexOf(editReq.field) : -1;
+                        let next: number;
+                        if (e.key === 'Enter') {
+                            next = cur >= 0 ? cur : 0;
+                        } else {
+                            const delta = e.shiftKey ? -1 : 1;
+                            next = (cur + delta + fields.length) % fields.length;
+                        }
+                        const field = fields[next];
+                        editSeqRef.current += 1;
+                        setEditReq({ nodeId: sel.id, field, seq: editSeqRef.current });
+                    }
+                }
             }
         };
         window.addEventListener('keydown', onKeyDown, true);
         return () => window.removeEventListener('keydown', onKeyDown, true);
-    }, []);
+    });
 
     // ── Find + Cross Reference (P1) ──────────────────────────
 
@@ -1020,6 +1304,32 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         tryApply((g) => handler.setElementComment(g, { elementId, comment }));
     }, [tryApply, handler]);
 
+    // A1a/A1b shared: open a parallel branch at a contact and auto-add the
+    // first member (selected tool type, else clone the anchor type).
+    const openBranchFromMarker = React.useCallback((contactId: string, rungId: string): void => {
+        const rung = graph.rungs.find((r) => r.id === rungId);
+        const existing = rung?.branches?.find((b) => b.anchorId === contactId);
+        if (existing) {
+            setBranchMode({ branchId: existing.id, rungId });
+            setPendingTool(null);
+            setStatus('Branch reopened — click a green marker below a contact, then Close/Cancel');
+            return;
+        }
+        const opened = tryApply((g) => handler.openBranch(g, { rungId, anchorId: contactId }));
+        if (!opened) return;
+        const branch = opened.rungs
+            .find((r) => r.id === rungId)?.branches?.find((b) => b.anchorId === contactId);
+        if (!branch) return;
+        const anchor = opened.nodes.find((n) => n.id === contactId);
+        const anchorType = anchor && 'contactType' in anchor ? String(anchor.contactType) : undefined;
+        const toolType = pendingTool ? CONTACT_TYPE_BY_TOOL[pendingTool] : undefined;
+        const contactType = toolType ?? (anchorType as ContactType | undefined);
+        tryApply((g) => handler.addBranchContact(g, { branchId: branch.id, contactType }));
+        setBranchMode({ branchId: branch.id, rungId });
+        setPendingTool(null);
+        setStatus('Branch open — click a green marker below a contact, then Close Branch');
+    }, [graph.rungs, pendingTool, tryApply, handler]);
+
     // Stable identity for graphToFlow — the useCallback deps above are all stable.
     const flowCallbacks: LdFlowCallbacks = {
         renameVar,
@@ -1028,6 +1338,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         setRungTitle,
         setRungComment,
         setElementComment,
+        openBranchFromContact: openBranchFromMarker,
     };
 
     // Sync LdGraph changes into the React Flow store (uncontrolled mode:
@@ -1049,6 +1360,10 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 className = n.id === currentMatchId
                     ? 'ld-node--found ld-node--current-match'
                     : 'ld-node--found';
+            }
+            // A4 drag-replace: green highlight on the hovered drop target.
+            if (replaceTargetId === n.id) {
+                className = className ? `${className} ld-node--replace-target` : 'ld-node--replace-target';
             }
             let data = n.data;
             // Rung-level errors: rung id from markup, or rungNumber lookup.
@@ -1081,6 +1396,11 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             // Monitor mode: inject the live value into contact/coil data.
             if (monitoring && (n.type === RF_TYPE_CONTACT || n.type === RF_TYPE_COIL)) {
                 data = { ...data, monitoring: true, value: monitorValues[n.id] ?? 0 };
+            }
+            // A3: keyboard edit navigation — inject the current request so
+            // the node component can open its editor (seq-guarded).
+            if (editReq && n.id === editReq.nodeId) {
+                data = { ...data, editRequest: { field: editReq.field, seq: editReq.seq } };
             }
             if (data === n.data && className === undefined) {
                 return n;
@@ -1118,6 +1438,10 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                         data: { rungId: rung.id, insertIndex: i } as InsertPointData,
                         draggable: false,
                         selectable: true,
+                        // Above .ld-node-label (top:38px) — the label is
+                        // clickable for dblclick rename (A3/T16) and must not
+                        // swallow the insertion diamonds.
+                        zIndex: 5,
                     });
                 }
             });
@@ -1146,6 +1470,9 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                     data: { rungId: branchMode.rungId, branchAnchorId: cid } as InsertPointData,
                     draggable: false,
                     selectable: true,
+                    // Above .ld-node-label (top:38px) — dblclick rename
+                    // (A3/T16) and branch placement must coexist.
+                    zIndex: 5,
                 });
             });
         }
@@ -1162,7 +1489,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             return { ...e, data: { ...e.data, active: true } };
         });
         setEdges(edges);
-    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId, monitoring, monitorValues, validation, pendingTool, branchMode]);
+    }, [graph, setNodes, setEdges, renameVar, highlightIds, currentMatchId, monitoring, monitorValues, validation, pendingTool, branchMode, editReq, replaceTargetId]);
 
 
     // ── Toolbar actions ───────────────────────────────────────
@@ -1182,6 +1509,66 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             notifyDirty();
         }
     }, [state, notifyDirty]);
+
+    // ── A4: Copy / Paste / Cut ───────────────────────────────
+
+    /** Copy the selected elements (main chain only; branch members degrade
+     *  to series copies on paste — v3). Records ids in the clipboard ref.
+     */
+    const doCopy = React.useCallback((): void => {
+        const sel = selectedNodeRef.current;
+        if (!sel || sel.type === RF_TYPE_RUNG || sel.type === RF_TYPE_RAIL) {
+            setClipboardStatus('Copy: select a contact, coil or FB');
+            return;
+        }
+        clipboardRef.current = [sel.id];
+        setClipboardStatus('Copied');
+    }, []);
+
+    /** Paste the clipboard into the target rung at a topology slot.
+     *  Target: selected rung, else the rung the copied element came from,
+     *  else the first rung. Slot: after the selected element (or rung tail).
+     */
+    const doPaste = React.useCallback((): void => {
+        const ids = clipboardRef.current;
+        if (ids.length === 0) {
+            setClipboardStatus('Paste: nothing copied');
+            return;
+        }
+        // Target rung + slot from the current selection.
+        const sel = selectedNodeRef.current;
+        let rungId: string | undefined;
+        let insertIndex = Number.MAX_SAFE_INTEGER;
+        if (sel && sel.type === RF_TYPE_RUNG) {
+            rungId = sel.id;
+            insertIndex = graph.rungs.find((r) => r.id === sel.id)?.elementIds.length ?? 0;
+        } else if (sel) {
+            const rung = graph.rungs.find((r) => r.elementIds.includes(sel.id));
+            if (rung) {
+                rungId = rung.id;
+                const idx = rung.elementIds.indexOf(sel.id);
+                insertIndex = idx >= 0 ? idx + 1 : rung.elementIds.length;
+            }
+        }
+        if (!rungId) {
+            rungId = graph.rungs[0]?.id;
+            insertIndex = 0;
+        }
+        tryApply((g) => handler.pasteElements(g, { elementIds: ids, rungId, insertIndex }));
+        setClipboardStatus('Pasted');
+    }, [tryApply, handler, graph]);
+
+    /** Cut = copy + delete (single selection). */
+    const doCut = React.useCallback((): void => {
+        const sel = selectedNodeRef.current;
+        if (!sel || sel.type === RF_TYPE_RUNG || sel.type === RF_TYPE_RAIL) {
+            setClipboardStatus('Cut: select a contact, coil or FB');
+            return;
+        }
+        clipboardRef.current = [sel.id];
+        tryApply((g) => handler.deleteElement(g, { elementId: sel.id }));
+        setClipboardStatus('Cut');
+    }, [tryApply, handler]);
 
     const addRung = React.useCallback((): void => {
         tryApply((g) => handler.addRung(g));
@@ -1403,10 +1790,189 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
         setStatus('Click a diamond marker to place the element');
     }, [pendingTool, branchMode, openBranchAt, tryApply, handler]);
 
+    // ── Right-click context menu (A2) ───────────────────────
+    const onNodeContextMenu = React.useCallback((event: React.MouseEvent, node: LdRfNode): void => {
+        event.preventDefault();
+        const type = node.type;
+        if (type === RF_TYPE_RUNG) {
+            setCtxMenu({ x: event.clientX, y: event.clientY, kind: 'rung', rungId: node.id });
+            return;
+        }
+        if (type !== RF_TYPE_CONTACT && type !== RF_TYPE_COIL) {
+            return;
+        }
+        const parentId = typeof node.parentId === 'string' ? node.parentId : undefined;
+        setCtxMenu({
+            x: event.clientX,
+            y: event.clientY,
+            kind: 'node',
+            nodeType: type,
+            nodeId: node.id,
+            rungId: parentId,
+            variableName: String(node.data.variableName ?? ''),
+            contactType: String(node.data.contactType ?? 'NO'),
+            coilType: String(node.data.coilType ?? 'Normal'),
+        });
+    }, []);
+
+    const onEdgeContextMenu = React.useCallback((event: React.MouseEvent, edge: LdRfEdge): void => {
+        event.preventDefault();
+        const src = graph.nodes.find((n) => n.id === edge.source);
+        const variableName = src && 'variableName' in src ? String(src.variableName) : '';
+        setCtxMenu({ x: event.clientX, y: event.clientY, kind: 'edge', edgeId: edge.id, variableName });
+    }, [graph]);
+
+    const onPaneContextMenu = React.useCallback((event: MouseEvent | React.MouseEvent<Element, MouseEvent>): void => {
+        event.preventDefault();
+        setCtxMenu({ x: event.clientX, y: event.clientY, kind: 'pane' });
+    }, []);
+
+    const ctxMenuActions: LdContextMenuActions = React.useMemo(() => ({
+        rename: (id, currentName) => {
+            const name = window.prompt('Variable name', currentName);
+            if (name) {
+                renameVar(id, name);
+            }
+        },
+        changeContactType,
+        changeCoilType,
+        delete: (id) => {
+            tryApply((g) => handler.deleteElement(g, { elementId: id }));
+        },
+        crossRef: (name) => {
+            if (name) {
+                jumpToVariable(name);
+            }
+        },
+        openBranch: (rungId) => {
+            const rung = graph.rungs.find((r) => r.id === rungId);
+            if (!rung) {
+                return;
+            }
+            const coilIds = new Set(graph.nodes.filter((n) => n.type === 'node:coil').map((n) => n.id));
+            const anchorId = [...rung.elementIds].reverse().find((id) => !coilIds.has(id));
+            if (!anchorId) {
+                setStatus('Open Branch: the rung has no contact to anchor on');
+                return;
+            }
+            openBranchFromMarker(anchorId, rungId);
+        },
+        closeBranch: (rungId) => {
+            const rung = graph.rungs.find((r) => r.id === rungId);
+            const branch = rung?.branches?.find((b) => b.elementIds.length > 0);
+            if (!branch) {
+                setStatus('Close Branch: no open branch on this rung');
+                return;
+            }
+            tryApply((g) => handler.closeBranch(g, { branchId: branch.id }));
+            setStatus('Branch closed (OR logic)');
+        },
+        insertNetwork: addRung,
+        undo,
+        redo,
+        copy: (nodeId) => {
+            clipboardRef.current = [nodeId];
+            setClipboardStatus('Copied');
+        },
+        paste: doPaste,
+        outcomment: (rungId) => setStatus('Outcommented — not yet in the model'),
+        addParallelBranch: (edgeId) => {
+            const edge = graph.edges.find((e) => e.id === edgeId);
+            if (!edge) {
+                return;
+            }
+            const rung = graph.rungs.find((r) => r.elementIds.includes(edge.sourceId));
+            if (!rung) {
+                setStatus('Add Parallel Branch: wire source is not on a rung');
+                return;
+            }
+            openBranchFromMarker(edge.sourceId, rung.id);
+        },
+    }), [renameVar, changeContactType, changeCoilType, tryApply, handler, graph,
+        openBranchFromMarker, addRung, undo, redo, jumpToVariable, setStatus, doCopy, doPaste]);
+
+    // A1b/A4 shared drag infra: during onNodeDrag, hit-test the dragged
+    // node's center against the target's DOM element (React Flow has no
+    // native drop-target API). The hit is cached in dragTargetRef (a ref,
+    // not state — avoids re-render per mousemove) and dispatched on stop.
+    const onNodeDragStart = React.useCallback((_: unknown, node: LdRfNode): void => {
+        dragTargetRef.current = null;
+        lastDragTargetRef.current = null;
+        setReplaceTargetId(null);
+    }, []);
+
+    const onNodeDrag = React.useCallback((_: unknown, node: LdRfNode): void => {
+        if (node.type !== RF_TYPE_CONTACT && node.type !== RF_TYPE_FB && node.type !== RF_TYPE_COIL) {
+            return;
+        }
+        const el = document.querySelector(`.react-flow__node[data-id="${node.id}"]`);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const target = findDragTarget(cx, cy, graph, node.id);
+        dragTargetRef.current = target;
+        if (target) lastDragTargetRef.current = target;
+        // A4: green highlight on the replace target while hovering.
+        setReplaceTargetId(target?.kind === 'replace' ? (target.targetId ?? null) : null);
+    }, [graph]);
+
     // Drag-migration (D112 T2.5): on drop, snap the element to the nearest
     // insertion slot of the rung it landed in (reorder, not free placement).
+    // A1b: if the drop landed on a branch-marker target, open a branch there.
+    // A4: if the node hovered another element during the drag, replace it.
     const onNodeDragStop = React.useCallback((_: unknown, node: LdRfNode): void => {
+        setReplaceTargetId(null);
+        // The per-move DOM hit test is unreliable for the final frame: the node
+        // snaps to slot positions on drop (insert-only placement), so it settles
+        // beside the target rather than overlapping it. Prefer the last hovered
+        // target of the drag (replace or branch-marker) — but only when the
+        // drop actually lands on that target's slot. A drag that merely
+        // transits past a node to a further slot must reorder, not replace.
+        let target: DragTarget | null = null;
+        const last = lastDragTargetRef.current;
+        if (last) {
+            // Compare the drop against the target's RENDERED slot x (the graph
+            // model keeps the fixture x, which differs from the layout x). The
+            // node snaps to slot positions at drop, so landing within half a
+            // slot of the hovered target means "on its slot".
+            const anchorId = last.kind === 'branch-marker' ? last.contactId : last.targetId;
+            const anchorEl = anchorId ? document.querySelector(`.react-flow__node[data-id="${anchorId}"]`) : null;
+            const anchorX = anchorEl ? parseFloat((anchorEl as HTMLElement).style.transform?.match(/translate\((-?[\d.]+)px/)?.[1] ?? 'NaN') : NaN;
+            if (!Number.isNaN(anchorX) && Math.abs(node.position.x - anchorX) <= DRAG_REPLACE_SLOT_RANGE) {
+                target = last;
+            }
+        }
+        // Fall back to a DOM hit test (covers drops that truly overlap a node
+        // without any slot-snap race).
+        if (!target) {
+            const el = document.querySelector(`.react-flow__node[data-id="${node.id}"]`);
+            if (el) {
+                const rect = el.getBoundingClientRect();
+                target = findDragTarget(rect.left + rect.width / 2, rect.top + rect.height / 2, graph, node.id);
+            }
+        }
+        if (!target) target = dragTargetRef.current;
+        dragTargetRef.current = null;
+        lastDragTargetRef.current = null;
+        if (target && target.kind === 'branch-marker') {
+            openBranchFromMarker(target.contactId ?? '', target.rungId ?? '');
+            return;
+        }
         if (node.type !== RF_TYPE_CONTACT && node.type !== RF_TYPE_FB && node.type !== RF_TYPE_COIL) {
+            return;
+        }
+        // A4 drag-replace: the dragged element A was dropped on element B.
+        // B keeps its id + connections; its definition becomes A's. A is
+        // consumed (deleted). Only same-type replacements are legal.
+        if (target && target.kind === 'replace' && target.targetId && target.targetId !== node.id) {
+            const src = graph.nodes.find((n) => n.id === node.id);
+            if (!src) return;
+            tryApply((g) => {
+                const next = handler.replaceElement(g, { targetId: target.targetId ?? '', replacement: src });
+                return handler.deleteElement(next, { elementId: node.id });
+            });
+            setStatus('Element replaced');
             return;
         }
         const parentId = typeof node.parentId === 'string' ? node.parentId : '';
@@ -1420,7 +1986,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
             const slot = findInsertIndex(g, rung, slotX);
             return handler.reorderElement(g, { elementId: node.id, insertIndex: slot });
         });
-    }, [tryApply, handler]);
+    }, [tryApply, handler, openBranchFromMarker, graph, setStatus]);
 
     const onDelete = React.useCallback((params: { nodes: LdRfNode[]; edges: LdRfEdge[] }): void => {
         tryApply((g) => {
@@ -1504,6 +2070,8 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
     }, [graph]);
 
     const onSelectionChange = React.useCallback((params: { nodes: LdRfNode[]; edges: LdRfEdge[] }): void => {
+        // A3: track single-selection for Tab/Enter field navigation.
+        selectedNodeRef.current = params.nodes.length === 1 ? params.nodes[0] : null;
         if (!propertyState) {
             return;
         }
@@ -1708,7 +2276,7 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 defaultEdges={initialFlow.edges}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
-                defaultEdgeOptions={{ zIndex: 1 }}
+                defaultEdgeOptions={{}}
                 nodesConnectable={false}
                 // v12 default is only 'Backspace'; E2E and keyboard users press Delete
                 deleteKeyCode={['Delete', 'Backspace']}
@@ -1720,7 +2288,12 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 fitView
                 onPaneClick={onPaneClick}
                 onNodeClick={onNodeClick}
+                onNodeDragStart={onNodeDragStart}
+                onNodeDrag={onNodeDrag}
                 onNodeDragStop={onNodeDragStop}
+                onNodeContextMenu={onNodeContextMenu}
+                onEdgeContextMenu={onEdgeContextMenu}
+                onPaneContextMenu={onPaneContextMenu}
                 onDelete={onDelete}
                 onSelectionChange={onSelectionChange}
                 className={pendingTool || branchMode ? 'ld-canvas--placing' : undefined}
@@ -1729,6 +2302,13 @@ const LdCanvasInner: React.FC<LdCanvasProps> = ({
                 <Controls />
                 <MiniMap pannable zoomable />
             </ReactFlow>
+            {ctxMenu && (
+                <LdContextMenu
+                    menu={ctxMenu}
+                    actions={ctxMenuActions}
+                    onClose={() => setCtxMenu(null)}
+                />
+            )}
         </div>
     );
 };

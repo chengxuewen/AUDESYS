@@ -69,6 +69,21 @@ export const RungGroupNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         }
     };
 
+    // A3: external edit request (keyboard Tab/Enter) — open the title or
+    // comment editor when the request targets this rung and the seq bumps.
+    const editReq = d.editRequest as { field: string; seq: number } | undefined;
+    const lastEditSeq = React.useRef(0);
+    React.useEffect(() => {
+        if (editReq && editReq.seq !== lastEditSeq.current) {
+            lastEditSeq.current = editReq.seq;
+            if (editReq.field === 'title') {
+                startTitleEdit();
+            } else if (editReq.field === 'comment') {
+                startCommentEdit();
+            }
+        }
+    }, [editReq?.seq]);
+
     return (
         <div
             className={`ld-rung-group${selected ? ' ld-rung-group--selected' : ''}${hasAnnotation ? ' ld-rung-group--annotated' : ''}${hasErrors ? ' ld-rung-group--error' : ''}${hasWarnings ? ' ld-rung-group--warning' : ''}`}

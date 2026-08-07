@@ -303,3 +303,47 @@ describe('compile with branches (OR semantics)', () => {
         expect(result.errors.some((e) => e.includes('anchor'))).toBe(true);
     });
 });
+
+
+describe('A1a: addBranchContact contactType (▲▼ marker source semantics)', () => {
+    it('creates a NO member by default (backward compat)', () => {
+        const { graph, branchId } = branchFixture();
+        const memberId = graph.rungs[0].branches![0].elementIds[0];
+        const member = graph.nodes.find((n) => n.id === memberId);
+        expect(member && 'contactType' in member ? member.contactType : '').toBe(ContactType.NO);
+    });
+
+
+    it('clones the anchor type when contactType is omitted (A1a clone-latest)', () => {
+        // Arrange — anchor is NC; open branch + add first member WITHOUT type
+        const handler = new LdOperationHandler();
+        let graph = handler.addRung(createLdGraph());
+        const rungId = graph.rungs[0].id;
+        graph = handler.addContact(graph, { position: { x: 40, y: 40 }, type: ContactType.NC, rungId });
+        const anchorId = graph.rungs[0].elementIds[0];
+        graph = handler.openBranch(graph, { rungId, anchorId });
+        const branchId = graph.rungs[0].branches![0].id;
+
+
+        // Act — caller passes the anchor's type (clone-latest semantics)
+        graph = handler.addBranchContact(graph, { branchId, contactType: ContactType.NC });
+        const memberId = graph.rungs[0].branches![0].elementIds[0];
+        const member = graph.nodes.find((n) => n.id === memberId);
+
+
+        // Assert — member inherits the anchor's NC type
+        expect(member && 'contactType' in member && member.contactType).toBe(ContactType.NC);
+    });
+
+
+        it('uses the passed contactType (active tool) over the default', () => {
+        const { handler, graph, branchId } = branchFixture();
+        // fixture already has 2 NO members; add a 3rd with NC (active tool)
+        const next = handler.addBranchContact(graph, { branchId, contactType: ContactType.NC });
+        const memberId = next.rungs[0].branches![0].elementIds[2];
+        const member = next.nodes.find((n) => n.id === memberId);
+        expect(member && 'contactType' in member && member.contactType).toBe(ContactType.NC);
+    });
+});
+
+

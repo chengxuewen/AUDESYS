@@ -37,6 +37,7 @@ export const WireEdge: React.FC<EdgeProps> = (props) => {
             targetPosition: props.targetPosition,
         });
     return (
+        <>
         <BaseEdge
             id={props.id}
             path={path}
@@ -52,8 +53,26 @@ export const WireEdge: React.FC<EdgeProps> = (props) => {
                         ? 'var(--ld-selection-color, #2196f3)'
                         : 'var(--ld-wire-color, #666)',
                 strokeWidth: active ? 3 : 2,
+                // The visible 2px line is decoration only — pointerEvents:
+                // none so it never intercepts clicks on the nodes the wire
+                // passes through. All wire interaction (hover, right-click
+                // context menu) lives on the .ld-edge-interaction path
+                // below, which sits BELOW nodes in the stack (edges render
+                // before nodes in React Flow), so nodes always win clicks.
                 pointerEvents: 'none',
             }}
         />
+        {/* Wire interaction surface: a transparent wider hit area that is
+            always pointer-events:auto. It renders in the edges layer, which
+            React Flow draws BELOW the nodes layer, so hovering/right-clicking
+            a node always hits the node — the wire is interactive only in the
+            open space between nodes (CODESYS-style edge context menu). */}
+        <path
+            d={path}
+            className="ld-edge-interaction"
+            fill="none"
+            style={{ pointerEvents: 'auto', stroke: 'transparent', strokeWidth: 14 }}
+        />
+        </>
     );
 };

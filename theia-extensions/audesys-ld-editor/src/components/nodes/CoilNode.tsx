@@ -80,6 +80,19 @@ export const CoilNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     };
     const cancel = (): void => setEditing(false);
 
+    // A3: external edit request (keyboard Tab/Enter) — open the variable
+    // editor when the request targets this node and the seq bumps.
+    const editReq = d.editRequest as { field: string; seq: number } | undefined;
+    const lastEditSeq = React.useRef(0);
+    React.useEffect(() => {
+        if (editReq && editReq.seq !== lastEditSeq.current) {
+            lastEditSeq.current = editReq.seq;
+            if (editReq.field === 'variableName') {
+                startEdit();
+            }
+        }
+    }, [editReq?.seq]);
+
     const labelTitle = comment
         ? `${comment} — double-click to rename`
         : 'Double-click to rename';

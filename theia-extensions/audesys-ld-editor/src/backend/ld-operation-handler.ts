@@ -149,6 +149,8 @@ export interface AddBranchContactParams {
   branchId: string;
   /** @deprecated topology layout derives position; kept for test compat */
   position?: Point;
+  /** Optional contact type for the first member (A1a: clone anchor or active tool). Defaults to NO. */
+  contactType?: ContactType;
 }
 
 
@@ -973,7 +975,7 @@ export class LdOperationHandler {
     // Topology: member x derives from the anchor's layout slot (branch.x may
     // be stale after anchor migration); y stacks below the anchor.
     const anchorX = layoutRung(rung, graph).get(branch.anchorId)?.x ?? branch.x;
-    const contact = createContact(ContactType.NO, `IN${contactCount}`, {
+    const contact = createContact(params.contactType ?? ContactType.NO, `IN${contactCount}`, {
       x: anchorX,
       y: BRANCH_FIRST_Y + branch.elementIds.length * GRID_Y,
     });
@@ -1037,6 +1039,87 @@ export class LdOperationHandler {
         next.edges.push(createWire(branch.anchorId, succ));
       }
     }
+    return next;
+  }
+
+  /**
+   * A4: paste copied elements into a rung at a topology slot.
+   *
+   * Copies the element *definitions* (variable names, types, pins) with NEW
+   * ids, inserts them into `rungId` at `insertIndex` as series elements, and
+   * rewires the whole rung. Branch members degrade to series copies (v3:
+   * a copied branch member joins the series chain — branch topology is never
+   * copied, only the main elementIds are).
+   */
+  pasteElements(graph: LdGraph, params: { elementIds: string[]; rungId: string; insertIndex: number }): LdGraph {
+    const { elementIds, rungId, insertIndex } = params;
+    const rung = findRung(graph, rungId);
+    const sources = elementIds
+      .map((id) => findNode(graph, id))
+      .filter((n): n is BaseNode => !!n && n.type !== 'node:powerrail');
+    if (sources.length === 0) {
+      throw new ValidationError('Nothing to paste');
+    }
+
+    const next = cloneGraph(graph);
+
+    // Clone each source as a NEW node with a fresh id; copy the variable
+    // name/type so the pasted element behaves identically.
+    const pasted: BaseNode[] = sources.map((src) => {
+      const id = generateId('paste');
+      if (src.type === 'node:contact') {
+        const c = src as ContactNode;
+        return { ...createContact(c.contactType, c.variableName), id };
+      }
+      if (src.type === 'node:coil') {
+        const c = src as CoilNode;
+        return { ...createCoil(c.coilType, c.variableName), id };
+      }
+      if (src.type === 'node:fb') {
+        const f = src as FbPlaceholderNode;
+        return { ...createFb(f.fbType, f.inputPins, f.outputPins), id, size: f.size };
+      }
+      return src;
+    });
+    next.nodes.push(...pasted);
+
+    // Insert at the topology slot: pasted block lands as ONE contiguous
+    // series segment (v3: branch members degrade to series).
+    const elements = [...rung.elementIds];
+    const at = Math.min(Math.max(insertIndex, 0), elements.length);
+    elements.splice(at, 0, ...pasted.map((n) => n.id));
+    const rungIdx = next.rungs.findIndex((r) => r.id === rung.id);
+    next.rungs[rungIdx] = { ...rung, elementIds: elements };
+
+    // Full series rewire (rail → pasted block → rest → coil/rail) + branches.
+    rewireRungSeries(next, next.rungs[rungIdx]);
+
+    return next;
+  }
+
+  /**
+   * A4: replace an existing element with a new one, keeping its connections.
+   *
+   * CODESYS-style: drop a fresh element onto an occupied slot to swap it.
+   * The replacement keeps the same id/slot, so the rung's elementIds and the
+   * wires into/out of it survive untouched — only the node definition
+   * changes (contact type, coil type, variable name, fb pins).
+   */
+  replaceElement(graph: LdGraph, params: { targetId: string; replacement: BaseNode }): LdGraph {
+    const target = findNode(graph, params.targetId);
+    if (!target) {
+      throw new ValidationError(`Element not found: ${params.targetId}`);
+    }
+    if (params.replacement.type !== target.type) {
+      throw new ValidationError(`Replacement type mismatch: ${params.replacement.type} != ${target.type}`);
+    }
+
+    const next = cloneGraph(graph);
+    const idx = next.nodes.findIndex((n) => n.id === params.targetId);
+    // Keep the target id (connections + elementIds reference it) — swap only
+    // the definition fields.
+    const kept = { ...params.replacement, id: params.targetId };
+    next.nodes[idx] = { ...kept, position: target.position };
     return next;
   }
 

@@ -100,6 +100,20 @@ function contactGraph(id: string): FxGraph {
     };
 }
 
+/** Rung with two series contacts (IN0, IN1) — for drag-to-branch (A1b). */
+function twoContactGraph(id: string): FxGraph {
+    return {
+        id,
+        nodes: [...rails(), contact('c1', 40, 'IN0'), contact('c2', 120, 'IN1')],
+        edges: [
+            wire('w1', 'rail-l', 'c1'),
+            wire('w2', 'c1', 'c2'),
+            wire('w3', 'c2', 'rail-r'),
+        ],
+        rungs: [{ id: 'rung-1', rungNumber: 1, comment: 'Main', elementIds: ['c1', 'c2'] }],
+    };
+}
+
 /** Rung with a coil but NO contacts — deliberately invalid (compile must reject). */
 function coilOnlyGraph(id: string): FxGraph {
     return {
@@ -420,8 +434,14 @@ test('T10 Add Rung creates a second rung and elements stay rung-parented', async
     await toolbarButton(page, 'Add Rung').click();
     await expect(page.locator('.react-flow__node-rung')).toHaveCount(2, { timeout: 10000 });
 
-    // place a contact low on the canvas; rung index derives from the click y
-    await placeWithTool(page, 'NO Contact', 0.45, 0.75);
+    // Place a contact in rung 2 via that rung's insert-point diamond. Insert
+    // points are per-rung with id `insert-<rungIdx>-<slot>` (rung index is
+    // 0-based, so rung 2 = `insert-1-*`). Click it to place in rung 2 — the
+    // first diamond would land the contact in rung 1.
+    await toolbarButton(page, 'NO Contact').click();
+    const rung2Diamond = page.locator('[data-id^="insert-1-"]').first();
+    await expect(rung2Diamond).toBeVisible({ timeout: 10000 });
+    await rung2Diamond.click({ force: true });
     const contactNode = page.locator('.react-flow__node-contact');
     await expect(contactNode).toHaveCount(1, { timeout: 10000 });
 
@@ -567,8 +587,18 @@ async function openBranchOnFirstContact(page: Page): Promise<void> {
 
 /** Branch mode: click a branch insertion marker (green, below the anchor). */
 async function placeBranchMember(page: Page, fx = 0.85, fy = 0.55): Promise<void> {
-    const marker = page.locator('.react-flow__node-insert-point').first();
-    await marker.click({ force: true });
+    // Click the branch insert-point; the marker is rebuilt on every graph
+    // change, so retry until a member actually lands (guards a render race).
+    const contactsBefore = await page.locator('.react-flow__node-contact').count();
+    await expect
+        .poll(async () => {
+            const marker = page.locator('.react-flow__node-insert-point').first();
+            if (await marker.count() === 0) return false;
+            await marker.click();
+            await page.waitForTimeout(150);
+            return (await page.locator('.react-flow__node-contact').count()) > contactsBefore;
+        }, { timeout: 8000, intervals: [300] })
+        .toBe(true);
 }
 
 // ── T14: Parallel branch creation → OR compile ──────────────────────────────
@@ -580,7 +610,6 @@ test('T14 open branch on contact → two members → close → compile yields OR
     // Series anchor contact c1 + coil k1 wired (4 fixture edges)
     await expect(page.locator('.react-flow__node-contact')).toHaveCount(1);
 
-    // Open branch on c1 → add two members below it → close
     await openBranchOnFirstContact(page);
     await placeBranchMember(page);
     await placeBranchMember(page);
@@ -609,6 +638,124 @@ test('T14 open branch on contact → two members → close → compile yields OR
     expect(result.programJson).toContain('"Or"');
     expect(result.diagnostics).toHaveLength(0);
 });
+
+// ── T14b: A1a — ▲▼ triangle markers on a contact open a branch directly ────
+// (no toolbar tool needed; CODESYS parallel-branch marker semantics)
+test('T14b triangle marker on contact opens a branch and adds a member', async ({ page }) => {
+    writeFixture('branch14b.ld', wiredGraph('branch14b'));
+    await openLdFile(page, 'branch14b.ld');
+
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(1);
+
+    // Contact renders an ▲ (up) and ▼ (down) triangle marker
+    const upMarker = page.locator('.ld-branch-marker--up').first();
+    const downMarker = page.locator('.ld-branch-marker--down').first();
+    await expect(upMarker).toBeVisible({ timeout: 10000 });
+    await expect(downMarker).toBeVisible({ timeout: 10000 });
+
+    // Click ▲ → branch opens + a member is added (same rung, below anchor)
+    await upMarker.click();
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(2, { timeout: 10000 });
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(2, { timeout: 10000 });
+
+    // Position: member stacks below the anchor at the branch column (y=120)
+    const contacts = page.locator('.react-flow__node-contact');
+    await expect
+        .poll(async () => (await readTransform(contacts.nth(1))).y, { timeout: 10000 })
+        .toBe(120);
+});
+
+// ── T14c: A1b — drag a contact onto a ▲ marker opens a branch ──────────────
+// (main path; shares the drag-target hit-test infra with A4 drag-replace)
+test('T14c drag contact onto triangle marker opens a branch', async ({ page }) => {
+    writeFixture('branch14c.ld', twoContactGraph('branch14c'));
+    await openLdFile(page, 'branch14c.ld');
+
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(2, { timeout: 10000 });
+
+    // Drag c2 (the second contact) so its center lands on c1's ▲ marker
+    const c2 = page.locator('.react-flow__node-contact').nth(1);
+    const upMarker = page.locator('.ld-branch-marker--up').first();
+    await expect(upMarker).toBeVisible({ timeout: 10000 });
+    const markerBox = await upMarker.boundingBox();
+    expect(markerBox).not.toBeNull();
+
+    // Drag c2 so its center lands on the marker's on-screen position
+    const start = await c2.boundingBox();
+    expect(start).not.toBeNull();
+    const dx = markerBox!.x + markerBox!.width / 2 - (start!.x + start!.width / 2);
+    const dy = markerBox!.y + markerBox!.height / 2 - (start!.y + start!.height / 2);
+    await dragNodeBy(page, c2, dx, dy);
+
+    // Branch opened at c1 → a member added (now 3 contacts)
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(3, { timeout: 10000 });
+    await expect(toolbarButton(page, 'Close Branch')).toBeVisible({ timeout: 10000 });
+});
+
+// ── T14d: A2 — right-click contact → context menu → Edit → Negate ──────────
+test('T14d right-click contact opens menu; Edit > Negate flips NO→NC', async ({ page }) => {
+    writeFixture('branch14d.ld', contactGraph('branch14d'));
+    await openLdFile(page, 'branch14d.ld');
+
+    const contact = page.locator('.react-flow__node-contact').first();
+    await expect(contact).toBeVisible({ timeout: 10000 });
+
+    // Right-click the contact → context menu appears
+    await contact.click({ button: 'right' });
+    const menu = page.locator('.ld-ctx-menu');
+    await expect(menu).toBeVisible({ timeout: 10000 });
+    await expect(menu).toBeVisible({ timeout: 10000 });
+    await expect(menu.getByText('Edit')).toBeVisible({ timeout: 5000 });
+    await expect(menu.getByText('Delete')).toBeVisible({ timeout: 5000 });
+    await expect(menu.getByText('Cross Reference')).toBeVisible({ timeout: 5000 });
+
+    // Hover Edit → submenu with Rename/Negate/Edge Detection
+    await menu.getByText('Edit').hover();
+    const editMenu = menu.locator('.ld-ctx-menu__item.is-open');
+    await expect(editMenu.getByText('Negate')).toBeVisible({ timeout: 5000 });
+    await expect(editMenu.getByText('Rename')).toBeVisible({ timeout: 5000 });
+
+    // Click Negate → contact flips NO→NC (stroke class nc-fill appears)
+    await editMenu.getByText('Negate').click();
+    await expect(menu).toBeHidden({ timeout: 5000 });
+    await expect
+        .poll(async () => page.locator('.react-flow__node-contact svg rect[stroke*="nc-fill"]').count(),
+        { timeout: 10000 })
+        .toBeGreaterThan(0);
+});
+
+// ── T14e: A2b — hover-gated wire right-click → parallel-branch context menu ──
+// The transparent .ld-edge-interaction path is pointer-events:none by default;
+// CSS enables it only while the edge wrapper is :hover. So a wire is
+// right-clickable exactly when hovered — without swallowing clicks on the
+// branch members it passes through.
+test('T14e hover wire then right-click opens the edge context menu (hover-gate)', async ({ page }) => {
+    writeFixture('branch14e.ld', wiredGraph('branch14e'));
+    await openLdFile(page, 'branch14e.ld');
+
+    const edge = page.locator('.react-flow__edge').first();
+    await expect(edge).toHaveCount(1, { timeout: 10000 });
+
+    // The transparent .ld-edge-interaction path is pointer-events:none until
+    // the edge wrapper is hovered. Use the long c1→k1 wire (w3) whose center
+    // sits in open space between the two nodes — unambiguously a wire, not a
+    // node. Hover activates the gate, then right-click opens the edge menu.
+    const path = page.locator('.react-flow__edge[data-id="w3"] .ld-edge-interaction');
+    const box = await path.boundingBox();
+    expect(box).not.toBeNull();
+
+    // Move to the wire center → :hover enables the interaction layer
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    // Right-click the wire → edge context menu appears (Add Parallel Branch)
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2, { button: 'right' });
+
+    const menu = page.locator('.ld-ctx-menu');
+    await expect(menu).toBeVisible({ timeout: 10000 });
+    await expect(menu.getByText('Add Parallel Branch')).toBeVisible({ timeout: 5000 });
+    await expect(menu.getByText('Delete')).toBeVisible({ timeout: 5000 });
+    await expect(menu.getByText('Cross Reference')).toBeVisible({ timeout: 5000 });
+});
+
 
 // ── T15: FB insertion — palette → TON → pin handles → auto-wire ─────────────
 
@@ -680,9 +827,13 @@ test('T17 P Contact and N Contact render their P/N markers', async ({ page }) =>
     const contacts = page.locator('.react-flow__node-contact');
     await expect(contacts).toHaveCount(2, { timeout: 10000 });
 
-    // The P/N marker letters render inside the contact SVG
+    // The P/N marker letters render inside the contact SVGs. React Flow
+    // renders nodes sorted by position, so DOM order need not match placement
+    // order — assert the SET of markers, not their order.
     const markers = contacts.locator('svg text');
-    await expect(markers).toHaveText(['P', 'N'], { timeout: 10000 });
+    await expect(markers).toHaveCount(2, { timeout: 10000 });
+    const texts = await markers.allTextContents();
+    expect(texts.sort()).toEqual(['N', 'P']);
 });
 
 // ── T18: Multi-rung branch — branch in rung 2, parentId assertion ───────────
@@ -1173,17 +1324,22 @@ test('T28 right power rail sits at the rung container right edge', async ({ page
     const rung = page.locator('.react-flow__node-rung');
     await expect(rung).toBeVisible({ timeout: 10000 });
 
-    // Container width must equal rail span + stroke: 640 (right rail x) + 4
+    // Container width must equal rail span + stroke: 640 (right rail x) + 4.
+    // Use offsetWidth (CSS layout box, zoom-independent) —
+    // getBoundingClientRect() includes React Flow's zoom scale.
     await expect.poll(async () => {
-        return await rung.evaluate((el) => (el as HTMLElement).getBoundingClientRect().width);
+        return await rung.evaluate((el) => (el as HTMLElement).offsetWidth);
     }, { timeout: 10000 }).toBeLessThan(700);
 
     // Right rail must overlap the container's right edge (rail x == 640,
-    // container right edge == 644 → rail starts 4px inside the edge)
+    // container right edge == 644). Positions come from style.transform
+    // (pan/zoom-safe, per suite convention); width from offsetWidth.
+    const rail = page.locator('.react-flow__node-powerrail[data-id="rail-r"]');
     await expect.poll(async () => {
-        const railRight = await page.locator('.react-flow__node-powerrail[data-id="rail-r"]').evaluate((el) => (el as HTMLElement).getBoundingClientRect().x);
-        const rungRight = await rung.evaluate((el) => (el as HTMLElement).getBoundingClientRect().x + (el as HTMLElement).getBoundingClientRect().width);
-        return Math.abs(rungRight - railRight);
+        const railT = await readTransform(rail);
+        const rungT = await readTransform(rung);
+        const rungRight = rungT.x + (await rung.evaluate((el) => (el as HTMLElement).offsetWidth));
+        return Math.abs(rungRight - railT.x);
     }, { timeout: 10000 }).toBeLessThan(20);
 });
 
@@ -1203,10 +1359,11 @@ test('T29 add-contact on empty rung clears the empty-rung warning', async ({ pag
     await rung.click();
     await expect(rungBody).toHaveClass(/ld-rung-group--warning/, { timeout: 10000 });
 
-    // Place a NO contact on the rung body (tool palette → canvas click)
+    // Place a NO contact via the insert diamond (D112 diamond-only placement)
     await toolbarButton(page, 'NO Contact').click();
-    const rungBox = await rung.boundingBox();
-    await page.mouse.click(rungBox!.x + 100, rungBox!.y + 60);
+    const diamond = page.locator('.ld-insert-point').first();
+    await expect(diamond).toBeVisible({ timeout: 10000 });
+    await diamond.click({ force: true });
 
     // Warning disappears once the rung has an element; badge flips to ✓
     await expect(badge).toContainText('✓', { timeout: 10000 });
@@ -1290,4 +1447,157 @@ test('T36 drag contact to a new slot reorders it (D112 T2.5)', async ({ page }) 
     const x1 = Number(/translate\((-?[\d.]+)px/.exec(c1After)?.[1] ?? -1);
     const x2 = Number(/translate\((-?[\d.]+)px/.exec(c2After)?.[1] ?? -1);
     expect(x1).toBeGreaterThan(x2); // c1 moved right of c2
+});
+
+// ── A3: keyboard — Ctrl+Z/Y undo/redo, input guard, Tab/Enter fields ────────
+
+test('A3a Ctrl+Z undoes the placed contact, Ctrl+Y redoes it (keyboard)', async ({ page }) => {
+    writeFixture('a3a.ld', bareGraph('a3a'));
+    await openLdFile(page, 'a3a.ld');
+
+    await placeWithTool(page, 'NO Contact');
+    const contactNode = page.locator('.react-flow__node-contact');
+    await expect(contactNode).toHaveCount(1, { timeout: 10000 });
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+    await expect(contactNode).toHaveCount(0, { timeout: 10000 });
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+y' : 'Control+y');
+    await expect(contactNode).toHaveCount(1, { timeout: 10000 });
+});
+
+test('A3b Ctrl+Z inside the rename input undoes typing, not the diagram', async ({ page }) => {
+    writeFixture('a3b.ld', contactGraph('a3b'));
+    await openLdFile(page, 'a3b.ld');
+
+    const label = page.locator('.ld-node-label').first();
+    await expect(label).toBeVisible({ timeout: 10000 });
+    await label.dblclick();
+    const input = page.locator('.ld-node-rename');
+    await expect(input).toBeVisible({ timeout: 10000 });
+    await input.fill('TempName');
+
+    // Ctrl+Z while the input is focused: the diagram must NOT lose the contact
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(1, { timeout: 10000 });
+});
+
+test('A3c Enter on selected contact opens the rename editor', async ({ page }) => {
+    writeFixture('a3c.ld', contactGraph('a3c'));
+    await openLdFile(page, 'a3c.ld');
+
+    const contact = page.locator('.react-flow__node-contact').first();
+    await expect(contact).toBeVisible({ timeout: 10000 });
+    await contact.click();
+    await page.keyboard.press('Enter');
+
+    const input = page.locator('.ld-node-rename');
+    await expect(input).toBeVisible({ timeout: 10000 });
+    await expect(input).toHaveValue('IN0');
+});
+
+test('A3d Tab cycles rung fields title → comment; Enter opens the editor', async ({ page }) => {
+    writeFixture('a3d.ld', bareGraph('a3d'));
+    await openLdFile(page, 'a3d.ld');
+
+    const rung = page.locator('.react-flow__node-rung').first();
+    await expect(rung).toBeVisible({ timeout: 10000 });
+    await rung.click();
+
+    // Enter → title editor opens
+    await page.keyboard.press('Enter');
+    const titleInput = page.locator('.ld-rung-group__title-input');
+    await expect(titleInput).toBeVisible({ timeout: 10000 });
+
+    // Tab → commit title, move to comment editor
+    await page.keyboard.press('Tab');
+    const commentInput = page.locator('.ld-rung-group__comment-input');
+    await expect(commentInput).toBeVisible({ timeout: 10000 });
+
+    // Shift+Tab → back to title
+    await page.keyboard.press('Shift+Tab');
+    await expect(titleInput).toBeVisible({ timeout: 10000 });
+});
+
+// ── A4: copy/paste (Ctrl+C/V), context menu, drag-replace ──────────────────
+
+test('A4a Ctrl+C copies the contact, Ctrl+V pastes a second one (same variable)', async ({ page }) => {
+    writeFixture('a4a.ld', contactGraph('a4a'));
+    await openLdFile(page, 'a4a.ld');
+
+    const contact = page.locator('.react-flow__node-contact').first();
+    await expect(contact).toBeVisible({ timeout: 10000 });
+    await contact.click();
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+c' : 'Control+c');
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+v' : 'Control+v');
+
+    // Two contacts now (original + pasted copy)
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(2, { timeout: 10000 });
+    // Both carry the same variable name
+    await expect(page.locator('.ld-node-label')).toHaveText(['IN0', 'IN0'], { timeout: 10000 });
+});
+
+test('A4b context-menu Copy then Paste duplicates the element', async ({ page }) => {
+    writeFixture('a4b.ld', contactGraph('a4b'));
+    await openLdFile(page, 'a4b.ld');
+
+    const contact = page.locator('.react-flow__node-contact').first();
+    await expect(contact).toBeVisible({ timeout: 10000 });
+
+    // Right-click → Copy (node context menu)
+    await contact.click({ button: 'right' });
+    const menu = page.locator('.ld-ctx-menu');
+    await expect(menu).toBeVisible({ timeout: 10000 });
+    await menu.getByText('Copy').click();
+
+    // Right-click an empty pane region → Paste (pane context menu).
+    // fitView centers the rung in the vertical band, so the bottom-left
+    // corner is guaranteed empty (and clear of the bottom-right minimap).
+    const pane = page.locator('.react-flow__pane');
+    const pbox = await pane.boundingBox();
+    expect(pbox).not.toBeNull();
+    await page.mouse.click(pbox!.x + pbox!.width * 0.08, pbox!.y + pbox!.height * 0.9, { button: 'right' });
+    const paneMenu = page.locator('.ld-ctx-menu');
+    await expect(paneMenu).toBeVisible({ timeout: 10000 });
+    await paneMenu.getByText('Paste').click();
+
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(2, { timeout: 10000 });
+});
+
+test('A4c drag contact onto another contact replaces it in place (type flips)', async ({ page }) => {
+    writeFixture('a4c.ld', twoContactGraph('a4c'));
+    await openLdFile(page, 'a4c.ld');
+
+    const c1 = page.locator('.react-flow__node-contact[data-id="c1"]');
+    const c2 = page.locator('.react-flow__node-contact[data-id="c2"]');
+    await expect(c1).toBeVisible({ timeout: 10000 });
+    await expect(c2).toBeVisible({ timeout: 10000 });
+
+    // Flip c2 to NC first so the two contacts differ (NO vs NC)
+    await c2.click({ button: 'right' });
+    const menu = page.locator('.ld-ctx-menu');
+    await expect(menu).toBeVisible({ timeout: 10000 });
+    await menu.getByText('Edit').hover();
+    await menu.locator('.ld-ctx-menu__item.is-open').getByText('Negate').click();
+    await expect
+        .poll(async () => page.locator('.react-flow__node-contact svg rect[stroke*="nc-fill"]').count(),
+        { timeout: 10000 })
+        .toBeGreaterThan(0);
+
+    // Drag c1 (NO) onto c2 (NC) → c2 becomes NO, c1 is consumed
+    const c2box = await c2.boundingBox();
+    const c1box = await c1.boundingBox();
+    expect(c1box).not.toBeNull();
+    expect(c2box).not.toBeNull();
+    const dx = c2box!.x + c2box!.width / 2 - (c1box!.x + c1box!.width / 2);
+    const dy = c2box!.y + c2box!.height / 2 - (c1box!.y + c1box!.height / 2);
+    await dragNodeBy(page, c1, dx, dy);
+
+    // One contact survives (the target), now NO (no nc-fill stroke)
+    await expect(page.locator('.react-flow__node-contact')).toHaveCount(1, { timeout: 10000 });
+    await expect
+        .poll(async () => page.locator('.react-flow__node-contact svg rect[stroke*="nc-fill"]').count(),
+        { timeout: 10000 })
+        .toBe(0);
 });
