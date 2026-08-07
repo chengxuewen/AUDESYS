@@ -8,7 +8,7 @@
 import { GvlVariable } from './gvl-model';
 /** A local var shares the GVL shape (name/type/init/comment). */
 export type LocalVariable = GvlVariable;
-/** Reuse the A2-1 type subset for the dropdown. */
+/** Reuse the A2-3 type subset from the shared iec-types module. */
 export declare const LOCAL_TYPES: Readonly<string[]>;
 /** Line indices (0-based) of a `VAR ... END_VAR` block in the source text. */
 export interface VarBlockRange {

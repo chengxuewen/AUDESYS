@@ -12,8 +12,9 @@ exports.serializeLocalVars = serializeLocalVars;
  * Zero @theia dependency so it can be unit-tested without a DOM.
  */
 const gvl_model_1 = require("./gvl-model");
-/** Reuse the A2-1 type subset for the dropdown. */
-exports.LOCAL_TYPES = gvl_model_1.GVL_TYPES;
+const iec_types_1 = require("./iec-types");
+/** Reuse the A2-3 type subset from the shared iec-types module. */
+exports.LOCAL_TYPES = iec_types_1.IEC_TYPES;
 /**
  * Locate the first plain `VAR` block. `VAR` is matched exactly (not
  * VAR_INPUT/VAR_OUTPUT/VAR_TEMP/VAR_GLOBAL). Returns null when absent.

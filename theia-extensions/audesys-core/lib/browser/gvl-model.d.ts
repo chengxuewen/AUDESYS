@@ -9,8 +9,8 @@ export interface GvlVariable {
     init: string;
     comment: string;
 }
-/** A2-3 type subset — the dropdown offered by the GVL table editor. */
-export declare const GVL_TYPES: Readonly<string[]>;
+/** A2-3 type subset — re-exported from the shared iec-types module for backward compat. */
+export { IEC_TYPES as GVL_TYPES } from './iec-types';
 /**
  * One GVL declaration line:
  *   name : TYPE := initialValue; (* comment *)

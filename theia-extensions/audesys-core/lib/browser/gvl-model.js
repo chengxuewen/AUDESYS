@@ -8,8 +8,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GVL_VAR_LINE = exports.GVL_TYPES = void 0;
 exports.parseGvl = parseGvl;
 exports.serializeGvl = serializeGvl;
-/** A2-3 type subset — the dropdown offered by the GVL table editor. */
-exports.GVL_TYPES = ['BOOL', 'INT', 'REAL', 'TIME', 'STRING'];
+/** A2-3 type subset — re-exported from the shared iec-types module for backward compat. */
+var iec_types_1 = require("./iec-types");
+Object.defineProperty(exports, "GVL_TYPES", { enumerable: true, get: function () { return iec_types_1.IEC_TYPES; } });
 /**
  * One GVL declaration line:
  *   name : TYPE := initialValue; (* comment *)

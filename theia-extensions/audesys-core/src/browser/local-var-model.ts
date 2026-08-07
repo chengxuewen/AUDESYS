@@ -5,13 +5,14 @@
  * handled — the POU's main local-variable region, matching the A1-4 template.
  * Zero @theia dependency so it can be unit-tested without a DOM.
  */
-import { GVL_TYPES, GvlVariable, GVL_VAR_LINE } from './gvl-model';
+import { GvlVariable, GVL_VAR_LINE } from './gvl-model';
+import { IEC_TYPES } from './iec-types';
 
 /** A local var shares the GVL shape (name/type/init/comment). */
 export type LocalVariable = GvlVariable;
 
-/** Reuse the A2-1 type subset for the dropdown. */
-export const LOCAL_TYPES: Readonly<string[]> = GVL_TYPES;
+/** Reuse the A2-3 type subset from the shared iec-types module. */
+export const LOCAL_TYPES: Readonly<string[]> = IEC_TYPES;
 
 /** Line indices (0-based) of a `VAR ... END_VAR` block in the source text. */
 export interface VarBlockRange {
