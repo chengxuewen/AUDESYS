@@ -711,3 +711,10 @@
 - **验证**: vitest 143/143（含 layout 9 + reorder 2）；E2E T35(菱形only)/T36(拖拽迁移) 通过；分支 handler vitest 15/15
 - **测试策略**: E2E 分支类（T14/T18/T20/T21）交互适配暂停 — 改为人工交互测试优先（节省 token），分支逻辑已由 vitest 验证
 - **参考**: .sisyphus/plans/ld-topology-editor/plan.md（3 审核 37 发现整合）
+
+## D113: 文本优先 IEC 编辑器策略 — 工程底座先行 + M1 实践
+- **日期**: 2026-08-07
+- **决定**: 转向"文本优先"。图形化设计器（LD/FBD）延后（编译器管线 D108 已支持，后补不阻塞）；初期优先 ST/IL 文本编辑 + 工程管理（多 POU 工程树 + 变量表）+ 开发-调试-部署闭环，以 M1 3D 打印机为实践，干中学。
+- **理由**: 172h 会话实证图形化设计器（LD/FBD 的连线/布局/命中/交互）是 AI 最弱、最易不及预期的域；ST/IL 编辑器（Monaco, D71 ✅）与编译器管线（D108 ✅）已就绪；工程管理是所有语言共底座（gap-analysis P0）；DAP 调试适配器（12 命令）已就绪；M1 是官方 3D 打印机里程碑。
+- **Phase A 逐项定案**: ①A1+A2 工程底座先行；②纯 POU 树（Programs/FBs/Functions/GVL，不含硬件树）；③全局+局部变量表 + 基本 IEC 类型；④ST 优先 IL 基础；⑤全量编译+错误定位；⑥单目标部署+Config Barrier；⑦DAP 断点+单步+变量；⑧控制逻辑 ST 为主+G-code 运动+仿真先行；⑨HMI 集成 AUDEDeck 第三方库（非 Studio 自建 YAML HMI）；⑩落 D113。
+- **参考**: .sisyphus/plans/text-first-iec-editor/plan.md，docs/modules/ld-editor/gap-analysis.md
