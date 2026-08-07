@@ -51,10 +51,12 @@ const React = __importStar(require("@theia/core/shared/react"));
 const inversify_1 = require("@theia/core/shared/inversify");
 const react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 const uri_1 = __importDefault(require("@theia/core/lib/common/uri"));
+const browser_1 = require("@theia/editor/lib/browser");
 const file_service_1 = require("@theia/filesystem/lib/browser/file-service");
 const workspace_service_1 = require("@theia/workspace/lib/browser/workspace-service");
 const opener_service_1 = require("@theia/core/lib/browser/opener-service");
 const pou_tree_model_1 = require("../pou-tree-model");
+const pou_highlight_1 = require("../pou-highlight");
 /**
  * POU tree widget — lists IEC 61131-3 files grouped by directory convention
  * (Programs / FBs / Functions / GVL) in the left sidebar. Clicking a file opens
@@ -64,7 +66,11 @@ let PouTreeWidget = PouTreeWidget_1 = class PouTreeWidget extends react_widget_1
     constructor() {
         super();
         this.expanded = new Set();
-        this.state = { groups: [], error: null, loading: false };
+        this.state = { groups: [], error: null, loading: false, activeUri: '' };
+        /** Derived in render(): the tree file matching the active editor (for scroll). */
+        this.highlightedUri = null;
+        /** DOM nodes per file uri — used to scroll the highlighted file into view. */
+        this.fileEls = new Map();
         /** Debounced refresh — onDidFilesChange fires on every bulk file op. */
         this.refreshScheduled = false;
         this.id = PouTreeWidget_1.ID;
@@ -77,6 +83,7 @@ let PouTreeWidget = PouTreeWidget_1 = class PouTreeWidget extends react_widget_1
     init() {
         this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => this.scheduleRefresh()));
         this.toDispose.push(this.fileService.onDidFilesChange(() => this.scheduleRefresh()));
+        this.toDispose.push(this.editorManager.onActiveEditorChanged((widget) => this.handleActiveEditor(widget)));
         this.refresh();
     }
     onAfterAttach(msg) {
@@ -84,7 +91,8 @@ let PouTreeWidget = PouTreeWidget_1 = class PouTreeWidget extends react_widget_1
         this.update();
     }
     render() {
-        const { groups, loading, error } = this.state;
+        const { groups, loading, error, activeUri } = this.state;
+        this.highlightedUri = (0, pou_highlight_1.findHighlightedFile)(activeUri, groups)?.uri ?? null;
         return (React.createElement("div", { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
             this.renderToolbar(loading),
             this.renderError(error),
@@ -132,10 +140,19 @@ let PouTreeWidget = PouTreeWidget_1 = class PouTreeWidget extends react_widget_1
             isOpen && group.files.map((file) => this.renderFile(group.id, file))));
     }
     renderFile(groupId, file) {
-        return (React.createElement("div", { key: file.uri, role: "treeitem", onClick: () => this.openFile(file), title: file.uri, style: {
+        const isHighlighted = this.highlightedUri === file.uri;
+        return (React.createElement("div", { key: file.uri, role: "treeitem", onClick: () => this.openFile(file), title: file.uri, ref: (el) => {
+                if (el) {
+                    this.fileEls.set(file.uri, el);
+                }
+                else {
+                    this.fileEls.delete(file.uri);
+                }
+            }, style: {
                 padding: '2px 8px 2px 28px', fontSize: 12, cursor: 'pointer',
                 fontFamily: 'var(--theia-editor-font-family, monospace)',
-                color: 'var(--theia-foreground)',
+                color: isHighlighted ? 'var(--theia-list-activeSelectionForeground)' : 'var(--theia-foreground)',
+                background: isHighlighted ? 'var(--theia-list-activeSelectionBackground)' : undefined,
                 display: 'flex', alignItems: 'center', gap: 6,
                 borderBottom: '1px solid var(--theia-sideBar-background)',
             } },
@@ -171,6 +188,32 @@ let PouTreeWidget = PouTreeWidget_1 = class PouTreeWidget extends react_widget_1
             this.setState({ error: `Failed to open ${file.name}: ${String(e)}` });
         }
     }
+    /** Editor→tree: a POU file became active → highlight + reveal it. */
+    handleActiveEditor(widget) {
+        const uri = widget?.editor.uri.toString() ?? '';
+        if (uri === this.state.activeUri) {
+            return;
+        }
+        this.setState({ activeUri: uri });
+        this.expandGroupFor(uri);
+    }
+    /** Auto-expand the group owning a now-active POU file (reveal it). */
+    expandGroupFor(uri) {
+        const group = (0, pou_highlight_1.findPouGroupOf)(uri, this.state.groups);
+        if (group && !this.expanded.has(group.id)) {
+            this.expanded = new Set([...this.expanded, group.id]);
+            this.update();
+        }
+    }
+    /** After a render pass, scroll the highlighted file into view. */
+    scheduleScroll() {
+        setTimeout(() => {
+            if (!this.highlightedUri) {
+                return;
+            }
+            this.fileEls.get(this.highlightedUri)?.scrollIntoView({ block: 'nearest' });
+        }, 0);
+    }
     scheduleRefresh() {
         if (this.refreshScheduled) {
             return;
@@ -185,12 +228,14 @@ let PouTreeWidget = PouTreeWidget_1 = class PouTreeWidget extends react_widget_1
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!root) {
             this.setState({ groups: [], error: null, loading: false });
+            this.expandGroupFor(this.state.activeUri);
             return;
         }
         this.setState({ loading: true });
         try {
             const files = await this.collectFiles(root);
             this.setState({ groups: (0, pou_tree_model_1.classifyToGroups)(files), error: null, loading: false });
+            this.expandGroupFor(this.state.activeUri);
         }
         catch (e) {
             this.setState({ groups: [], error: `Failed to scan workspace: ${String(e)}`, loading: false });
@@ -217,6 +262,7 @@ let PouTreeWidget = PouTreeWidget_1 = class PouTreeWidget extends react_widget_1
     setState(partial) {
         this.state = { ...this.state, ...partial };
         this.update();
+        this.scheduleScroll();
     }
 };
 exports.PouTreeWidget = PouTreeWidget;
@@ -234,6 +280,10 @@ __decorate([
     (0, inversify_1.inject)(opener_service_1.OpenerService),
     __metadata("design:type", Object)
 ], PouTreeWidget.prototype, "openerService", void 0);
+__decorate([
+    (0, inversify_1.inject)(browser_1.EditorManager),
+    __metadata("design:type", browser_1.EditorManager)
+], PouTreeWidget.prototype, "editorManager", void 0);
 __decorate([
     (0, inversify_1.postConstruct)(),
     __metadata("design:type", Function),

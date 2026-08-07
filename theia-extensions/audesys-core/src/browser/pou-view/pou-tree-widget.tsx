@@ -3,15 +3,19 @@ import { injectable, inject, postConstruct } from '@theia/core/shared/inversify'
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import type { Message } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
+import { EditorManager, EditorWidget } from '@theia/editor/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { OpenerService } from '@theia/core/lib/browser/opener-service';
 import { classifyToGroups, extOf, PouFileEntry, PouGroupEntry } from '../pou-tree-model';
+import { findHighlightedFile, findPouGroupOf } from '../pou-highlight';
 
 interface PouWidgetState {
     groups: PouGroupEntry[];
     error: string | null;
     loading: boolean;
+    /** URI of the currently-active editor ('' when none). */
+    activeUri: string;
 }
 
 /**
@@ -27,9 +31,14 @@ export class PouTreeWidget extends ReactWidget {
     @inject(FileService) protected readonly fileService!: FileService;
     @inject(WorkspaceService) protected readonly workspaceService!: WorkspaceService;
     @inject(OpenerService) protected readonly openerService!: OpenerService;
+    @inject(EditorManager) protected readonly editorManager!: EditorManager;
 
     private expanded = new Set<string>();
-    private state: PouWidgetState = { groups: [], error: null, loading: false };
+    private state: PouWidgetState = { groups: [], error: null, loading: false, activeUri: '' };
+    /** Derived in render(): the tree file matching the active editor (for scroll). */
+    private highlightedUri: string | null = null;
+    /** DOM nodes per file uri — used to scroll the highlighted file into view. */
+    private fileEls = new Map<string, HTMLElement>();
 
     constructor() {
         super();
@@ -45,6 +54,7 @@ export class PouTreeWidget extends ReactWidget {
     protected init(): void {
         this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => this.scheduleRefresh()));
         this.toDispose.push(this.fileService.onDidFilesChange(() => this.scheduleRefresh()));
+        this.toDispose.push(this.editorManager.onActiveEditorChanged((widget) => this.handleActiveEditor(widget)));
         this.refresh();
     }
 
@@ -54,7 +64,8 @@ export class PouTreeWidget extends ReactWidget {
     }
 
     protected override render(): React.ReactNode {
-        const { groups, loading, error } = this.state;
+        const { groups, loading, error, activeUri } = this.state;
+        this.highlightedUri = findHighlightedFile(activeUri, groups)?.uri ?? null;
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 {this.renderToolbar(loading)}
@@ -138,16 +149,25 @@ export class PouTreeWidget extends ReactWidget {
     }
 
     private renderFile(groupId: string, file: PouFileEntry): React.ReactNode {
+        const isHighlighted = this.highlightedUri === file.uri;
         return (
             <div
                 key={file.uri}
                 role="treeitem"
                 onClick={() => this.openFile(file)}
                 title={file.uri}
+                ref={(el) => {
+                    if (el) {
+                        this.fileEls.set(file.uri, el);
+                    } else {
+                        this.fileEls.delete(file.uri);
+                    }
+                }}
                 style={{
                     padding: '2px 8px 2px 28px', fontSize: 12, cursor: 'pointer',
                     fontFamily: 'var(--theia-editor-font-family, monospace)',
-                    color: 'var(--theia-foreground)',
+                    color: isHighlighted ? 'var(--theia-list-activeSelectionForeground)' : 'var(--theia-foreground)',
+                    background: isHighlighted ? 'var(--theia-list-activeSelectionBackground)' : undefined,
                     display: 'flex', alignItems: 'center', gap: 6,
                     borderBottom: '1px solid var(--theia-sideBar-background)',
                 }}
@@ -190,6 +210,35 @@ export class PouTreeWidget extends ReactWidget {
         }
     }
 
+    /** Editor→tree: a POU file became active → highlight + reveal it. */
+    private handleActiveEditor(widget: EditorWidget | undefined): void {
+        const uri = widget?.editor.uri.toString() ?? '';
+        if (uri === this.state.activeUri) {
+            return;
+        }
+        this.setState({ activeUri: uri });
+        this.expandGroupFor(uri);
+    }
+
+    /** Auto-expand the group owning a now-active POU file (reveal it). */
+    private expandGroupFor(uri: string): void {
+        const group = findPouGroupOf(uri, this.state.groups);
+        if (group && !this.expanded.has(group.id)) {
+            this.expanded = new Set([...this.expanded, group.id]);
+            this.update();
+        }
+    }
+
+    /** After a render pass, scroll the highlighted file into view. */
+    private scheduleScroll(): void {
+        setTimeout(() => {
+            if (!this.highlightedUri) {
+                return;
+            }
+            this.fileEls.get(this.highlightedUri)?.scrollIntoView({ block: 'nearest' });
+        }, 0);
+    }
+
     /** Debounced refresh — onDidFilesChange fires on every bulk file op. */
     private refreshScheduled = false;
 
@@ -208,12 +257,14 @@ export class PouTreeWidget extends ReactWidget {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!root) {
             this.setState({ groups: [], error: null, loading: false });
+            this.expandGroupFor(this.state.activeUri);
             return;
         }
         this.setState({ loading: true });
         try {
             const files = await this.collectFiles(root);
             this.setState({ groups: classifyToGroups(files), error: null, loading: false });
+            this.expandGroupFor(this.state.activeUri);
         } catch (e) {
             this.setState({ groups: [], error: `Failed to scan workspace: ${String(e)}`, loading: false });
         }
@@ -240,5 +291,6 @@ export class PouTreeWidget extends ReactWidget {
     private setState(partial: Partial<PouWidgetState>): void {
         this.state = { ...this.state, ...partial };
         this.update();
+        this.scheduleScroll();
     }
 }
