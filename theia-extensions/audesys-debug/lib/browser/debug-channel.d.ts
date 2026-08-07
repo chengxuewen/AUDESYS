@@ -45,5 +45,11 @@ export declare class AudesysDebugChannel implements DebugChannel {
     private event;
     private emit;
 }
+/**
+ * Select the IDebugBridge implementation. Defaults to the in-process
+ * StubDebugBridge so the Debug UI stays runnable without a live adapter.
+ * Set AUDESYS_DEBUG_BRIDGE=real to spawn the audesys-dap-adapter binary.
+ */
+export declare function selectBridge(): IDebugBridge;
 export {};
 //# sourceMappingURL=debug-channel.d.ts.map

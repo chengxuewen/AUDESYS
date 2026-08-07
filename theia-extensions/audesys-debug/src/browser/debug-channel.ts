@@ -7,6 +7,7 @@
  */
 
 import { DebugChannel } from '@theia/debug/lib/common/debug-service';
+import { RealDapBridge } from './real-dap-bridge';
 
 // ── Bridge interface ─────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ export class AudesysDebugChannel implements DebugChannel {
         private readonly options: { socketPath: string; secret: string },
         bridge?: IDebugBridge,
     ) {
-        this.bridge = bridge ?? new StubDebugBridge();
+        this.bridge = bridge ?? selectBridge();
     }
 
     onMessage(cb: MessageCallback): void { this.onMsgCb = cb; }
@@ -237,4 +238,17 @@ interface DapRequest {
     seq: number;
     command: string;
     arguments?: unknown;
+}
+
+
+/**
+ * Select the IDebugBridge implementation. Defaults to the in-process
+ * StubDebugBridge so the Debug UI stays runnable without a live adapter.
+ * Set AUDESYS_DEBUG_BRIDGE=real to spawn the audesys-dap-adapter binary.
+ */
+export function selectBridge(): IDebugBridge {
+    if (process.env.AUDESYS_DEBUG_BRIDGE === 'real') {
+        return new RealDapBridge();
+    }
+    return new StubDebugBridge();
 }

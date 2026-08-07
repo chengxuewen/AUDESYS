@@ -8,6 +8,8 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AudesysDebugChannel = void 0;
+exports.selectBridge = selectBridge;
+const real_dap_bridge_1 = require("./real-dap-bridge");
 // ── Stub bridge for Phase 1 ──────────────────────────────────────────────
 // ponytail: realistic defaults so the Theia Debug UI renders correctly.
 // Swap for napi-rs native addon when crate stubs are filled in P2.
@@ -46,7 +48,7 @@ class AudesysDebugChannel {
         this.onCloseCb = null;
         this.seq = 1;
         this.connected = false;
-        this.bridge = bridge ?? new StubDebugBridge();
+        this.bridge = bridge ?? selectBridge();
     }
     onMessage(cb) { this.onMsgCb = cb; }
     onError(cb) { this.onErrCb = cb; }
@@ -202,4 +204,15 @@ class AudesysDebugChannel {
     }
 }
 exports.AudesysDebugChannel = AudesysDebugChannel;
+/**
+ * Select the IDebugBridge implementation. Defaults to the in-process
+ * StubDebugBridge so the Debug UI stays runnable without a live adapter.
+ * Set AUDESYS_DEBUG_BRIDGE=real to spawn the audesys-dap-adapter binary.
+ */
+function selectBridge() {
+    if (process.env.AUDESYS_DEBUG_BRIDGE === 'real') {
+        return new real_dap_bridge_1.RealDapBridge();
+    }
+    return new StubDebugBridge();
+}
 //# sourceMappingURL=debug-channel.js.map
